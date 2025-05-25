@@ -9,11 +9,15 @@ cbor2==5.6.2 ; python_version >= '3.12'
 chardet==4.0.0 ; python_version < '3.11'  # (Jammy)
 chardet==5.2.0 ; python_version >= '3.11'
 cryptography==3.4.8; python_version < '3.12'  # incompatibility between pyopenssl 19.0.0 and cryptography>=37.0.0
-cryptography==42.0.8 ; python_version >= '3.12'  # (Noble) min 41.0.7, pinning 42.0.8 for security fixes
+cryptography==45.0.2 ; python_version >= '3.12'  # (Noble) min 41.0.7, pinning 42.0.8 for security fixes
 decorator==4.4.2  ; python_version < '3.11'  # (Jammy)
 decorator==5.1.1  ; python_version >= '3.11'
 docutils==0.17 ; python_version < '3.11'  # (Jammy)
 docutils==0.20.1 ; python_version >= '3.11'
+packaging==25.0 ; python_version >= '3.12'  # Required by erpbrasil.base
+erpbrasil.base==2.3.2 ; python_version >= '3.12'
+signxml==4.0.3 ; python_version >= '3.12'
+erpbrasil.assinatura==1.7.0 ; python_version >= '3.12'
 freezegun==1.1.0 ; python_version < '3.11'  # (Jammy)
 freezegun==1.2.1 ; python_version >= '3.11'
 geoip2==2.9.0
