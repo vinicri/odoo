@@ -1,0 +1,43 @@
+{
+    "name": "Hiperpan - Fiscal",
+    "version": "1.0",
+    "category": "Localization",
+    "description": "Fiscal module for Brazil",
+    "author": "Hiperpan",
+    "depends": ["l10n_br_base", "product"],
+    "license": "LGPL-3",
+    "data": [
+        # security
+        "security/fiscal_security.xml",
+        "security/ir.model.access.csv",
+        # data
+        "data/l10n_br_fiscal.tax.group.csv",
+        "data/l10n_br_fiscal.cst.csv",
+        "data/l10n_br_fiscal.tax.csv",
+        "data/l10n_br_fiscal.cnae.csv",
+        "data/l10n_br_fiscal.ncm.genre.csv",
+        "data/l10n_br_fiscal.ncm.csv",
+        "data/l10n_br_fiscal.cfop.csv",
+        "data/l10n_br_fiscal.cest.csv",
+        "data/l10n_br_fiscal.product.fiscal.type.csv",
+        "data/l10n_br_fiscal.icms.origin.csv",
+        # views
+        "views/ncm_views.xml",
+        "views/ncm_genre_views.xml",
+        "views/cnae_views.xml",
+        "views/cest_views.xml",
+        "views/cst_views.xml",
+        "views/cfop_views.xml",
+        "views/tax_group_views.xml",
+        "views/tax_views.xml",
+        "views/icms_origin_views.xml",
+        "views/product_fiscal_type_views.xml",
+        "views/product_template_views.xml",
+        "views/fiscal_views.xml",
+        "views/res_company.xml",
+        "views/res_partner.xml",
+    ],
+    "external_dependencies": {
+        "python": ["erpbrasil.base"],
+    },
+}

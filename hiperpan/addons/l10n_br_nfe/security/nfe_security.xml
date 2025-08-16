@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+  <record id="module_category_l10n_br_nfe" model="ir.module.category">
+    <field name="name">Brazilian NFE</field>
+    <field name="description">NFE module for Brazil</field>
+    <field name="sequence">32</field>
+  </record>
+
+  <record id="group_user_nfe" model="res.groups">
+    <field name="name">NFE User</field>
+    <field name="category_id" ref="module_category_l10n_br_nfe" />
+  </record>
+
+  <record id="group_nfe_manager" model="res.groups">
+    <field name="name">NFE Manager</field>
+    <field name="category_id" ref="module_category_l10n_br_nfe" />
+    <field name="implied_ids" eval="[(4, ref('l10n_br_nfe.group_user_nfe'))]" />
+  </record>
+</odoo>

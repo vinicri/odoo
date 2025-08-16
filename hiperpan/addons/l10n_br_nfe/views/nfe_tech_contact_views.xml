@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="nfe_tech_contact_view_form" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_tech_contact.form</field>
+    <field name="model">l10n_br_nfe.nfe.tech.contact</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group>
+            <field name="name" />
+            <field name="email" />
+            <field name="phone" />
+            <field name="csrt_identifier" />
+            <field name="csrt_hash" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="nfe_tech_contact_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_tech_contact.list</field>
+    <field name="model">l10n_br_nfe.nfe.tech.contact</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name" />
+        <field name="email" />
+        <field name="phone" />
+        <field name="csrt_identifier" />
+        <field name="csrt_hash" />
+      </list>
+    </field>
+  </record>
+
+  <record id="nfe_tech_contact_action" model="ir.actions.act_window">
+    <field name="name">NFE Tech Contact</field>
+    <field name="res_model">l10n_br_nfe.nfe.tech.contact</field>
+    <field name="view_mode">form,list</field>
+    <field name="view_id" ref="nfe_tech_contact_view_list" />
+  </record>
+
+</odoo>

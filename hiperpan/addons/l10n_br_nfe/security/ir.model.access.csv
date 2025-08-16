@@ -1,0 +1,9 @@
+"id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
+"l10n_br_nfe_nfe_series_user","NFE Series User","model_l10n_br_nfe_nfe_series","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_series_manager","NFE Series Manager","model_l10n_br_nfe_nfe_series","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_invalidate_numbers_user","NFE Invalidate Numbers User","model_l10n_br_nfe_nfe_invalidate_numbers","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_invalidate_numbers_manager","NFE Invalidate Numbers Manager","model_l10n_br_nfe_nfe_invalidate_numbers","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_tech_contact_user","NFE Tech Contact User","model_l10n_br_nfe_nfe_tech_contact","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_tech_contact_manager","NFE Tech Contact Manager","model_l10n_br_nfe_nfe_tech_contact","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_operation_nature_user","NFE Operation Nature User","model_l10n_br_nfe_nfe_operation_nature","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_operation_nature_manager","NFE Operation Nature Manager","model_l10n_br_nfe_nfe_operation_nature","l10n_br_nfe.group_nfe_manager",1,1,1,1

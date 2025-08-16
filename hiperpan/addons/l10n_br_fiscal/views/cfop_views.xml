@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="cfop_view_form" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.cfop.form</field>
+    <field name="model">l10n_br_fiscal.cfop</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <div>
+            <group>
+              <field name="code" />
+              <field name="name" />
+              <field name="type_move" />
+              <field name="type_in_out" />
+              <field name="destination" />
+              <field name="is_import" />
+              <field name="cfop_inverse_id" />
+              <field name="cfop_return_id" />
+            </group>
+          </div>
+          <group>
+            <group>
+              <field name="stock_move" />
+              <field name="finance_move" />
+              <field name="account_move" />
+              <field name="assent_move" />
+            </group>
+            <group>
+              <field name="ind_nfe" />
+              <field name="ind_cte" />
+              <field name="ind_comunica" />
+              <field name="ind_transp" />
+              <field name="ind_devol" />
+              <field name="ind_retor" />
+              <field name="ind_anula" />
+              <field name="ind_remes" />
+              <field name="ind_comb" />
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="cfop_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.cfop.list</field>
+    <field name="model">l10n_br_fiscal.cfop</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="code" />
+        <field name="name" />
+        <field name="type_move" />
+        <field name="type_in_out" />
+        <field name="destination" />
+      </list>
+    </field>
+  </record>
+
+  <record id="cfop_action" model="ir.actions.act_window">
+    <field name="name">CFOP</field>
+    <field name="res_model">l10n_br_fiscal.cfop</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="cfop_view_list" />
+  </record>
+
+</odoo>

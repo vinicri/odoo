@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="ncm_view_form" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.ncm.form</field>
+    <field name="model">l10n_br_fiscal.ncm</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group>
+            <field name="code" />
+            <field name="name" />
+            <field name="exception" />
+            <field name="exception_name" />
+            <field name="tax_ipi_id" />
+          </group>
+          <notebook>
+            <page name="ncm_page_product" string="Produtos">
+              <field name="product_tmpl_ids" />
+            </page>
+            <page name="ncm_page_cest" string="CEST">
+              <field name="cest_ids" />
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+
+  <record id="ncm_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.ncm.list</field>
+    <field name="model">l10n_br_fiscal.ncm</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="code" />
+        <field name="exception" />
+        <field name="name" />
+        <field name="exception_name" />
+      </list>
+    </field>
+  </record>
+
+
+
+
+  <record id="ncm_action" model="ir.actions.act_window">
+    <field name="name">NCM</field>
+    <field name="res_model">l10n_br_fiscal.ncm</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="ncm_view_list" />
+  </record>
+
+
+
+</odoo>

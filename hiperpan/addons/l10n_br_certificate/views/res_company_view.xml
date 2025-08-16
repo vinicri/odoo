@@ -5,19 +5,10 @@
     <field name="model">res.company</field>
     <field name="inherit_id" ref="l10n_br.view_company_form" />
     <field name="arch" type="xml">
-      <xpath expr="//page[@name='branches']" position="after">
-        <page name="certificate" string="Certificates">
-          <group name="certificate" string="Certificate">
-            <group>
-              <field name="l10n_br_certificate_ecnpj_id" />
-            </group>
-            <group>
-              <field name="l10n_br_certificate_nfe_id" />
-            </group>
-          </group>
-        </page>
+      <xpath expr="//field[@name='accountant_id']" position="after">
+        <field name="certificate_ecnpj_id" />
+        <field name="certificate_nfe_id" />
       </xpath>
     </field>
   </record>
-
 </odoo>

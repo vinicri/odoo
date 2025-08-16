@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="nfe_operation_nature_view_form" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_operation_nature.form</field>
+    <field name="model">l10n_br_nfe.nfe.operation_nature</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group>
+            <field name="name" />
+            <field name="type" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="nfe_operation_nature_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_operation_nature.list</field>
+    <field name="model">l10n_br_nfe.nfe.operation_nature</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name" />
+        <field name="type" />
+      </list>
+    </field>
+  </record>
+
+  <record id="nfe_operation_nature_action" model="ir.actions.act_window">
+    <field name="name">NFE Operation Nature</field>
+    <field name="res_model">l10n_br_nfe.nfe.operation_nature</field>
+    <field name="view_mode">form,list</field>
+    <field name="view_id" ref="nfe_operation_nature_view_list" />
+  </record>
+
+</odoo>

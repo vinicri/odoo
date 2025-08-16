@@ -7,20 +7,55 @@
     <field name="arch" type="xml">
       <xpath expr="//field[@name='l10n_br_cpf_code']" position="replace">
       </xpath>
-      <!-- <xpath expr="//field[@name='vat']" position="replace">
-        <field name="vat" widget="mask" data-mask="00.000.000/0000-00" placeholder="00.000.000/0000-00"/>
-      </xpath> -->
-      <xpath expr="//field[@name='l10n_br_nire_code']" position="after">
-        <field name="l10n_br_base_accountant_id" string="Accountant" />
+      <xpath expr="//label[@for='street']" position="replace">
       </xpath>
-      <xpath expr="//field[@name='vat']" position="before">
-        <field name="l10n_br_base_country_id" string="Country"/>
-        <field name="l10n_br_base_state_id" string="State"/>
-        <field name="l10n_br_base_city_id" string="City"/>
-        <field name="l10n_br_base_cnpj_cpf" string="CNPJ/CPF"/>
-        <field name="l10n_br_base_inscr_est" string="State Tax Number"/>
-        <field name="l10n_br_base_rg" string="RG" nolabel="0"/>
-        <field name="l10n_br_base_inscr_mun" string="Municipal Tax Number"/>
+      <xpath expr="//div[@class='o_address_format']" position="replace">
+      </xpath>
+      <xpath expr="//field[@name='vat']" position="replace">
+      </xpath>
+      <xpath expr="//field[@name='company_registry']" position="replace">
+      </xpath>
+      <xpath expr="//field[@name='l10n_br_nire_code']" position="replace">
+      </xpath>
+      <xpath expr="//field[@name='l10n_br_ie_code']" position="replace">
+      </xpath>
+      <xpath expr="//field[@name='l10n_br_im_code']" position="replace">
+      </xpath>
+
+
+      <xpath expr="//field[@name='phone']" position="replace">
+        <field name="phone" placeholder="Telefone com DDD"/>
+      </xpath>
+
+      <xpath expr="//field[@name='mobile']" position="replace">
+        <field name="mobile" placeholder="Celular com DDD"/>
+      </xpath>
+
+
+
+
+      <xpath expr="//field[@name='partner_id']" position="after">
+        <field name="legal_name" string="Nome legal"/>
+        <field name="trade_name" string="Nome Fantasia"/>
+        <field name="formatted_cnpj_cpf" string="CNPJ/CPF"/>
+        <field name="inscr_est" string="Inscrição Estadual"/>
+        <field name="inscr_mun" string="Inscrição Municipal"/>
+        <field name="street" placeholder="Logradouro sem o número" string="Logradouro"/>
+        <field name="street_number" placeholder="Número sem complemento" string="Número"/>
+        <field name="street_complement" string="Complemento"/>
+        <field name="district" string="Bairro"/>
+        <field name="country_id" placeholder="País" options='{"no_open": True, "no_create": True}' />
+        <field name="state_id" class="o_address_state" placeholder="Estado" options='{"no_open": True}' />
+        <field name="city_id" string="Cidade" options='{"no_open": True, "no_create": True}' />
+        <field name="zip" placeholder="CEP" class="o_address_zip"/>
+        <field name="suframa" string="SUFRAMA"/>
+      </xpath>
+      <xpath expr="//page[@name='branches']" position="after">
+        <page name="fiscal" string="Fiscal">
+          <group>
+            <field name="accountant_id" string="Contador" />
+          </group>
+        </page>
       </xpath>
     </field>
 

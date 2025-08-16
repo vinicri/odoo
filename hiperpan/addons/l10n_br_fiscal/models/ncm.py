@@ -10,7 +10,8 @@ from ..constants.fiscal import TAX_DOMAIN_II, TAX_DOMAIN_IPI
 class Ncm(models.Model):
     _name = "l10n_br_fiscal.ncm"
     _inherit = [
-      #  "l10n_br_fiscal.data.ncm.nbs.abstract",
+        "l10n_br_fiscal.data.abstract",
+        #  "l10n_br_fiscal.data.ncm.nbs.abstract",
         "mail.thread",
         "mail.activity.mixin",
     ]
@@ -32,20 +33,26 @@ class Ncm(models.Model):
         domain=[("tax_domain", "=", TAX_DOMAIN_IPI)],
     )
 
-    # product_tmpl_ids = fields.One2many(inverse_name="ncm_id")
+    product_tmpl_ids = fields.One2many(
+        comodel_name="product.template",
+        string="Products", 
+        readonly=True,
+        inverse_name="ncm_id",
+    )
+
+    cest_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.cest",
+        readonly=True,
+        string="CESTs",
+    )
 
     # tax_estimate_ids = fields.One2many(inverse_name="ncm_id")
 
+    # impostos do ICMS por estado, das regulações de ICMC, não utilizado
     # tax_definition_ids = fields.Many2many(
     #     comodel_name="l10n_br_fiscal.tax.definition",
     #     readonly=True,
     #     string="Tax Definition",
-    # )
-
-    # cest_ids = fields.Many2many(
-    #     comodel_name="l10n_br_fiscal.cest",
-    #     readonly=True,
-    #     string="CESTs",
     # )
 
     # nbm_ids = fields.Many2many(

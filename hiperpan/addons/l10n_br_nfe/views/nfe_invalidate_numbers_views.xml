@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="nfe_invalidate_numbers_view_form" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_invalidate_numbers.form</field>
+    <field name="model">l10n_br_nfe.nfe.invalidate.numbers</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group>
+            <field name="name" />
+            <field name="reason" />
+            <field name="series_id" />
+            <field name="document_model" />
+            <field name="number_start" />
+            <field name="number_end" />
+            <field name="active" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="nfe_invalidate_numbers_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_invalidate_numbers.list</field>
+    <field name="model">l10n_br_nfe.nfe.invalidate.numbers</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name" />
+        <field name="series_id" />
+        <field name="document_model" />
+        <field name="reason" />
+        <field name="number_start" />
+        <field name="number_end" />
+        <field name="active" />
+      </list>
+    </field>
+  </record>
+
+  <record id="nfe_invalidate_numbers_action" model="ir.actions.act_window">
+    <field name="name">NFE Invalidate Numbers</field>
+    <field name="res_model">l10n_br_nfe.nfe.invalidate.numbers</field>
+    <field name="view_mode">form,list</field>
+    <field name="view_id" ref="nfe_invalidate_numbers_view_list" />
+  </record>
+
+</odoo>

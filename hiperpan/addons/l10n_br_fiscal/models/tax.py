@@ -69,23 +69,25 @@ ICMS_ST_BASE_TYPE_REL = {
 
 class Tax(models.Model):
     _name = "l10n_br_fiscal.tax"
-    _order = "sequence, tax_domain, name"
+    _order = "tax_domain, name"
     _description = "Fiscal Tax"
 
     name = fields.Char(size=256, required=True)
 
-    sequence = fields.Integer(
-        related="tax_group_id.sequence",
-        help="The sequence field is used to define the "
-        "order in which taxes are displayed.",
-        store=True,
-    )
+    description = fields.Char(string="Description")
 
-    compute_sequence = fields.Integer(
-        related="tax_group_id.compute_sequence",
-        help="The sequence field is used to define "
-        "order in which the tax lines are applied.",
-    )
+    # sequence = fields.Integer(
+    #     related="tax_group_id.sequence",
+    #     help="The sequence field is used to define the "
+    #     "order in which taxes are displayed.",
+    #     store=True,
+    # )
+
+    # compute_sequence = fields.Integer(
+    #     related="tax_group_id.compute_sequence",
+    #     help="The sequence field is used to define "
+    #     "order in which the tax lines are applied.",
+    # )
 
     tax_scope = fields.Selection(
         related="tax_group_id.tax_scope",
@@ -96,36 +98,36 @@ class Tax(models.Model):
         selection=TAX_BASE_TYPE,
         default=TAX_BASE_TYPE_PERCENT,
         required=True,
-        compute="_compute_tax_base_type",
-        store=True,
+        # compute="_compute_tax_base_type",
+        # store=True,
     )
 
     percent_amount = fields.Float(
         string="Percent", digits="Fiscal Tax Percent", required=True
     )
 
-    percent_reduction = fields.Float(
-        digits="Fiscal Tax Percent",
-        required=True,
-    )
+    # percent_reduction = fields.Float(
+    #     digits="Fiscal Tax Percent",
+    #     required=True,
+    # )
 
-    percent_debit_credit = fields.Float(
-        string="Percent Debit/Credit",
-        digits="Fiscal Tax Percent",
-        required=True,
-    )
+    # percent_debit_credit = fields.Float(
+    #     string="Percent Debit/Credit",
+    #     digits="Fiscal Tax Percent",
+    #     required=True,
+    # )
 
-    currency_id = fields.Many2one(
-        comodel_name="res.currency",
-        default=lambda self: self.env.ref("base.BRL"),
-        string="Currency",
-    )
+    # currency_id = fields.Many2one(
+    #     comodel_name="res.currency",
+    #     default=lambda self: self.env.ref("base.BRL"),
+    #     string="Currency",
+    # )
 
-    value_amount = fields.Float(
-        string="Value", digits="Fiscal Tax Value", required=True
-    )
+    # value_amount = fields.Float(
+    #     string="Value", digits="Fiscal Tax Value", required=True
+    # )
 
-    uot_id = fields.Many2one(comodel_name="uom.uom", string="Tax UoM")
+    # uot_id = fields.Many2one(comodel_name="uom.uom", string="Tax UoM")
 
     tax_group_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax.group",
@@ -154,34 +156,37 @@ class Tax(models.Model):
         "('tax_domain', '=', tax_domain)]",
     )
 
-    # ICMS Fields
-    icms_base_type = fields.Selection(
-        selection=ICMS_BASE_TYPE,
-        required=True,
-        default=ICMS_BASE_TYPE_DEFAULT,
-    )
+    table_date = fields.Date(string="Fiscal Table Issue Date")
 
-    icmsst_base_type = fields.Selection(
-        selection=ICMS_ST_BASE_TYPE,
-        string="ICMS ST Base Type",
-        required=True,
-        default=ICMS_ST_BASE_TYPE_DEFAULT,
-    )
+    # # ICMS Fields
+    # icms_base_type = fields.Selection(
+    #     selection=ICMS_BASE_TYPE,
+    #     required=True,
+    #     default=ICMS_BASE_TYPE_DEFAULT,
+    # )
 
-    icmsst_mva_percent = fields.Float(
-        string="MVA Percent",
-        digits="Fiscal Tax Percent",
-        required=True,
-    )
+    # icmsst_base_type = fields.Selection(
+    #     selection=ICMS_ST_BASE_TYPE,
+    #     string="ICMS ST Base Type",
+    #     required=True,
+    #     default=ICMS_ST_BASE_TYPE_DEFAULT,
+    # )
 
-    icmsst_value = fields.Float(
-        string="PFC Value", digits="Fiscal Tax Value", required=True
-    )
+    # icmsst_mva_percent = fields.Float(
+    #     string="MVA Percent",
+    #     digits="Fiscal Tax Percent",
+    #     required=True,
+    # )
+
+    # icmsst_value = fields.Float(
+    #     string="PFC Value", digits="Fiscal Tax Value", required=True
+    # )
 
     _sql_constraints = [
         ("fiscal_tax_code_uniq", "unique (name)", "Tax already exists with this name !")
     ]
 
+    # cst_from_operation_type 
     @api.model
     def cst_from_tax(self, fiscal_operation_type=FISCAL_OUT):
         self.ensure_one()
@@ -725,10 +730,10 @@ class Tax(models.Model):
         result_amounts["taxes"] = taxes
         return result_amounts
 
-    @api.depends("icmsst_base_type")
-    def _compute_tax_base_type(self):
-        for tax in self:
-            if tax.icmsst_base_type:
-                tax.tax_base_type = ICMS_ST_BASE_TYPE_REL.get(tax.icmsst_base_type)
-            elif tax.tax_base_type is None:
-                tax.tax_base_type = False
+    # @api.depends("icmsst_base_type")
+    # def _compute_tax_base_type(self):
+    #     for tax in self:
+    #         if tax.icmsst_base_type:
+    #             tax.tax_base_type = ICMS_ST_BASE_TYPE_REL.get(tax.icmsst_base_type)
+    #         elif tax.tax_base_type is None:
+    #             tax.tax_base_type = False

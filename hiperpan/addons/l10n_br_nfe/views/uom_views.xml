@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="nfe_uom_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.uom.list</field>
+    <field name="model">uom.uom</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name" />
+        <field name="factor" />
+        <field name="category_id" />
+        <field name="nfe_name" />
+        <field name="uom_type" />
+        <field name="active" />
+      </list>
+    </field>
+  </record>
+
+  <record id="nfe_uom_view_form" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.uom.form</field>
+    <field name="model">uom.uom</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group>
+            <field name="name" />
+            <field name="category_id" />
+            <field name="uom_type" />
+            <field name="factor" />
+          </group>
+          <group>
+            <field name="nfe_name" />
+            <field name="rounding" />
+            <field name="active" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="nfe_uom_action" model="ir.actions.act_window">
+    <field name="name">Unidade de Medida</field>
+    <field name="res_model">uom.uom</field>
+    <field name="view_mode">form,list</field>
+    <field name="view_id" ref="nfe_uom_view_list" />
+    <field name="domain">[('active', 'in', [True, False])]</field>
+  </record>
+
+</odoo>

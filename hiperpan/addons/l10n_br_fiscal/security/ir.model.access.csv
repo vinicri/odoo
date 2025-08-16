@@ -1,0 +1,21 @@
+"id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
+"l10n_br_fiscal_cest_user","CEST user entitlement","model_l10n_br_fiscal_cest","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_cest_manager","CEST manager entitlement","model_l10n_br_fiscal_cest","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_ncm_user","NCM user entitlement","model_l10n_br_fiscal_ncm","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_ncm_manager","NCM manager entitlement","model_l10n_br_fiscal_ncm","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_ncm_genre_user","NCM genre user entitlement","model_l10n_br_fiscal_ncm_genre","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_ncm_genre_manager","NCM genre manager entitlement","model_l10n_br_fiscal_ncm_genre","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_cfop_user","CFOP user entitlement","model_l10n_br_fiscal_cfop","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_cfop_manager","CFOP manager entitlement","model_l10n_br_fiscal_cfop","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_tax_group_user","Tax group user entitlement","model_l10n_br_fiscal_tax_group","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_tax_group_manager","Tax group manager entitlement","model_l10n_br_fiscal_tax_group","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_tax_user","Tax user entitlement","model_l10n_br_fiscal_tax","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_tax_manager","Tax manager entitlement","model_l10n_br_fiscal_tax","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_cnae_user","CNAE user entitlement","model_l10n_br_fiscal_cnae","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_cnae_manager","CNAE manager entitlement","model_l10n_br_fiscal_cnae","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_cst_user","CST user entitlement","model_l10n_br_fiscal_cst","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_cst_manager","CST manager entitlement","model_l10n_br_fiscal_cst","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_product_fiscal_type_user","Product fiscal type user entitlement","model_l10n_br_fiscal_product_fiscal_type","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_product_fiscal_type_manager","Product fiscal type manager entitlement","model_l10n_br_fiscal_product_fiscal_type","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_icms_origin_user","ICMS origin user entitlement","model_l10n_br_fiscal_icms_origin","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_icms_origin_manager","ICMS origin manager entitlement","model_l10n_br_fiscal_icms_origin","l10n_br_fiscal.group_fiscal_manager",1,1,1,1

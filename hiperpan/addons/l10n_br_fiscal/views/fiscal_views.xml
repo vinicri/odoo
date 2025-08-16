@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <menuitem id="fiscal_menu" name="Fiscal" sequence="50" groups="l10n_br_fiscal.group_user_fiscal">
+    <menuitem id="fiscal_register_menu" name="Cadastros" sequence="1">
+      <menuitem id="fiscal_register_menu_ncm" action="ncm_action" sequence="1" />
+      <menuitem id="fiscal_register_menu_ncm_genre" action="ncm_genre_action" sequence="2" />
+      <menuitem id="fiscal_register_menu_cnae" action="cnae_action" sequence="3" />
+      <menuitem id="fiscal_register_menu_cest" action="cest_action" sequence="4" />
+      <menuitem id="fiscal_register_menu_cst" action="cst_action" sequence="5" />
+      <menuitem id="fiscal_register_menu_cfop" action="cfop_action" sequence="6" />
+      <menuitem id="fiscal_register_menu_tax_group" action="tax_group_action" sequence="7" />
+      <menuitem id="fiscal_register_menu_tax" action="tax_action" sequence="8" />
+      <menuitem id="fiscal_register_menu_icms_origin" action="icms_origin_action" sequence="9" />
+      <menuitem id="fiscal_register_menu_product_fiscal_type" action="product_fiscal_type_action" sequence="10" />
+    </menuitem>
+
+  </menuitem>
+
+
+</odoo>

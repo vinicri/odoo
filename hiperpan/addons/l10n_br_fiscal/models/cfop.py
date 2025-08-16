@@ -22,7 +22,7 @@ class Cfop(models.Model):
 
     code = fields.Char(size=4)
 
-    small_name = fields.Char(size=32, required=True)
+    # small_name = fields.Char(size=32, required=True)
 
     type_in_out = fields.Selection(
         selection=FISCAL_IN_OUT, string="Type", required=True, default=FISCAL_OUT
@@ -195,6 +195,6 @@ class Cfop(models.Model):
         (
             "fiscal_cfop_code_uniq",
             "unique (code)",
-            "CFOP already exists with this code !",
+            "CFOP already exists with this code",
         )
     ]

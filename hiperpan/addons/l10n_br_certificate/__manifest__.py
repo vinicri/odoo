@@ -1,5 +1,5 @@
 {
-  'name': 'Brasil - Certificado A1',
+  'name': 'Hiperpan - Certificado A1',
   'version': '1.0',
   'countries': ['br'],
   #'category': 'Accounting/Localizations/Account Charts',

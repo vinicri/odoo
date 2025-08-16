@@ -5,20 +5,56 @@
       <field name="name">res.partner.form</field>
       <field name="model">res.partner</field>
       <field name="inherit_id" ref="base.view_partner_form"/>
+      <field name="priority" eval="101"/>
       <field name="arch" type="xml">
         <xpath expr="//page[@name='sales_purchases']" position="after">
           <page name="accountant_info" string="Accountant Info">
             <group>
-              <field name="l10n_br_base_is_accountant" string="Is accountant?" />
-              <field name="l10n_br_base_is_accountant_crc_code" string="CRC Code" invisible="not l10n_br_base_is_accountant"/>
+              <field name="is_accountant" string="Is accountant?" />
+              <field name="accountant_crc_code" string="CRC Code" invisible="not is_accountant"/>
             </group>
           </page>
         </xpath>
+        <xpath expr="//span[@name='address_name']" position="replace">
+        </xpath>
+        <xpath expr="//div[@class='o_address_format']" position="replace">
+        </xpath>
+        <xpath expr="//field[@name='l10n_br_im_code']" position="replace">
+        </xpath>
+        <!-- <xpath expr="//field[@name='l10n_br_ie_code']" position="replace">
+        </xpath> -->
+        <xpath expr="//field[@name='l10n_br_isuf_code']" position="replace">
+        </xpath>
+
+
+        <!-- <xpath expr="//field[@name='l10n_latam_identification_type_id']" position="replace">
+        </xpath> -->
+
+        <xpath expr="//field[@name='phone']" position="replace">
+          <field name="phone" placeholder="Telefone com DDD" widget="phone"/>
+        </xpath>
+
+        <xpath expr="//field[@name='mobile']" position="replace">
+          <field name="mobile" placeholder="Celular com DDD" widget="phone"/>
+        </xpath>
+
+
+
         <xpath expr="//field[@name='l10n_br_ie_code']" position="before">
-          <field name="l10n_br_base_cnpj_cpf" string="CNPJ/CPF"/>
-          <field name="l10n_br_base_inscr_est" string="State Tax Number"/>
-          <field name="l10n_br_base_rg" string="RG" nolabel="0"/>
-          <field name="l10n_br_base_inscr_mun" string="Municipal Tax Number"/>
+          <field name="legal_name" string="Nome legal"/>
+          <field name="trade_name" string="Nome Fantasia" invisible="not is_company"/>
+          <field name="formatted_cnpj_cpf" string="CNPJ/CPF"/>
+          <field name="inscr_est" string="Inscrição Estadual"/>
+          <field name="inscr_mun" string="Inscrição Municipal"/>
+          <field name="street" placeholder="Logradouro sem o número" string="Logradouro"/>
+          <field name="street_number" placeholder="Número sem complemento" string="Número"/>
+          <field name="street_complement" string="Complemento"/>
+          <field name="district" string="Bairro"/>
+          <field name="country_id" placeholder="País" options='{"no_open": True, "no_create": True}' />
+          <field name="state_id" class="o_address_state" placeholder="Estado" options='{"no_open": True}'/>
+          <field name="city_id" string="Cidade" options='{"no_open": True, "no_create": True}'/>
+          <field name="zip" placeholder="CEP" class="o_address_zip"/>
+          <field name="suframa" string="SUFRAMA"/>
         </xpath>
       </field>
     </record>

@@ -18,6 +18,7 @@ class DataAbstract(models.AbstractModel):
 
     code = fields.Char(required=True, index=True)
 
+    # todo change to char
     name = fields.Text(required=True, index=True)
 
     code_unmasked = fields.Char(
@@ -63,41 +64,50 @@ class DataAbstract(models.AbstractModel):
         return model_view
 
     @api.model
-    def _name_search(
-        self, name, args=None, operator="ilike", limit=100, name_get_uid=None
+    def name_search(
+        self, name, args=None, operator="ilike", limit=100, #name_get_uid=None
     ):
-        if operator == "ilike" and not (name or "").strip():
-            domain = []
-        elif operator in ("ilike", "like", "=", "=like", "=ilike"):
+        # if operator == "ilike" and not (name or "").strip():
+        #     domain = []
+        if operator in ("ilike", "like", "=", "=like", "=ilike"):
             domain = expression.AND(
                 [
                     args or [],
                     [
                         "|",
                         "|",
-                        ("name", operator, name),
-                        ("code", operator, name),
-                        ("code_unmasked", "ilike", name + "%"),
+                        ("name", "ilike", name ),
+                        ("code", "=ilike", name + "%"),
+                        ("code_unmasked", "=ilike", name + "%"),
                     ],
                 ]
             )
-            return self._search(
-                expression.AND([domain, args]),
-                limit=limit,
-                access_rights_uid=name_get_uid,
-            )
+            records = self.search_fetch(domain, ['display_name'], limit=limit)
+            return [(record.id, record.display_name) for record in records.sudo()]
 
-        return super()._name_search(
-            name, args=args, operator=operator, limit=limit, name_get_uid=name_get_uid
+        return super().name_search(
+            name, args=args, operator=operator, limit=limit, #name_get_uid=name_get_uid
         )
+    
 
-    def name_get(self):
-        def truncate_name(name):
-            if len(name) > 60:
-                name = f"{name[:60]}..."
-            return name
+    # @api.depends("code", "name")
+    # def _compute_display_name(self):
+    #     def truncate_name(name):
+    #         if len(name) > 60:
+    #             name = f"{name[:60]}..."
+    #         return name
 
+    #     if self._context.get("show_code_only"):
+    #         return [(r.id, f"{r.code}") for r in self]
+
+    #     return [(r.id, f"{r.code} - {truncate_name(r.name)}") for r in self]
+
+
+    @api.depends("code", "name")
+    def _compute_display_name(self):
         if self._context.get("show_code_only"):
-            return [(r.id, f"{r.code}") for r in self]
-
-        return [(r.id, f"{r.code} - {truncate_name(r.name)}") for r in self]
+            for record in self:
+                record.display_name = f"{record.code}"
+        else:
+            for record in self:
+                record.display_name = f"{record.code} - {record.name}"

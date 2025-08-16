@@ -9,35 +9,35 @@ from ..constants.fiscal import TAX_DOMAIN
 class TaxGroup(models.Model):
     _name = "l10n_br_fiscal.tax.group"
     _description = "Tax Group"
-    _order = "sequence, name, tax_domain"
+    _order = "name, tax_domain"
 
     name = fields.Char(required=True)
-
-    sequence = fields.Integer(
-        default=10,
-        required=True,
-        help="The sequence field is used to define the "
-        "order in which taxes are displayed.",
-    )
-
-    compute_sequence = fields.Integer(
-        default=10,
-        required=True,
-        help="The sequence field is used to define "
-        "order in which the tax lines are applied.",
-    )
-
+    tax_domain = fields.Selection(selection=TAX_DOMAIN, required=True)
     tax_scope = fields.Selection(
         selection=[
             ("city", _("City")),
             ("state", _("State")),
             ("federal", _("Federal")),
-            ("other", _("Other")),
         ],
         required=True,
     )
 
-    tax_domain = fields.Selection(selection=TAX_DOMAIN, required=True)
+
+    # sequence = fields.Integer(
+    #     default=10,
+    #     required=True,
+    #     help="The sequence field is used to define the "
+    #     "order in which taxes are displayed.",
+    # )
+
+    # compute_sequence = fields.Integer(
+    #     default=10,
+    #     required=True,
+    #     help="The sequence field is used to define "
+    #     "order in which the tax lines are applied.",
+    # )
+
+   
 
     tax_include = fields.Boolean(string="Tax Included in Price", default=False)
 
@@ -45,10 +45,10 @@ class TaxGroup(models.Model):
     tax_withholding = fields.Boolean(default=False)
 
     # PIS / COFINS
-    base_without_icms = fields.Boolean(
-        string="Remove ICMS value from Base",
-        default=False,
-    )
+    # base_without_icms = fields.Boolean(
+    #     string="Remove ICMS value from Base",
+    #     default=False,
+    # )
 
     base_with_additional_values = fields.Boolean(
         string="Add the value of freight, insurance and others to the Base",

@@ -1,4 +1,4 @@
-id,country_id:id,state_id:id,l10n_br_base_ibge_code,name
+id,country_id:id,state_id:id,ibge_code,name
 city_1100015,base.br,base.state_br_ro,1100015,Alta Floresta D'Oeste
 city_1100379,base.br,base.state_br_ro,1100379,Alto Alegre dos Parecis
 city_1100403,base.br,base.state_br_ro,1100403,Alto Paraíso

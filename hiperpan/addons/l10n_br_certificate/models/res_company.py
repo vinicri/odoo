@@ -8,19 +8,19 @@ from odoo.exceptions import ValidationError
 class ResCompany(models.Model):
     _inherit = "res.company"
 
-    l10n_br_certificate_ecnpj_id = fields.Many2one(
+    certificate_ecnpj_id = fields.Many2one(
         comodel_name="l10n_br_certificate.certificate",
         string="E-CNPJ",
         domain="[('type', '=', 'e-cnpj')]",
     )
 
-    l10n_br_certificate_nfe_id = fields.Many2one(
+    certificate_nfe_id = fields.Many2one(
         comodel_name="l10n_br_certificate.certificate",
         string="NFe",
         domain="[('type', '=', 'nf-e')]",
     )
 
-    l10n_br_certificate_id = fields.Many2one(
+    certificate_id = fields.Many2one(
         comodel_name="l10n_br_certificate.certificate",
         compute="_compute_certificate",
     )
@@ -29,10 +29,10 @@ class ResCompany(models.Model):
     def _compute_certificate(self):
         for record in self:
             certificate = False
-            if record.sudo().l10n_br_certificate_nfe_id:
-                certificate = record.sudo().l10n_br_certificate_nfe_id
-            elif record.sudo().l10n_br_certificate_ecnpj_id:
-                certificate = record.sudo().l10n_br_certificate_ecnpj_id
+            if record.sudo().certificate_nfe_id:
+                certificate = record.sudo().certificate_nfe_id
+            elif record.sudo().certificate_ecnpj_id:
+                certificate = record.sudo().certificate_ecnpj_id
 
             if not certificate:
                 raise ValidationError(
@@ -42,7 +42,7 @@ class ResCompany(models.Model):
                     )
                 )
 
-            record.l10n_br_certificate_id = certificate
+            record.certificate_id = certificate
 
 
     @api.model

@@ -65,6 +65,7 @@ NCM_FOR_SERVICE_REF = "l10n_br_fiscal.ncm_00000000"
 
 TAX_BASE_TYPE = [
     ("percent", _("Percent")),
+    ("percent_red", _("Percent Base Reduction")),
     ("quantity", _("Quantity")),
     ("fixed", _("Fixed")),
 ]
@@ -79,6 +80,7 @@ TAX_DOMAIN_II = "ii"
 TAX_DOMAIN_ICMS = "icms"
 TAX_DOMAIN_ICMS_SN = "icmssn"
 TAX_DOMAIN_ICMS_ST = "icmsst"
+TAX_DOMAIN_ICMS_SN_ST = "icmssn_st"
 TAX_DOMAIN_ICMS_FCP = "icmsfcp"
 TAX_DOMAIN_ICMS_FCP_ST = "icmsfcpst"
 TAX_DOMAIN_PIS = "pis"
@@ -110,6 +112,7 @@ TAX_DOMAIN = [
     (TAX_DOMAIN_IPI, "IPI"),
     (TAX_DOMAIN_ICMS, "ICMS - Próprio"),
     (TAX_DOMAIN_ICMS_SN, "ICMS - Simples Nacional"),
+    (TAX_DOMAIN_ICMS_SN_ST, "ICMS - Simples Nacional ST"),
     (TAX_DOMAIN_ICMS_FCP, "ICMS FCP - Fundo de Combate a Pobreza"),
     (TAX_DOMAIN_ICMS_ST, "ICMS - Subistituição Tributária"),
     (TAX_DOMAIN_ICMS_FCP_ST, "ICMS FCP ST- Fundo de Combate a Pobreza ST"),

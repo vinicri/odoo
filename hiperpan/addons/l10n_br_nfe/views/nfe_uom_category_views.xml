@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="nfe_uom_category_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.uom.category.list</field>
+    <field name="model">uom.category</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="name" />
+      </list>
+    </field>
+  </record>
+
+  <record id="nfe_uom_category_action" model="ir.actions.act_window">
+    <field name="name">Categoria de Unidade de Medida</field>
+    <field name="res_model">uom.category</field>
+    <field name="view_mode">form,list</field>
+    <field name="view_id" ref="nfe_uom_category_view_list" />
+  </record>
+
+</odoo>
