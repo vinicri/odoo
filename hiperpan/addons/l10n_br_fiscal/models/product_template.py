@@ -17,6 +17,9 @@ class ProductTemplate(models.Model):
     _name = "product.template"
     _inherit = ["product.template", "l10n_br_fiscal.product.mixin"]
 
+    # mudando pra integer porque  a nota fiscal só aceita integer
+    default_code = fields.Integer("Internal Reference", index=True)
+
     def _get_default_ncm_id(self):
         fiscal_type = self.env.context.get("default_fiscal_type")
         if fiscal_type == PRODUCT_FISCAL_TYPE_SERVICE:
@@ -46,7 +49,7 @@ class ProductTemplate(models.Model):
         company_dependent=True,
     )
 
-    # os dois primeiros digitos do ncm 
+    # os dois primeiros digitos do ncm
     fiscal_genre_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.ncm.genre",
         string="Fiscal NCM Genre",
@@ -58,10 +61,10 @@ class ProductTemplate(models.Model):
     ncm_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.ncm",
         index=True,
-       # default=_get_default_ncm_id,
+        # default=_get_default_ncm_id,
         string="NCM",
-       # compute="_compute_ncm_id",
-        store=True,
+        # compute="_compute_ncm_id",
+        # store=True,
         readonly=False,
     )
 
@@ -70,23 +73,22 @@ class ProductTemplate(models.Model):
         index=True,
         # domain="[('ncm_ids', 'in', ncm_id)]",
         # domain=lambda self: self._get_cest_domain(),
-        #domain="[('ncm_ids.code', '=like', ncm_id.code + '%')]",
+        # domain="[('ncm_ids.code', '=like', ncm_id.code + '%')]",
         string="CEST",
     )
 
-
-    @api.onchange('cest_id')
+    @api.onchange("cest_id")
     def _onchange_cest_id(self):
-        print('onchange_cest_id')
+        print("onchange_cest_id")
         print(self.cest_id)
         print(self.ncm_id)
-        if not self.cest_id: 
+        if not self.cest_id:
             return
         if not self.ncm_id:
             self.cest_id = False
             return
         if self.cest_id and self.cest_id.ncms:
-            ncm_codes = self.cest_id.ncms.split(',')
+            ncm_codes = self.cest_id.ncms.split(",")
             print(ncm_codes)
             print(self.ncm_id.code_unmasked)
             if self.ncm_id.code_unmasked:
@@ -98,8 +100,6 @@ class ProductTemplate(models.Model):
                 if not ncm_code_matches:
                     self.cest_id = False
 
-
-
     # @api.onchange('ncm_id')
     # def _get_cest_domain(self):
     #     print("ncm_id")
@@ -109,42 +109,44 @@ class ProductTemplate(models.Model):
     #         self.ncm_id.read(['code'])
     #         print('get_cest_domain')
     #         print(self.ncm_id.code)
-        # ncm = self.env['l10n_br_fiscal.ncm'].browse(self.ncm_id)
-        
-        # print(ncm.code)
-        # print(self.ncm_id)
-        # print(self.ncm_id.code)
-        # if not self.ncm_id:
-        #     return [('id', '=', False)]  # Return empty domain
+    # ncm = self.env['l10n_br_fiscal.ncm'].browse(self.ncm_id)
 
+    # print(ncm.code)
+    # print(self.ncm_id)
+    # print(self.ncm_id.code)
+    # if not self.ncm_id:
+    #     return [('id', '=', False)]  # Return empty domain
 
-        # return [('ncm_ids.code', '=like', (self.ncm_id.code or "") + '%')]
+    # return [('ncm_ids.code', '=like', (self.ncm_id.code or "") + '%')]
 
-        # You can customize this logic based on your needs
-        # Option 1: Exact match with ncm_ids
-        # return [('ncm_ids', 'in', self.ncm_id.id)]
-        
-        # Option 2: Partial match with ncms field using wildcards
-        # This will match if the NCM code appears anywhere in the ncms string
-        #return [('ncms', 'ilike', self.ncm_id.code)]
-        
-        # Option 2b: Using % wildcards with like operator
-        # return [('ncm_ids.code', 'like', self.ncm_id.code + '%')]
-        
-        # Option 3: More complex wildcard matching
-        # For example, if you want to match the first 4 digits: self.ncm_id.code[:4]
-        # return [('ncms', 'ilike', self.ncm_id.code[:4])]
+    # You can customize this logic based on your needs
+    # Option 1: Exact match with ncm_ids
+    # return [('ncm_ids', 'in', self.ncm_id.id)]
 
-    @api.onchange('ncm_id')
+    # Option 2: Partial match with ncms field using wildcards
+    # This will match if the NCM code appears anywhere in the ncms string
+    # return [('ncms', 'ilike', self.ncm_id.code)]
+
+    # Option 2b: Using % wildcards with like operator
+    # return [('ncm_ids.code', 'like', self.ncm_id.code + '%')]
+
+    # Option 3: More complex wildcard matching
+    # For example, if you want to match the first 4 digits: self.ncm_id.code[:4]
+    # return [('ncms', 'ilike', self.ncm_id.code[:4])]
+
+    @api.onchange("ncm_id")
     def _onchange_ncm_id(self):
         if not self.ncm_id:
             self.cest_id = False
             self.fiscal_genre_id = False
             return
-        if self.cest_id and self.cest_id.ncm_ids and self.ncm_id.id not in self.cest_id.ncm_ids.ids:
+        if (
+            self.cest_id
+            and self.cest_id.ncm_ids
+            and self.ncm_id.id not in self.cest_id.ncm_ids.ids
+        ):
             self.cest_id = False
-       
-    
+
     # nbm_id = fields.Many2one(
     #     comodel_name="l10n_br_fiscal.nbm", index=True, string="NBM"
     # )
@@ -157,8 +159,6 @@ class ProductTemplate(models.Model):
     #     store=True,
     #     readonly=False,
     # )
-
-
 
     # service_type_id = fields.Many2one(
     #     comodel_name="l10n_br_fiscal.service.type",
@@ -188,8 +188,6 @@ class ProductTemplate(models.Model):
     # nbs_id = fields.Many2one(
     #     comodel_name="l10n_br_fiscal.nbs", index=True, string="NBS"
     # )
-
-    
 
     # uoe_id = fields.Many2one(
     #     comodel_name="uom.uom",

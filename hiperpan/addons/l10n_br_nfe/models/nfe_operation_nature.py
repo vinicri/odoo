@@ -1,6 +1,6 @@
 from odoo import models, fields
 
-OPERATION_TYPE = [("0", "Entrada"), ("1", "Saída")]
+from .constants import NFE_OPERATION_TYPE
 
 
 class NfeOperationNature(models.Model):
@@ -9,4 +9,12 @@ class NfeOperationNature(models.Model):
 
     name = fields.Char(string="Name", size=60, required=True)
 
-    type = fields.Selection(OPERATION_TYPE, string="Tipo de Operação", required=True)
+    type = fields.Selection(
+        NFE_OPERATION_TYPE, string="Tipo de Operação", required=True
+    )
+
+    # nfe_documents = fields.One2many(
+    #     comodel_name="l10n_br_nfe.nfe.document",
+    #     inverse_name="operation_nature_id",
+    #     string="Documentos NF-e",
+    # )

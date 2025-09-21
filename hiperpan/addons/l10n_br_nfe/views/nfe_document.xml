@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+  <record id="nfe_series_view_form" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_document.form</field>
+    <field name="model">l10n_br_nfe.nfe.document</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+
+          <group>
+            <field name="nfe_version" />
+            <field name="company_id" />
+            <field name="access_key" />
+            <field name="issuer_id" />
+
+          </group>
+        </sheet>
+        <sheet>
+          <group>
+            <group>
+              <field name="issuer_id" />
+              <field name="issuer_cnpj" />
+              <field name="issuer_cpf" />
+              <field name="issuer_legal_name" />
+              <field name="issuer_trade_name" />
+              <field name="issuer_street" />
+              <field name="issuer_street_number" />
+              <field name="issuer_street_complement" />
+              <field name="issuer_district" />
+              <field name="issuer_city_code" />
+              <field name="issuer_city_name" />
+              <field name="issuer_state" />
+              <field name="issuer_zip" />
+              <field name="issuer_country_code" />
+              <field name="issuer_country_name" />
+              <field name="issuer_phone" />
+              <field name="issuer_ie" />
+              <field name="issuer_im" />
+
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="nfe_document_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_document.list</field>
+    <field name="model">l10n_br_nfe.nfe.document</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="nfe_number" />
+      </list>
+    </field>
+  </record>
+
+
+  <record id="nfe_document_action" model="ir.actions.act_window">
+    <field name="name">NFE Document</field>
+    <field name="res_model">l10n_br_nfe.nfe.document</field>
+    <field name="view_mode">form,list</field>
+    <field name="view_id" ref="nfe_document_view_list" />
+  </record>
+
+</odoo>

@@ -12,8 +12,7 @@ from odoo.exceptions import ValidationError
 # - [910-919]: Emissão no site do Fisco (NFA-e); Emitente= CPF; Assinatura pelo e-CNPJ da SEFAZ (procEmi=1), ou Assinatura pelo e-CPF do contribuinte (procEmi=2);
 
 # - [920-969]: Aplicativo do Contribuinte; Emitente=CPF; Assinatura pelo e-CPF do co
-
-DOCUMENT_MODEL = [("55", "NF-e (Modelo 55)"), ("65", "NFC-e (Modelo 65)")]
+from .constants import NFE_DOCUMENT_MODEL, NFE_OPERATION_TYPE
 
 
 class NfeSeries(models.Model):
@@ -45,7 +44,11 @@ class NfeSeries(models.Model):
     )
 
     document_model = fields.Selection(
-        DOCUMENT_MODEL, string="Modelo do Documento Fiscal", required=True
+        NFE_DOCUMENT_MODEL, string="Modelo do Documento Fiscal", required=True
+    )
+
+    operation_type = fields.Selection(
+        NFE_OPERATION_TYPE, string="Tipo de Operação", required=True
     )
 
     invalidate_numbers = fields.One2many(
@@ -68,17 +71,34 @@ class NfeSeries(models.Model):
         )
     ]
 
+    @api.constrains("series", "company_id", "document_model")
+    def _check_unique_series(self):
+        for record in self:
+            results = self.search(
+                [
+                    ("series", "=", record.series),
+                    ("company_id", "=", record.company_id.id),
+                    ("document_model", "=", record.document_model),
+                    ("id", "!=", record.id),
+                ]
+            )
+
+            if results:
+                raise ValidationError(
+                    "Já existe uma série com este número para o modelo de documento selecionado."
+                )
+
     @api.model
     def _create_sequence(self, values):
-        """Create new no_gap entry sequence for every
+        """Create new standard entry sequence for every
         new document serie"""
         sequence = {
             "name": values.get(
                 "name",
-                f'Fiscal BR  Modelo {values.get("document_model")} Série {values.get("series")}',
+                f'Fiscal BR {self.env.company.name} Modelo {values.get("document_model")} Série {values.get("series")}',
             ),
-            "implementation": "no_gap",
-            "padding": 1,
+            "implementation": "standard",
+            "padding": 0,
             "number_increment": 1,
             "company_id": self.env.company.id,
         }
@@ -111,22 +131,30 @@ class NfeSeries(models.Model):
                 ).write({"is_default_for_document_model": False})
         return super().create(vals_list)
 
-    # todo Fix this, not working
-    # def write(self, vals):
-    #     res = super().write(vals)
-    #     if self.env.context.get("skip_default_unset"):
-    #         return res
-    #     self.env["l10n_br_nfe.nfe.series"].search(
-    #         [
-    #             ("document_model", "=", vals.get("document_model")),
-    #             ("company_id", "=", vals.get("company_id")),
-    #             ("is_default_for_document_model", "=", True),
-    #             ("id", "!=", self.id),
-    #         ]
-    #     ).with_context(skip_default_unset=True).write(
-    #         {"is_default_for_document_model": False}
-    #     )
-    #     return res
+    def write(self, vals):
+        res = super().write(vals)
+        if not vals.get("is_default_for_document_model"):
+            return res
+
+        if self.env.context.get("skip_default_unset"):
+            return res
+
+        # Processar cada registro individualmente
+        for record in self:
+            # Usar os valores atuais do registro, não do vals, vals contem somente os valores que foram alterados
+            domain = [
+                ("document_model", "=", record.document_model),
+                ("company_id", "=", record.company_id.id),
+                ("is_default_for_document_model", "=", True),
+                ("id", "!=", record.id),
+            ]
+            conflicting_series = self.env["l10n_br_nfe.nfe.series"].search(domain)
+            if conflicting_series:
+                conflicting_series.with_context(skip_default_unset=True).write(
+                    {"is_default_for_document_model": False}
+                )
+
+        return res
 
     def _is_invalid_number(self, document_number):
         self.ensure_one()
@@ -140,9 +168,9 @@ class NfeSeries(models.Model):
 
     def next_seq_number(self):
         self.ensure_one()
-        document_number = self.internal_sequence_id._next()
+        document_number = self.internal_sequence_id.next_by_id()
         while self._is_invalid_number(document_number):
-            document_number = self.internal_sequence_id._next()
+            document_number = self.internal_sequence_id.next_by_id()
         return document_number
 
     @api.depends("document_model", "series")

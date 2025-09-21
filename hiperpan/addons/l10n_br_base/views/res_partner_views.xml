@@ -45,6 +45,7 @@
           <field name="trade_name" string="Nome Fantasia" invisible="not is_company"/>
           <field name="formatted_cnpj_cpf" string="CNPJ/CPF"/>
           <field name="inscr_est" string="Inscrição Estadual"/>
+          <field name="no_inscr_est" string="Não tem Inscrição Estadual" />
           <field name="inscr_mun" string="Inscrição Municipal"/>
           <field name="street" placeholder="Logradouro sem o número" string="Logradouro"/>
           <field name="street_number" placeholder="Número sem complemento" string="Número"/>

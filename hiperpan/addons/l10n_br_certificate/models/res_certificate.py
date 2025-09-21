@@ -31,9 +31,9 @@ class Certificate(models.Model):
 
     date_expiration = fields.Datetime(readonly=True, store=True)
 
-    issuer_name = fields.Char(size=120, readonly=True, store=True)
+    issuer_name = fields.Char(readonly=True, store=True)
 
-    owner_name = fields.Char(string="Owner", size=120, readonly=True, store=True)
+    owner_name = fields.Char(string="Owner", readonly=True, store=True)
 
     owner_cnpj_cpf = fields.Char(string="CNPJ/CPF", size=18, readonly=True, store=True)
 
@@ -103,9 +103,11 @@ class Certificate(models.Model):
                     cert.type and cert.type.upper() or "",
                     cert.subtype and cert.subtype.upper() or "",
                     cert.owner_name or "",
-                    format_date(self.env, cert.date_expiration.date())
-                    if cert.date_expiration
-                    else "",
+                    (
+                        format_date(self.env, cert.date_expiration.date())
+                        if cert.date_expiration
+                        else ""
+                    ),
                 )
                 file_name = name + ".p12"
 

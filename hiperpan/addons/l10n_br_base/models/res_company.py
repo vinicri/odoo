@@ -15,6 +15,7 @@ class Company(models.Model):
     vat = fields.Char(
         compute="_compute_vat",
         inverse="_inverse_vat",
+        store=True,
     )
 
     @api.depends("partner_id.vat")
@@ -29,6 +30,7 @@ class Company(models.Model):
     legal_name = fields.Char(
         compute="_compute_legal_name",
         inverse="_inverse_legal_name",
+        store=True,
     )
 
     @api.depends("partner_id.legal_name")
@@ -43,6 +45,7 @@ class Company(models.Model):
     trade_name = fields.Char(
         compute="_compute_trade_name",
         inverse="_inverse_trade_name",
+        store=True,
     )
 
     @api.depends("partner_id.trade_name")
@@ -57,6 +60,7 @@ class Company(models.Model):
     formatted_cnpj_cpf = fields.Char(
         compute="_compute_formatted_cnpj_cpf",
         inverse="_inverse_formatted_cnpj_cpf",
+        store=True,
     )
 
     @api.depends("partner_id.formatted_cnpj_cpf")
@@ -71,6 +75,7 @@ class Company(models.Model):
     street = fields.Char(
         compute="_compute_street",
         inverse="_inverse_street",
+        store=True,
     )
 
     @api.depends("partner_id.street")
@@ -85,6 +90,7 @@ class Company(models.Model):
     street_number = fields.Char(
         compute="_compute_street_number",
         inverse="_inverse_street_number",
+        store=True,
     )
 
     @api.depends("partner_id.street_number")
@@ -99,6 +105,7 @@ class Company(models.Model):
     street_complement = fields.Char(
         compute="_compute_street_complement",
         inverse="_inverse_street_complement",
+        store=True,
     )
 
     @api.depends("partner_id.street_complement")
@@ -113,6 +120,7 @@ class Company(models.Model):
     district = fields.Char(
         compute="_compute_district",
         inverse="_inverse_district",
+        store=True,
     )
 
     @api.depends("partner_id.district")
@@ -127,6 +135,7 @@ class Company(models.Model):
     city_id = fields.Many2one(
         compute="_compute_city_id",
         inverse="_inverse_city_id",
+        store=True,
     )
 
     @api.depends("partner_id.city_id")
@@ -141,6 +150,7 @@ class Company(models.Model):
     inscr_est = fields.Char(
         compute="_compute_inscr_est",
         inverse="_inverse_inscr_est",
+        store=True,
     )
 
     @api.depends("partner_id.inscr_est")
@@ -155,6 +165,7 @@ class Company(models.Model):
     rg = fields.Char(
         compute="_compute_rg",
         inverse="_inverse_rg",
+        store=True,
     )
 
     @api.depends("partner_id.rg")
@@ -169,6 +180,7 @@ class Company(models.Model):
     inscr_mun = fields.Char(
         compute="_compute_inscr_mun",
         inverse="_inverse_inscr_mun",
+        store=True,
     )
 
     @api.depends("partner_id.inscr_mun")
@@ -183,6 +195,7 @@ class Company(models.Model):
     suframa = fields.Char(
         compute="_compute_suframa",
         inverse="_inverse_suframa",
+        store=True,
     )
 
     @api.depends("partner_id.suframa")
@@ -197,6 +210,7 @@ class Company(models.Model):
     is_foreign = fields.Boolean(
         compute="_compute_is_foreign",
         inverse="_inverse_is_foreign",
+        store=True,
     )
 
     @api.depends("partner_id.is_foreign")

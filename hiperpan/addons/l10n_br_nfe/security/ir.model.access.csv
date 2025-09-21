@@ -7,3 +7,11 @@
 "l10n_br_nfe_nfe_tech_contact_manager","NFE Tech Contact Manager","model_l10n_br_nfe_nfe_tech_contact","l10n_br_nfe.group_nfe_manager",1,1,1,1
 "l10n_br_nfe_nfe_operation_nature_user","NFE Operation Nature User","model_l10n_br_nfe_nfe_operation_nature","l10n_br_nfe.group_user_nfe",1,0,0,0
 "l10n_br_nfe_nfe_operation_nature_manager","NFE Operation Nature Manager","model_l10n_br_nfe_nfe_operation_nature","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_document_user","NFE Document User","model_l10n_br_nfe_nfe_document","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_document_manager","NFE Document Manager","model_l10n_br_nfe_nfe_document","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_document_line_user","NFE Document Line User","model_l10n_br_nfe_nfe_document_line","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_document_line_manager","NFE Document Line Manager","model_l10n_br_nfe_nfe_document_line","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_document_payment_user","NFE Document Payment User","model_l10n_br_nfe_nfe_document_payment","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_document_payment_manager","NFE Document Payment Manager","model_l10n_br_nfe_nfe_document_payment","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_document_installment_user","NFE Document Installment User","model_l10n_br_nfe_nfe_document_installment","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_document_installment_manager","NFE Document Installment Manager","model_l10n_br_nfe_nfe_document_installment","l10n_br_nfe.group_nfe_manager",1,1,1,1

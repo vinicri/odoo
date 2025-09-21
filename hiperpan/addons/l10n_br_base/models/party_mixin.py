@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 from erpbrasil.base import misc
 from erpbrasil.base.fiscal import cnpj_cpf
 import re
@@ -11,14 +12,14 @@ class PartyMixin(models.AbstractModel):
 
     # razao social ou nome completo
     legal_name = fields.Char(
-        size=256,
+        size=60,
         help="Used in fiscal documents",
         tracking=True,
     )
 
     # Nome Fantasia
     trade_name = fields.Char(
-        size=256,
+        size=60,
         help="Nome fantasia",
         tracking=True,
     )
@@ -80,7 +81,7 @@ class PartyMixin(models.AbstractModel):
 
     district = fields.Char(
         string="Bairro",
-        size=128,
+        size=60,
         tracking=True,
     )
 
@@ -100,6 +101,26 @@ class PartyMixin(models.AbstractModel):
         tracking=True,
     )
 
+    no_inscr_est = fields.Boolean(
+        string="Não tem Inscrição Estadual",
+        default=False,
+        required=True,
+        tracking=True,
+        help="Empresa não tem Inscrição Estadual.",
+    )
+
+    @api.constrains("inscr_est", "company_type")
+    def _check_no_inscr_est(self):
+        for record in self:
+            if (
+                record.company_type == "company"
+                and not record.inscr_est
+                and not record.no_inscr_est
+            ):
+                raise ValidationError(
+                    "Preencha a Inscrição Estadual ou confirme que a empresa não tem Inscrição Estadual no campo 'Não tem Inscrição Estadual'."
+                )
+
     rg = fields.Char(
         string="RG",
         tracking=True,
@@ -107,13 +128,13 @@ class PartyMixin(models.AbstractModel):
 
     inscr_mun = fields.Char(
         string="Inscrição Municipal",
-        size=18,
+        size=15,
         tracking=True,
     )
 
     suframa = fields.Char(
         string="SUFRAMA",
-        size=18,
+        size=9,
         unaccent=False,
         tracking=True,
     )
@@ -146,7 +167,25 @@ class PartyMixin(models.AbstractModel):
         else:
             self.phone = False
 
+    def is_valid_phone(self, phone):
+        if not phone:
+            return False
+        phone_clean = "".join(filter(str.isdigit, phone))
+        ddd = int(phone_clean[:2])
+        if not (11 <= ddd <= 99):
+            return False
+        # Validar se não são números iguais
+        if len(set(phone_clean)) == 1:
+            return False
+        if len(phone_clean) == 10:
+            return True
+        if len(phone_clean) == 11 and phone_clean[2] == "9":
+            return True
+        return False
+
     def _format_br_phone(self, phone):
+        if not self.is_valid_phone(phone):
+            raise ValidationError("Telefone inválido")
         if phone:
             val = re.sub("[^0-9]", "", phone)
             if len(val) == 10:

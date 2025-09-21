@@ -15,6 +15,7 @@
         "views/nfe_invalidate_numbers_views.xml",
         "views/nfe_tech_contact_views.xml",
         "views/nfe_operation_nature_views.xml",
+        "views/nfe_document.xml",
         "views/uom_views.xml",
         "views/nfe_uom_category_views.xml",
         "views/res_company.xml",

@@ -21,6 +21,8 @@ class PartyMixin(models.AbstractModel):
         help="Fiscal Framework of the company.",
     )
 
+    # adicionar o motivo de ter este campo
+    # acredito que seja pra saber se na devolucao o ipi deve ser destacado ?
     ipi_contributes = fields.Boolean(
         string="Contribui com IPI",
         default=False,

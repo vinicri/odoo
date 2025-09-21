@@ -9,6 +9,7 @@
     <menuitem id="nfe_operation_nature_menu" action="nfe_operation_nature_action" sequence="4" groups="l10n_br_nfe.group_nfe_manager" />
     <menuitem id="nfe_uom_menu" action="nfe_uom_action" sequence="5" groups="l10n_br_nfe.group_nfe_manager" />
     <menuitem id="nfe_uom_category_menu" action="nfe_uom_category_action" sequence="6" groups="l10n_br_nfe.group_nfe_manager" />
+    <menuitem id="nfe_document_menu" action="nfe_document_action" sequence="7" groups="l10n_br_nfe.group_nfe_manager"/>
   </menuitem>
 
 
