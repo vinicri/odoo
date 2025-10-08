@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="nfe_document_line_view_form" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_document_line.form</field>
+    <field name="model">l10n_br_nfe.nfe.document.line</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet class="nfe_item">
+          <group>
+            <field name="issuer_id" />
+            <field name="product_id" />
+            <field name="cfop_code_id" />
+          </group>
+          <div>
+            <group>
+              <group>
+                <field name="quantity" />
+                <field name="unit" />
+                <field name="unit_price" />
+                <field name="other_expenses_value" />
+
+              </group>
+              <group>
+                <field name="unit_discount_value" options="{'prefix': 'R$'}" />
+                <field name="unit_discount_percent" options="{'suffix': '%'}" />
+              </group>
+            </group>
+          </div>
+          <group>
+            <field name="discount_value" />
+            <field name="total_value" />
+          </group>
+          <notebook>
+            <page string="ICMS">
+              <div>
+                <group>
+                  <group>
+                    <field name="icms_origin" />
+                    <field name="icms_tax_group_id" />
+                    <field name="icms_tax_id" />
+                    <field name="icms_cst" />
+                    <field name="nfe_cst" />
+                    <field name="icms_tax_percent" />
+                    <field name="icms_value" />
+                  </group>
+
+                  <group>
+                    <field name="icms_bc_modality" />
+                    <field name="icms_bc_value" />
+                    <field name="icms_bc_reduction_percent" />
+
+                    <field name="icms_deferment_percent" />
+                    <field name="icms_deferment_value" />
+                  </group>
+                </group>
+              </div>
+              <div>
+                <group>
+                  <group>
+                    <field name="icms_fcp_tax_id" />
+                    <field name="icms_fcp_tax_percent" />
+                    <field name="icms_fcp_bc_value" />
+                    <field name="icms_fcp_value" />
+                  </group>
+
+                  <group>
+                    <fiels name="icms_sn_credit_percent" />
+                    <fiels name="icms_sn_credit_value" />
+                  </group>
+                </group>
+              </div>
+            </page>
+            <page string="ICMS ST">
+              <group>
+                <group>
+                  <field name="icms_st_modality" />
+                  <field name="icms_st_mva_percent" />
+                  <field name="icms_st_bc_value"/>
+                  <field name="icms_st_reduction_percent" />
+                  <field name="icms_st_tax_percent" />
+                  <field name="icms_st_value" />
+                  <field name="icms_st_reduction_percent" />
+
+                </group>
+                <group>
+                  <field name="icms_st_fcp_tax_id" />
+                  <field name="icms_st_fcp_tax_percent" />
+                  <field name="icms_st_fcp_bc_value" />
+                  <field name="icms_st_fcp_value" />
+                </group>
+              </group>
+            </page>
+            <page string="IPI">
+              <group>
+                <group>
+                  <field name="ipi_tax_id" readonly="forced_ipi_tax_id"/>
+                  <field name="ipi_cst_id" />
+                  <field name="ipi_tax_percent"/>
+                  <field name="ipi_bc_value" />
+                  <field name="ipi_value" />
+                </group>
+              </group>
+            </page>
+            <page string="PIS">
+              <group>
+                <group>
+                  <field name="pis_tax_id" readonly="is_simples_nacional"/>
+                  <field name="pis_cst_id" />
+                  <field name="pis_tax_percent" />
+                  <field name="pis_bc_value"/>
+                  <field name="pis_value" />
+                </group>
+                <group>
+                  <field name="pis_st_tax_id" readonly="is_simples_nacional"/>
+                  <field name="pis_st_cst_id" />
+                  <field name="pis_st_tax_percent" />
+                  <field name="pis_st_bc_value" />
+                  <field name="pis_st_value" />
+                </group>
+              </group>
+            </page>
+
+            <page string="COFINS">
+              <group>
+                <group>
+                  <field name="cofins_tax_id" readonly="is_simples_nacional"/>
+                  <field name="cofins_cst_id" />
+                  <field name="cofins_tax_percent" />
+                  <field name="cofins_bc_value" />
+                  <field name="cofins_value" />
+                </group>
+                <group>
+                  <field name="cofins_st_tax_id" readonly="is_simples_nacional"/>
+                  <field name="cofins_st_cst_id" />
+                  <field name="cofins_st_tax_percent" />
+                  <field name="cofins_st_bc_value" />
+                  <field name="cofins_st_value" />
+                </group>
+              </group>
+            </page>
+            <page string="Outros atributos do item">
+              <div>
+                <group>
+                  <field name="include_in_total" />
+                  <field name="product_description" />
+                </group>
+              </div>
+              <group>
+                <group>
+                  <field name="product_code" />
+                  <field name="gtin" />
+                  <field name="ncm_code" />
+                  <field name="cest_code" />
+                  <field name="cfop_code" />
+                </group>
+                <group>
+                  <field name="gtin_trib"/>
+                  <field name="unit_trib"/>
+                  <field name="quantity_trib"/>
+                  <field name="unit_value_trib"/>
+                </group>
+              </group>
+            </page>
+            <page string="Tributos Devolvidos">
+              <group>
+                <field name="total_ipi_returned" />
+                <field name="total_product_returned_percentage" />
+              </group>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="nfe_document_line_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe_document_line.list</field>
+    <field name="model">l10n_br_nfe.nfe.document.line</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="item_number" />
+        <field name="product_code" />
+        <field name="product_id" />
+        <field name="product_description" />
+        <field name="ncm_code" />
+        <field name="cest_code" />
+        <field name="cfop_code" />
+        <field name="unit" />
+        <field name="quantity" />
+        <field name="unit_price" />
+        <field name="total_value" />
+      </list>
+    </field>
+  </record>
+
+
+
+
+  <record id="nfe_document_line_action" model="ir.actions.act_window">
+    <field name="name">NFE Document</field>
+    <field name="res_model">l10n_br_nfe.nfe.document.line</field>
+    <field name="view_mode">form,list</field>
+    <field name="view_id" ref="nfe_document_line_view_list" />
+  </record>
+
+</odoo>

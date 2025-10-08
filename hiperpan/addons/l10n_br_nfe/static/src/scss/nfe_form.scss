@@ -1,0 +1,55 @@
+.o_form_view {
+
+  .nfe_parties {
+    display: flex;
+    width: 100%;
+    gap: 24px;
+
+    .o_field_widget {
+      margin: 0;
+    }
+  }
+
+  .nfe_party {
+    flex: 1;
+  }
+
+  .nfe_party_line{
+    display: flex;
+    margin-bottom: 2px;
+    gap: 4px;
+  }
+
+  .nfe_lines_container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .nfe_party_grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+
+  .nfe_documents {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 24px;
+  }
+
+  // .nfe_item {
+  //   .trib_group {
+  //     border: 1px solid #bbb;
+  //     padding: 8px;
+  //     border-radius: 4px;
+  //     margin: 24px 36px;
+  //   }
+  //   .trib_group_title {
+  //     font-size: 14px;
+  //     font-weight: 600;
+  //     margin-bottom: 8px;
+  //     color: #888;
+  //   }
+  // }
+
+}

@@ -15,8 +15,12 @@
             <field name="ncm_id" />
             <field name="fiscal_genre_id" />
             <field name="cest_id" />
+            <field name="no_barcode" />
           </group>
         </page>
+      </xpath>
+      <xpath expr="//field[@name='barcode']" position="after">
+        <field name="no_barcode" />
       </xpath>
     </field>
   </record>

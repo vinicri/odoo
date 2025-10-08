@@ -49,9 +49,9 @@ class NFeDocumentLine(models.Model):
     # possua codificação própria. Formato: “CFOP9999”.
     product_code = fields.Char(
         # related="product_id.default_code",
-        string="Código do Produto/Serviço",
+        string="Código do Produto",
         readonly=True,
-        required=True,
+        # required=True,
         # default="CFOP9999",
         store=True,
         size=60,
@@ -61,7 +61,8 @@ class NFeDocumentLine(models.Model):
     @api.depends("product_id")
     def _compute_product_code(self):
         for record in self:
-            record.product_code = record.product_id.default_code or "CFOP9999"
+            if record.product_id:
+                record.product_code = record.product_id.default_code  # or "CFOP9999"
 
     @api.constrains("product_code")
     def _check_product_code(self):
@@ -73,41 +74,53 @@ class NFeDocumentLine(models.Model):
     # Para produtos que não possuem código de barras com GTIN, deve ser informado o literal “SEM GTIN”
     gtin = fields.Char(
         related="product_id.barcode",
-        compute="_compute_gtin",
-        string="GTIN",
+        # compute="_compute_gtin",
+        string="Código de Barras",
         store=True,
         size=14,
-        required=True,
+        # required=True,
         readonly=True,
     )
 
-    @api.depends("product_id")
-    def _compute_gtin(self):
-        for record in self:
-            record.gtin = record.product_id.barcode
+    # @api.depends("product_id")
+    # def _compute_gtin(self):
+    #     for record in self:
+    #         record.gtin = record.product_id.barcode
 
     # Descrição do produto ou serviço.
     # Para NFC-e em homologação, a descrição do primeiro item deve ser "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL".
     product_description = fields.Char(
-        related="product_id.name",
-        string="Descrição do Produto/Serviço",
-        required=True,
+        # related="product_id.name",
+        string="Descrição do Produto",
+        # required=True,
         size=120,
-        store=True,
+        # store=True,
+        # compute="_compute_product_description",
     )
 
-    @api.constrains("product_description")
-    def _check_product_description(self):
+    @api.depends("product_id", "product_id.name")
+    def _compute_product_description(self):
         for record in self:
-            if record.product_description:
-                raise ValidationError(_("A Descrição do Produto é obrigatória."))
+            if record.product_id:
+                # Get the product name in Brazilian Portuguese
+                record.product_description = record.product_id.with_context(
+                    lang="pt_BR"
+                ).name
+            else:
+                record.product_description = False
+
+    # @api.constrains("product_description")
+    # def _check_product_description(self):
+    #     for record in self:
+    #         if not record.product_description:
+    #             raise ValidationError(_("A Descrição do Produto é obrigatória."))
 
     # Código NCM com 8 dígitos. Obrigatório.
     # Para serviço ou item sem produto, informar “00” (dois zeros)
     ncm_code = fields.Char(
         related="product_id.ncm_id.code",
         string="NCM",
-        required=True,
+        # required=True,
         size=8,
         store=True,
         readonly=True,
@@ -139,11 +152,8 @@ class NFeDocumentLine(models.Model):
 
     cfop_code = fields.Char(
         related="cfop_code_id.code",
-        string="CFOP",
-        required=True,
-        size=4,
+        string="Código CFOP",
         store=True,
-        readonly=True,
     )
 
     # Unidade Comercial. Informar a unidade de comercialização do produto.
@@ -151,7 +161,7 @@ class NFeDocumentLine(models.Model):
     unit = fields.Char(
         related="product_id.uom_id.nfe_name",
         string="Unidade de Venda",
-        required=True,
+        # required=True,
         readonly=True,
         size=6,
         store=True,
@@ -163,37 +173,70 @@ class NFeDocumentLine(models.Model):
     )
 
     # Valor Unitário de Comercialização do produto, informativo (0-10 decimais). [48, 49]
-    unit_value = fields.Float(
+    unit_price = fields.Float(
         string="Valor Unitário",
         readonly=False,
         required=True,
-        digits=(11, 10),
+        digits=(11, 2),
     )
+
+    unit_discount_value = fields.Float(
+        string="Valor de desconto por unidade",
+        digits=(11, 6),
+    )
+
+    unit_discount_percent = fields.Float(
+        string="Percentual de desconto por unidade",
+        digits=(3, 4),
+    )
+
+    @api.onchange("unit_discount_value", "unit_price")
+    def _compute_unit_discount_percent(self):
+        for record in self:
+            if record.unit_price and record.unit_discount_value:
+                record.unit_discount_percent = (
+                    record.unit_discount_value / record.unit_price * 100
+                )
+            else:
+                record.unit_discount_percent = 0
+
+    @api.onchange("unit_discount_percent", "unit_price")
+    def _compute_unit_discount_value(self):
+        for record in self:
+            if record.unit_price and record.unit_discount_percent:
+                record.unit_discount_value = (
+                    record.unit_price * record.unit_discount_percent / 100
+                )
+            else:
+                record.unit_discount_value = 0
 
     @api.onchange("product_id")
     def _onchange_product_id(self):
         for record in self:
-            price = record.product_id.pricelist._get_product_price(
-                record.product_id, 1.0
-            )
-            record.unit_value = price[record.product_id.id][0]
+            if record.product_id:
+                price_dict = record.product_id._price_compute("list_price")
+                record.unit_price = price_dict.get(record.product_id.id)
+            else:
+                record.unit_price = False
 
     # Valor Total Bruto do Produto/Serviço.
     # O valor do ICMS faz parte do Valor Total Bruto
     total_value = fields.Float(
         compute="_compute_total_value",
         string="Valor Total Bruto do Produto/Serviço",
-        required=True,
+        # required=True,
         digits=(13, 2),
         readonly=True,
         store=True,
     )
 
-    @api.depends("unit_value", "quantity")
+    @api.depends("unit_price", "quantity", "discount_value", "other_expenses_value")
     def _compute_total_value(self):
         for record in self:
             record.total_value = (
-                record.commercial_unit_value * record.commercial_quantity
+                record.unit_price * record.quantity
+                - record.discount_value
+                + record.other_expenses_value
             )
 
     # O GTIN da unidade tributável deve corresponder àquele da menor unidade comercializável identificada por código GTIN.
@@ -205,7 +248,7 @@ class NFeDocumentLine(models.Model):
         string="GTIN da Unidade Tributável",
         store=True,
         size=14,
-        required=True,
+        # required=True,
         readonly=True,
     )
 
@@ -213,7 +256,7 @@ class NFeDocumentLine(models.Model):
     unit_trib = fields.Char(
         related="product_id.uom_id.nfe_name",
         string="Unidade Tributável",
-        required=True,
+        # required=True,
         readonly=True,
         size=6,
         store=True,
@@ -223,7 +266,7 @@ class NFeDocumentLine(models.Model):
     quantity_trib = fields.Float(
         string="Quantidade Tributável",
         compute="_compute_quantity_trib",
-        required=True,
+        # required=True,
         readonly=True,
         digits=(11, 4),
     )
@@ -236,15 +279,15 @@ class NFeDocumentLine(models.Model):
     unit_value_trib = fields.Float(
         string="Valor Unitário",
         readonly=True,
-        required=True,
+        # required=True,
         digits=(11, 10),
         compute="_compute_unit_value_trib",
     )
 
-    @api.depends("unit_value")
+    @api.depends("unit_price")
     def _compute_unit_value_trib(self):
         for record in self:
-            record.unit_value_trib = record.unit_value
+            record.unit_value_trib = record.unit_price
 
     # Valor Total do Frete do item. Opcional.
     freight_value = fields.Float(string="Valor do Frete do Item", digits=(13, 2))
@@ -253,7 +296,17 @@ class NFeDocumentLine(models.Model):
     insurance_value = fields.Float(string="Valor do Seguro do Item", digits=(13, 2))
 
     # Valor do Desconto do item. Opcional.
-    discount_value = fields.Float(string="Valor do Desconto do Item", digits=(13, 2))
+    discount_value = fields.Float(
+        string="Valor do Desconto",
+        digits=(13, 2),
+        store=True,
+        compute="_compute_discount_value",
+    )
+
+    @api.depends("unit_discount_value", "unit_discount_percent")
+    def _compute_discount_value(self):
+        for record in self:
+            record.discount_value = record.unit_discount_value * record.quantity
 
     # Outras despesas acessórias do item. Opcional.
     other_expenses_value = fields.Float(
@@ -271,7 +324,53 @@ class NFeDocumentLine(models.Model):
         default="1",
     )
 
+    issuer_id = fields.Many2one(
+        comodel_name="res.partner",
+        string="Emitente",
+        readonly=True,
+    )
+
+    @api.onchange("issuer_id")
+    def _onchange_issuer_id(self):
+        if self.issuer_id:
+            print("self.issuer_id", self.issuer_id.company_id.id)
+            print("self.issuer_id", self.issuer_id.name)
+
     # ===  impostos ===
+
+    icms_tax_group_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax.group",
+        string="Grupo de Imposto ICMS",
+        store=True,
+        readonly=True,
+        compute="_compute_icms_tax_group_id",
+    )
+
+    # 1 - Simples Nacional,
+    # 2 - Simples Nacional – excesso de sublimite da receita bruta
+    # 3 - Regime Normal
+    @api.depends("issuer_id", "issuer_id.fiscal_framework")
+    def _compute_icms_tax_group_id(self):
+        for record in self:
+            print(
+                "record.issuer_id.fiscal_framework",
+                record.issuer_id.fiscal_framework,
+            )
+            if not record.issuer_id or not record.issuer_id.fiscal_framework:
+                record.icms_tax_group_id = False
+                return
+
+            if record.issuer_id and record.issuer_id.fiscal_framework in (
+                "1",
+                "2",
+            ):
+                record.icms_tax_group_id = self.env.ref(
+                    "l10n_br_fiscal.tax_group_icmssn"
+                ).id
+            else:
+                record.icms_tax_group_id = self.env.ref(
+                    "l10n_br_fiscal.tax_group_icms"
+                ).id
 
     # === ICMS ===
 
@@ -279,31 +378,15 @@ class NFeDocumentLine(models.Model):
         related="product_id.icms_origin_id.code",
         string="Origem da Mercadoria",
         size=1,
-        required=True,
+        # required=True,
         store=True,
         readonly=True,
     )
 
-    # 1 - Simples Nacional
-    # 2 - Simples Nacional – excesso de sublimite da receita bruta
-    # 3 - Regime Normal
-    def _domain_icms_tax_id(self):
-        if (
-            self.nfe_id.issuer_id.fiscal_framework == "1"
-            or self.nfe_id.issuer_id.fiscal_framework == "2"
-        ):
-            return [("tax_group_id", "=", "tax_group_icmssn")]
-        return [
-            "|",
-            ("tax_group_id", "=", "tax_group_icms"),
-            ("tax_group_id", "=", "tax_group_icmsst"),
-        ]
-
     icms_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="Imposto",
-        domain=_domain_icms_tax_id,
-        # domain=[('cst_out_id', '=', icms_cst_id)],
+        domain="[('tax_group_id', '=', icms_tax_group_id)]",
         required=True,
     )
 
@@ -311,7 +394,7 @@ class NFeDocumentLine(models.Model):
         related="icms_tax_id.cst_out_id",
         string="CST ICMS",
         readonly=True,
-        required=True,
+        # required=True,
     )
 
     # devolucao de simples nacional csosn 900
@@ -331,6 +414,19 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    nfe_cst = fields.Char(
+        string="CST",
+        compute="_compute_nfe_cst",
+    )
+
+    @api.depends("icms_origin", "icms_cst")
+    def _compute_nfe_cst(self):
+        for record in self:
+            if record.icms_origin and record.icms_cst:
+                record.nfe_cst = f"{record.icms_origin}{record.icms_cst}"
+            else:
+                record.nfe_cst = False
+
     @api.depends("icms_cst_id", "icms_origin")
     def _compute_icms_cst(self):
         for record in self:
@@ -348,7 +444,6 @@ class NFeDocumentLine(models.Model):
             ("2", "Preço Tabelado Máximo (valor)"),
             ("3", "Valor da Operação"),
         ],
-        default="3",
     )
 
     icms_tax_percent = fields.Float(
@@ -383,11 +478,10 @@ class NFeDocumentLine(models.Model):
     icms_value = fields.Float(
         string="Valor do ICMS",
         digits=(13, 2),
-        compute="_compute_icms_value",
+        # compute="_compute_icms_value",
         store=True,
     )
 
-    @api.depends("icms_tax_id", "icms_bc_value")
     def _compute_icms_value(self):
         for record in self:
             record.icms_value = False
@@ -404,29 +498,34 @@ class NFeDocumentLine(models.Model):
         #     else:
         #         record.icms_value = False
 
+    def _domain_icms_fcp_tax_id(self):
+        return [
+            ("tax_group_id", "=", self.env.ref("l10n_br_fiscal.tax_group_icmsfcp").id)
+        ]
+
     icms_fcp_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
-        string="Imposto",
-        domain=[("tax_group_id", "=", "tax_group_icmsfcp")],
-        compute="_compute_icms_fcp_tax_id",
+        string="FCP",
+        domain=_domain_icms_fcp_tax_id,
+        # compute="_compute_icms_fcp_tax_id",
     )
 
-    @api.depends("icms_tax_id")
-    def _compute_icms_fcp_tax_id(self):
-        icms_sn_group = self.env.ref("l10n_br_fiscal.tax_group_icmssn")
-        for record in self:
-            if record.icms_tax_id.tax_group_id == icms_sn_group:
-                record.icms_fcp_tax_id = False
+    # @api.depends("icms_tax_id")
+    # def _compute_icms_fcp_tax_id(self):
+    #     icms_sn_group = self.env.ref("l10n_br_fiscal.tax_group_icmssn")
+    #     for record in self:
+    #         if record.icms_tax_id and record.icms_tax_id.tax_group_id == icms_sn_group:
+    #             record.icms_fcp_tax_id = False
 
     icms_fcp_tax_percent = fields.Float(
         related="icms_fcp_tax_id.percent_amount",
-        string="Imposto",
+        string="Aliquota do FCP",
         digits=(3, 4),
         store=True,
         readonly=True,
     )
 
-    icms_fcp_bc_value = fields.Float(string="Valor da Base de Calculo", digits=(13, 2))
+    icms_fcp_bc_value = fields.Float(string="BC FCP`", digits=(13, 2))
 
     icms_fcp_value = fields.Float(
         string="Valor do FCP", digits=(13, 2), compute="_compute_icms_fcp_value"
@@ -440,31 +539,29 @@ class NFeDocumentLine(models.Model):
     icms_sn_credit_percent = fields.Float(
         string="Aliquota de Crédito do ICMS SN",
         digits=(13, 2),
-        compute="_compute_icms_sn_credit",
     )
 
     icms_sn_credit_value = fields.Float(
         string="Valor do Crédito",
         digits=(13, 2),
-        compute="_compute_icms_sn_credit",
     )
 
-    @api.depends("icms_tax_id")
-    def _compute_icms_sn_credit(self):
-        for record in self:
-            record.icms_sn_credit_percent = False
-            record.icms_sn_credit_value = False
-        # icms_sn_credit_tax = self.env.ref("l10n_br_fiscal.tax_icms_sn_com_credito")
-        # icms_sn_credit_tax_st = self.env.ref(
-        #     "l10n_br_fiscal.tax_icms_sn_com_credito_st"
-        # )
-        # for record in self:
-        #     if record.icms_tax_id not in (
-        #         icms_sn_credit_tax,
-        #         icms_sn_credit_tax_st,
-        #     ):
-        #         record.icms_sn_credit_percent = False
-        #         record.icms_sn_credit_value = False
+    # @api.depends("icms_tax_id")
+    # def _compute_icms_sn_credit(self):
+    #     for record in self:
+    #         record.icms_sn_credit_percent = False
+    #         record.icms_sn_credit_value = False
+    # icms_sn_credit_tax = self.env.ref("l10n_br_fiscal.tax_icms_sn_com_credito")
+    # icms_sn_credit_tax_st = self.env.ref(
+    #     "l10n_br_fiscal.tax_icms_sn_com_credito_st"
+    # )
+    # for record in self:
+    #     if record.icms_tax_id not in (
+    #         icms_sn_credit_tax,
+    #         icms_sn_credit_tax_st,
+    #     ):
+    #         record.icms_sn_credit_percent = False
+    #         record.icms_sn_credit_value = False
 
     # ===  icms ===
     # origem de marcadoria 0-8
@@ -523,15 +620,24 @@ class NFeDocumentLine(models.Model):
 
     icms_st_value = fields.Float(string="Valor do ICMS ST", digits=(13, 2))
 
+    def _domain_icms_st_fcp_tax_id(self):
+        return [
+            (
+                "tax_group_id",
+                "=",
+                self.env.ref("l10n_br_fiscal.tax_group_icmsfcp_st").id,
+            )
+        ]
+
     icms_st_fcp_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
-        string="Imposto",
-        domain=[("tax_group_id", "=", "tax_group_icmsfcp_st")],
+        string="FCP ST",
+        domain=_domain_icms_st_fcp_tax_id,
     )
 
     icms_st_fcp_tax_percent = fields.Float(
         related="icms_st_fcp_tax_id.percent_amount",
-        string="Imposto",
+        string="Aliquota do FCP ST",
         digits=(13, 2),
         store=True,
     )
@@ -561,40 +667,72 @@ class NFeDocumentLine(models.Model):
 
     # utilizando o padrao, depois implementar conforme seção 8.9 do MOC – Visão Geral (Tabela do Código de Enquadramento do IPI)
     # default 999 para outros produtos
+    # Informar apenas quando o item for sujeito ao IPI
     ipi_guideline_code = fields.Char(string="Código de Enquadramento", size=3)
 
     def _is_issuer_simples_nacional(self):
-        return self.nfe_id.issuer_id.fiscal_framework in ("1", "2")
+        return self.issuer_id.fiscal_framework in ("1", "2")
 
     def _issuer_contributes_to_ipi(self):
-        return self.nfe_id.issuer_id.ipi_contributes
+        return self.issuer_id.ipi_contributes
 
-    # empresa do simples utilizar ipi de saida 99 com valor zero quando for contruibinte do ipi
-    # simples NAO contribuinte do ipi e empresa no regime normal que nao tributa ipi (comercio) utilizar ipi de saida 53
+    # empresa do simples utilizar ipi de saida 99 com valor zero quando for contruibinte do ipi - 99 outras saidas
+    # simples NAO contribuinte do ipi e empresa no regime normal que nao tributa ipi (comercio) utilizar ipi de saida 53 - saida nao tributada
     # devolucao de mercadoria utilizar 53
     # industria utilizar os outros CST apropriados
-    def _domain_ipi_tax_id(self):
-        if not self._issuer_contributes_to_ipi():
-            return [("cst_out_id", "=", "cst_ipi_53")]
-        if self._is_issuer_simples_nacional():
-            return [("cst_out_id", "=", "cst_ipi_99")]
-        else:
-            return [("tax_group_id", "=", "tax_group_ipi")]
+    # def _domain_ipi_tax_id(self):
+    #     if not self._issuer_contributes_to_ipi():
+    #         return [("cst_out_id", "=", "cst_ipi_53")]
+    #     if self._is_issuer_simples_nacional():
+    #         return [("cst_out_id", "=", "cst_ipi_99")]
+    #     else:
+    #         return [("tax_group_id", "=", "tax_group_ipi")]
+
+    forced_ipi_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="IPI",
+        compute="_compute_forced_ipi_tax_id",
+    )
+
+    @api.depends("issuer_id", "issuer_id.fiscal_framework", "issuer_id.ipi_contributes")
+    def _compute_forced_ipi_tax_id(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                if record._issuer_contributes_to_ipi():
+                    record.forced_ipi_tax_id = record.env.ref(
+                        "l10n_br_fiscal.tax_ipi_outros"
+                    ).id
+                else:
+                    record.forced_ipi_tax_id = record.env.ref(
+                        "l10n_br_fiscal.tax_ipi_nt"
+                    ).id
+            else:
+                record.forced_ipi_tax_id = False
 
     def _default_ipi_tax_id(self):
-        if not self._issuer_contributes_to_ipi():
-            return self.env.ref("l10n_br_fiscal.tax_ipi_nt")
         if self._is_issuer_simples_nacional():
-            return self.env.ref("l10n_br_fiscal.tax_ipi_outros")
+            if self._issuer_contributes_to_ipi():
+                return self.env.ref("l10n_br_fiscal.tax_ipi_outros")
+            else:
+                return self.env.ref("l10n_br_fiscal.tax_ipi_nt")
         else:
             return False
+
+    def _domain_ipi_tax_id(self):
+        return [("tax_group_id", "=", self.env.ref("l10n_br_fiscal.tax_group_ipi").id)]
 
     ipi_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="IPI",
+        compute="_compute_ipi_tax_id",
         domain=_domain_ipi_tax_id,
-        default=_default_ipi_tax_id,
+        store=True,
     )
+
+    @api.depends("forced_ipi_tax_id")
+    def _compute_ipi_tax_id(self):
+        for record in self:
+            record.ipi_tax_id = record.forced_ipi_tax_id
 
     # empresa do simples utilizar ipi de saida 99 com valor zero quando for contruibinte do ipi
     # simples NAO contribuinte do ipi e empresa no regime normal que nao tributa ipi (comercio) utilizar ipi de saida 53
@@ -604,7 +742,7 @@ class NFeDocumentLine(models.Model):
         related="ipi_tax_id.cst_out_id",
         string="CST IPI",
         readonly=True,
-        required=True,
+        # required=True,
     )
 
     ipi_cst = fields.Char(
@@ -612,59 +750,39 @@ class NFeDocumentLine(models.Model):
     )
 
     ipi_tax_percent = fields.Float(
-        string="Aliquota do IPI",
-        digits=(13, 2),
-        compute="_compute_ipi_tax_percent",
+        related="ipi_tax_id.percent_amount",
+        string="Aliquota",
+        digits=(3, 4),
+        readonly=True,
         store=True,
     )
-
-    #        related="ipi_tax_id.percent_amount",
-
-    def _compute_ipi_tax_percent(self):
-        for record in self:
-            if self._is_issuer_simples_nacional():
-                record.ipi_tax_percent = 0.00
-            else:
-                record.ipi_tax_percent = record.ipi_tax_id.percent_amount
-
-    def _default_ipi_bc_value(self):
-        if not self._issuer_contributes_to_ipi():
-            return False
-        if self._is_issuer_simples_nacional():
-            return 0.00
-        else:
-            return False
 
     ipi_bc_value = fields.Float(
         string="Valor da Base de Calculo do IPI",
         digits=(13, 2),
-        default=_default_ipi_bc_value,
+        compute="_compute_ipi_bc_value",
+        readonly=True,
     )
 
-    def _default_ipi_value(self):
-        if not self._issuer_contributes_to_ipi():
-            return False
-        if self._is_issuer_simples_nacional():
-            return 0.00
-        else:
-            return False
+    @api.depends("issuer_id.fiscal_framework")
+    def _compute_ipi_bc_value(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.ipi_bc_value = 0.00
+            else:
+                record.ipi_bc_value = False
 
     ipi_value = fields.Float(
-        string="Valor do IPI", digits=(13, 2), default=_default_ipi_value
+        string="Valor do IPI",
+        digits=(13, 2),
+        readonly=True,
+        compute="_compute_ipi_value",
     )
 
-    # @api.onchange("ipi_tax_id")
-    # def _onchange_ipi_tax_id(self):
-    #     for record in self:
-    #         if not record._issuer_contributes_to_ipi():
-    #             record.ipi_bc_value = False
-    #             record.ipi_value = False
-    #         if record._is_issuer_simples_nacional():
-    #             record.ipi_bc_value = 0.00
-    #             record.ipi_value = 0.00
-    #         else:
-    #             record.ipi_bc_value = False
-    #             record.ipi_value = False
+    @api.depends("ipi_bc_value", "ipi_tax_percent")
+    def _compute_ipi_value(self):
+        for record in self:
+            record.ipi_value = record.ipi_bc_value * record.ipi_tax_percent / 100
 
     ipi_unit_value = fields.Float(string="Valor na Unidade Tributavel", digits=(13, 2))
 
@@ -688,62 +806,87 @@ class NFeDocumentLine(models.Model):
     # Alíquota 0%.
     # Valor do COFINS: 0,00.
 
-    def _domain_pis_tax_id(self):
-        if self._is_issuer_simples_nacional():
-            return [("cst_out_id", "=", "cst_pis_99")]
-        else:
-            return [("tax_group_id", "=", "tax_group_pis")]
+    is_simples_nacional = fields.Boolean(
+        string="Simples Nacional",
+        compute="_compute_is_simples_nacional",
+        readonly=True,
+    )
 
-    def _default_pis_tax_id(self):
-        if self._is_issuer_simples_nacional():
-            return self.env.ref("l10n_br_fiscal.tax_pis_outras_operacoes")
-        else:
-            return False
+    @api.depends("issuer_id", "issuer_id.fiscal_framework")
+    def _compute_is_simples_nacional(self):
+        for record in self:
+            record.is_simples_nacional = record._is_issuer_simples_nacional()
 
     pis_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="PIS",
-        domain=_domain_pis_tax_id,
-        default=_default_pis_tax_id,
+        compute="_compute_pis_tax_id",
+        store=True,
+        domain="[('tax_group_id', '=', 'tax_group_pis')]",
+        readonly=False,
     )
+
+    @api.depends("is_simples_nacional")
+    def _compute_pis_tax_id(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.pis_tax_id = record.env.ref(
+                    "l10n_br_fiscal.tax_pis_outras_operacoes"
+                ).id
+            else:
+                record.pis_tax_id = False
 
     pis_cst_id = fields.Many2one(
         related="pis_tax_id.cst_out_id",
         string="CST PIS",
         readonly=True,
-        required=True,
+        store=True,
+        # required=True,
     )
 
     pis_cst = fields.Char(
-        related="pis_cst_id.code", string="CST PIS", size=2, store=True, readonly=True
+        related="pis_cst_id.code",
+        string="CST PIS",
+        size=2,
+        store=True,
+        readonly=True,
     )
-
-    @api.depends("pis_tax_id")
-    def _compute_pis_tax_percent(self):
-        for record in self:
-            if self._is_issuer_simples_nacional():
-                record.pis_tax_percent = 0.00
-            else:
-                record.pis_tax_percent = record.pis_tax_id.percent_amount
 
     pis_tax_percent = fields.Float(
+        related="pis_tax_id.percent_amount",
+        store=True,
         string="Aliquota do PIS",
         digits=(3, 4),
-        compute="_compute_pis_tax_percent",
-        store=True,
     )
-
-    def _default_pis_bc_value(self):
-        if self._is_issuer_simples_nacional():
-            return 0.00
-        else:
-            return False
 
     pis_bc_value = fields.Float(
         string="Valor da Base de Calculo do PIS",
         digits=(13, 2),
-        default=_default_pis_bc_value,
+        readonly=True,
+        store=True,
+        compute="_compute_pis_bc_value",
     )
+
+    @api.depends("is_simples_nacional")
+    def _compute_pis_bc_value(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.pis_bc_value = 0.00
+            else:
+                record.pis_bc_value = False
+
+    pis_value = fields.Float(
+        string="Valor do PIS",
+        digits=(13, 2),
+        readonly=True,
+        store=True,
+        compute="_compute_pis_value",
+    )
+
+    @api.depends("pis_bc_value", "pis_tax_percent")
+    def _compute_pis_value(self):
+        for record in self:
+            record.pis_value = record.pis_bc_value * record.pis_tax_percent / 100
 
     pis_bc_quantity = fields.Float(
         string="Quantidade (Tributado por quantidade)", digits=(12, 4)
@@ -752,17 +895,6 @@ class NFeDocumentLine(models.Model):
     pis_tax_quantity = fields.Float(
         string="Aliquota em reais (Tributado por quantidade)", digits=(11, 4)
     )
-
-    def _default_pis_value(self):
-        if self._is_issuer_simples_nacional():
-            return 0.00
-        else:
-            return False
-
-    pis_value = fields.Float(
-        string="Valor do PIS", digits=(13, 2), default=_default_pis_value
-    )
-
     # cst
     # base de calculo
     # aliquota em percentual
@@ -776,13 +908,22 @@ class NFeDocumentLine(models.Model):
         comodel_name="l10n_br_fiscal.tax",
         string="PIS ST",
         domain=[("tax_group_id", "=", "tax_group_pis_st")],
+        readonly=False,
+        compute="_compute_pis_st_tax_id",
+        store=True,
     )
+
+    @api.depends("is_simples_nacional")
+    def _compute_pis_st_tax_id(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.pis_st_tax_id = False
 
     pis_st_cst_id = fields.Many2one(
         related="pis_st_tax_id.cst_out_id",
         string="CST PIS ST",
         readonly=True,
-        required=True,
+        store=True,
     )
 
     pis_st_cst = fields.Char(
@@ -797,12 +938,21 @@ class NFeDocumentLine(models.Model):
         related="pis_st_tax_id.percent_amount",
         string="Aliquota do PIS ST",
         digits=(3, 4),
+        readonly=True,
         store=True,
     )
 
     pis_st_bc_value = fields.Float(
-        string="Valor da Base de Calculo do PIS ST", digits=(13, 2)
+        string="Valor da Base de Calculo do PIS ST",
+        digits=(13, 2),
+        readonly=True,
+        compute="_compute_pis_st_bc_value",
+        store=True,
     )
+
+    def _compute_pis_st_bc_value(self):
+        for record in self:
+            record.pis_st_bc_value = False
 
     pis_st_bc_quantity = fields.Float(
         string="Quantidade PIS ST (Tributado por quantidade)", digits=(12, 4)
@@ -812,7 +962,17 @@ class NFeDocumentLine(models.Model):
         string="Aliquota em reais PIS ST (Tributado por quantidade)", digits=(11, 4)
     )
 
-    pis_st_value = fields.Float(string="Valor do PIS ST", digits=(13, 2))
+    pis_st_value = fields.Float(
+        string="Valor do PIS ST",
+        digits=(13, 2),
+        compute="_compute_pis_st_value",
+        store=True,
+        readonly=True,
+    )
+
+    def _compute_pis_st_value(self):
+        for record in self:
+            record.pis_st_value = False
 
     # base de calculo
     # aliquota em percentual
@@ -822,30 +982,31 @@ class NFeDocumentLine(models.Model):
 
     # ===  cofins ===
 
-    def _domain_cofins_tax_id(self):
-        if self._is_issuer_simples_nacional():
-            return [("cst_out_id", "=", "cst_cofins_99")]
-        else:
-            return [("tax_group_id", "=", "tax_group_cofins")]
-
-    def _default_cofins_tax_id(self):
-        if self._is_issuer_simples_nacional():
-            return self.env.ref("l10n_br_fiscal.tax_cofins_outras_operacoes")
-        else:
-            return False
-
     cofins_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="COFINS",
-        domain=_domain_cofins_tax_id,
-        default=_default_cofins_tax_id,
+        domain="[('tax_group_id', '=', 'tax_group_cofins')]",
+        readonly=False,
+        store=True,
+        compute="_compute_cofins_tax_id",
     )
+
+    @api.depends("is_simples_nacional")
+    def _compute_cofins_tax_id(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.cofins_tax_id = record.env.ref(
+                    "l10n_br_fiscal.tax_cofins_outras_operacoes"
+                ).id
+            else:
+                record.cofins_tax_id = False
 
     cofins_cst_id = fields.Many2one(
         related="cofins_tax_id.cst_out_id",
         string="CST COFINS",
         readonly=True,
-        required=True,
+        # required=True,
+        store=True,
     )
 
     cofins_cst = fields.Char(
@@ -856,31 +1017,29 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
-    def _default_cofins_tax_percent(self):
-        if self._is_issuer_simples_nacional():
-            return 0.00
-        else:
-            return False
-
     cofins_tax_percent = fields.Float(
         related="cofins_tax_id.percent_amount",
         string="Aliquota do COFINS",
         digits=(3, 4),
-        default=_default_cofins_tax_percent,
         store=True,
+        readonly=True,
     )
-
-    def _default_cofins_bc_value(self):
-        if self._is_issuer_simples_nacional():
-            return 0.00
-        else:
-            return False
 
     cofins_bc_value = fields.Float(
         string="Valor da Base de Calculo do COFINS",
         digits=(13, 2),
-        default=_default_cofins_bc_value,
+        store=True,
+        compute="_compute_cofins_bc_value",
+        readonly=True,
     )
+
+    @api.depends("is_simples_nacional")
+    def _compute_cofins_bc_value(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.cofins_bc_value = 0.00
+            else:
+                record.cofins_bc_value = False
 
     cofins_bc_quantity = fields.Float(
         string="Quantidade COFINS (Tributado por quantidade)", digits=(12, 4)
@@ -890,17 +1049,20 @@ class NFeDocumentLine(models.Model):
         string="Aliquota em reais COFINS (Tributado por quantidade)", digits=(11, 4)
     )
 
-    def _default_cofins_value(self):
-        if self._is_issuer_simples_nacional():
-            return 0.00
-        else:
-            return False
-
     cofins_value = fields.Float(
         string="Valor do COFINS",
         digits=(13, 2),
-        default=_default_cofins_value,
+        store=True,
+        compute="_compute_cofins_value",
+        readonly=True,
     )
+
+    @api.depends("cofins_bc_value", "cofins_tax_percent")
+    def _compute_cofins_value(self):
+        for record in self:
+            record.cofins_value = (
+                record.cofins_bc_value * record.cofins_tax_percent / 100
+            )
 
     # base de calculo
     # aliquota em percentual
@@ -914,13 +1076,22 @@ class NFeDocumentLine(models.Model):
         comodel_name="l10n_br_fiscal.tax",
         string="COFINS ST",
         domain=[("tax_group_id", "=", "tax_group_cofins_st")],
+        readonly=False,
+        store=True,
+        compute="_compute_cofins_st_tax_id",
     )
+
+    @api.depends("is_simples_nacional")
+    def _compute_cofins_st_tax_id(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.cofins_st_tax_id = False
 
     cofins_st_cst_id = fields.Many2one(
         related="cofins_st_tax_id.cst_out_id",
         string="CST COFINS ST",
         readonly=True,
-        required=True,
+        store=True,
     )
 
     cofins_st_cst = fields.Char(
@@ -935,14 +1106,21 @@ class NFeDocumentLine(models.Model):
         related="cofins_st_tax_id.percent_amount",
         string="Aliquota do COFINS ST",
         digits=(3, 4),
+        readonly=True,
         store=True,
     )
 
     cofins_st_bc_value = fields.Float(
-        string="Valor da Base de Calculo do COFINS ST", digits=(13, 2)
+        string="Valor da Base de Calculo do COFINS ST",
+        digits=(13, 2),
+        store=True,
+        compute="_compute_cofins_st_bc_value",
+        readonly=True,
     )
 
-    cofins_st_value = fields.Float(string="Valor do COFINS ST", digits=(13, 2))
+    def _compute_cofins_st_bc_value(self):
+        for record in self:
+            record.cofins_st_bc_value = False
 
     cofins_st_bc_quantity = fields.Float(
         string="Quantidade COFINS ST (Tributado por quantidade)", digits=(12, 4)
@@ -951,6 +1129,18 @@ class NFeDocumentLine(models.Model):
     cofins_st_tax_quantity = fields.Float(
         string="Aliquota em reais COFINS ST (Tributado por quantidade)", digits=(11, 4)
     )
+
+    cofins_st_value = fields.Float(
+        string="Valor do COFINS ST",
+        digits=(13, 2),
+        store=True,
+        compute="_compute_cofins_st_value",
+        readonly=True,
+    )
+
+    def _compute_cofins_st_value(self):
+        for record in self:
+            record.cofins_st_value = False
 
     # base de calculo
     # aliquota em percentual
@@ -972,13 +1162,17 @@ class NFeDocumentLine(models.Model):
     #  IPI Devolvido
 
     # Valor Total do IPI Devolvido.
+    # O motivo da devolução deverá ser informado pela empresa no campo de Informações Adicionais do Produto
     # enquanto o icms vai destacado na nota em caso de devolucao, o ipi nao e destacado
     # e vai nesse campo. Se destacar o ipi, vai gerar debito de ipi pra empresa.
     total_ipi_returned = fields.Float(
-        string="Valor Total do IPI Devolvido", digits=(13, 2)
+        string="Valor Total do IPI Devolvido",
+        digits=(13, 2),
     )
 
     # Percentual da Mercadoria Devolvida
     total_product_returned_percentage = fields.Float(
-        string="Percentual da Mercadoria Devolvida", digits=(3, 2)
+        string="Percentual da Mercadoria Devolvida",
+        digits=(3, 2),
+        widget="percentage",
     )

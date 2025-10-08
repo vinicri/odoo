@@ -83,25 +83,23 @@ class NFeDocumentPayment(models.Model):
         string="Valor do Pagamento",
         digits=(13, 2),
         required=True,
-        compute="_compute_payment_value",
-        store=True,
     )
     # Valor do Pagamento.
 
-    @api.depends("nfe_id")
-    def _compute_payment_value(self):
-        for record in self:
-            if record.payment_value:
-                continue
-            all_nfe_payments = self.env["l10n_br_nfe.nfe.document.payment"].search(
-                [("nfe_id", "=", self.nfe_id.id)]
-            )
-            total_payment_value = sum(all_nfe_payments.mapped("payment_value"))
-            remaining_payment_value = record.nfe_id.total_nfe - total_payment_value
-            if remaining_payment_value > 0:
-                record.payment_value = remaining_payment_value
-            else:
-                record.payment_value = 0
+    # @api.depends("nfe_id")
+    # def _compute_payment_value(self):
+    #     for record in self:
+    #         if record.payment_value:
+    #             continue
+    #         all_nfe_payments = self.env["l10n_br_nfe.nfe.document.payment"].search(
+    #             [("nfe_id", "=", self.nfe_id.id)]
+    #         )
+    #         total_payment_value = sum(all_nfe_payments.mapped("payment_value"))
+    #         remaining_payment_value = record.nfe_id.total_nfe - total_payment_value
+    #         if remaining_payment_value > 0:
+    #             record.payment_value = remaining_payment_value
+    #         else:
+    #             record.payment_value = 0
 
     # grupo de cartoes. opcional
     card_integration_type = fields.Selection(

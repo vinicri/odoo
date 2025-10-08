@@ -11,35 +11,223 @@
             <field name="nfe_version" />
             <field name="company_id" />
             <field name="access_key" />
-            <field name="issuer_id" />
+            <field name="operation_nature_id" />
+            <field name="operation_nature_name" />
+            <field name="operation_type" />
+            <field name="series_id" />
+            <field name="document_model" />
+            <field name="nfe_series" />
+            <field name="nfe_number" />
+            <field name="issue_datetime" />
+            <field name="departure_arrival_datetime" />
+            <field name="destination_id" />
+            <field name="danfe_print_format" />
+            <field name="emission_type" />
+            <field name="env_emission" />
+            <field name="emission_finality" />
+            <field name="final_customer_operation" />
+            <field name="presence_indicator" />
+            <field name="intermediator_indicator" />
+            <field name="emission_process" />
+            <field name="app_version" />
+
+
+
 
           </group>
-        </sheet>
-        <sheet>
+          <div class="nfe_parties">
+            <div class="nfe_party">
+              <group>
+                <field name="recipient_id" />
+              </group>
+              <div class="nfe_documents">
+                <div class="nfe_party_line">
+                  <label for="recipient_legal_name">Razão Social</label>
+                  <field name="recipient_legal_name" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="recipient_cnpj">CNPJ</label>
+                  <field name="recipient_cnpj" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="recipient_cpf">CPF</label>
+                  <field name="recipient_cpf" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="recipient_ie_indicator">Indicador da IE</label>
+                  <field name="recipient_ie_indicator" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="recipient_ie">IE</label>
+                  <field name="recipient_ie" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="recipient_suframa">IE SUFRAMA</label>
+                  <field name="recipient_suframa" />
+                </div>
+
+              </div>
+              <div class="nfe_party_grid">
+                <div class="nfe_lines_container">
+                  <div class="nfe_party_line">
+                    <label for="recipient_street">Endereço</label>
+                    <field name="recipient_street" />
+                    <field name="recipient_street_number" />
+                    <field name="recipient_street_complement" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <label for="recipient_district">Bairro</label>
+                    <field name="recipient_district" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <field name="recipient_city_name" />
+                    <field name="recipient_state" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <label for="recipient_zip">CEP</label>
+                    <field name="recipient_zip" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <field name="recipient_country_name"/>
+                  </div>
+                  <div class="nfe_party_line">
+                    <label for="recipient_phone">Telefone</label>
+                    <field name="recipient_phone" />
+                  </div>
+                </div>
+                <div class="nfe_lines_container">
+                  <div class="nfe_party_line">
+                    <label for="recipient_city_code">Código do Município</label>
+                    <field name="recipient_city_code" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <label for="recipient_country_code">Código País</label>
+                    <field name="recipient_country_code" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="nfe_party">
+              <group>
+                <field name="issuer_id" />
+              </group>
+              <div class="nfe_documents">
+                <div class="nfe_party_line">
+                  <label for="issuer_legal_name">Razão Social</label>
+                  <field name="issuer_legal_name" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="issuer_trade_name">Nome Fantasia</label>
+                  <field name="issuer_trade_name" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="issuer_cnpj">CNPJ</label>
+                  <field name="issuer_cnpj" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="issuer_cpf">CPF</label>
+                  <field name="issuer_cpf" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="issuer_ie">IE</label>
+                  <field name="issuer_ie" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="issuer_im">IM</label>
+                  <field name="issuer_im" />
+                </div>
+                <div class="nfe_party_line">
+                  <label for="issuer_fiscal_framework">Regime Fiscal</label>
+                  <field name="issuer_fiscal_framework" />
+                </div>
+              </div>
+              <div class="nfe_party_grid">
+                <div class="nfe_lines_container">
+                  <div class="nfe_party_line">
+                    <label for="issuer_street">Endereço</label>
+                    <field name="issuer_street" />
+                    <field name="issuer_street_number" />
+                    <field name="issuer_street_complement" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <label for="issuer_district">Bairro</label>
+                    <field name="issuer_district" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <field name="issuer_city_name" />
+                    <field name="issuer_state" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <label for="issuer_zip">CEP</label>
+                    <field name="issuer_zip" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <field name="issuer_country_name"/>
+                  </div>
+                  <div class="nfe_party_line">
+                    <label for="issuer_phone">Telefone</label>
+                    <field name="issuer_phone" />
+                  </div>
+                </div>
+                <div class="nfe_lines_container">
+                  <div class="nfe_party_line">
+                    <label for="issuer_city_code">Código do Município</label>
+                    <field name="issuer_city_code" />
+                  </div>
+                  <div class="nfe_party_line">
+                    <label for="issuer_country_code">Código País</label>
+                    <field name="issuer_country_code" />
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <group>
+            <field name="invoice_line_ids" context="{'default_issuer_id': issuer_id}"/>
+          </group>
+
+          <group>
+            <field name="total_icms_base" />
+            <field name="total_icms" />
+            <field name="total_fcp" />
+
+            <field name="total_icms_st_base" />
+            <field name="total_icms_st_value" />
+            <field name="total_icms_st_fcp" />
+
+            <field name="total_ipi" />
+            <field name="total_ipi_returned" />
+
+            <field name="total_products" />
+            <field name="total_freight" />
+            <field name="total_insurance" />
+            <field name="total_discount" />
+            <field name="total_other_expenses" />
+
+
+            <field name="total_pis" />
+            <field name="total_cofins" />
+
+            <field name="total_nfe" />
+          </group>
+
+          <group>
+            <field name="payment_detail_ids" context="{'default_payment_value': remaining_payment_value}" />
+          </group>
+
           <group>
             <group>
-              <field name="issuer_id" />
-              <field name="issuer_cnpj" />
-              <field name="issuer_cpf" />
-              <field name="issuer_legal_name" />
-              <field name="issuer_trade_name" />
-              <field name="issuer_street" />
-              <field name="issuer_street_number" />
-              <field name="issuer_street_complement" />
-              <field name="issuer_district" />
-              <field name="issuer_city_code" />
-              <field name="issuer_city_name" />
-              <field name="issuer_state" />
-              <field name="issuer_zip" />
-              <field name="issuer_country_code" />
-              <field name="issuer_country_name" />
-              <field name="issuer_phone" />
-              <field name="issuer_ie" />
-              <field name="issuer_im" />
-
+              <field name="additional_information" />
+            </group>
+            <group>
+              <field name="mandatory_additional_information" />
             </group>
           </group>
+
         </sheet>
+
       </form>
     </field>
   </record>

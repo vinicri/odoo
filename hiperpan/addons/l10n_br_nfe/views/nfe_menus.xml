@@ -10,7 +10,15 @@
     <menuitem id="nfe_uom_menu" action="nfe_uom_action" sequence="5" groups="l10n_br_nfe.group_nfe_manager" />
     <menuitem id="nfe_uom_category_menu" action="nfe_uom_category_action" sequence="6" groups="l10n_br_nfe.group_nfe_manager" />
     <menuitem id="nfe_document_menu" action="nfe_document_action" sequence="7" groups="l10n_br_nfe.group_nfe_manager"/>
+    <menuitem id="nfe_additional_information_menu" action="nfe_additional_information_action" sequence="8" groups="l10n_br_nfe.group_nfe_manager" />
   </menuitem>
+
+  <menuitem id="product_menu" name="Produtos" sequence="3" groups="l10n_br_nfe.group_user_nfe" parent="l10n_br_fiscal.fiscal_menu">
+    <!-- <menuitem id="menu_product_template_action" action="product_template_action" sequence="1"/> -->
+    <menuitem id="menu_products" action="product.product_normal_action_sell" sequence="2"/>
+    <menuitem id="menu_product_pricelist_main" name="Pricelists" action="product.product_pricelist_action2" sequence="3"/>
+  </menuitem>
+
 
 
 </odoo>

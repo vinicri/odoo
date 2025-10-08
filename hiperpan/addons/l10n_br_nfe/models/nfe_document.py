@@ -138,7 +138,7 @@ class NFeDocument(models.Model):
         comodel_name="res.partner",
         string="Emitente",
         required=True,
-        default=lambda self: self.env.company.id,
+        default=lambda self: self.env.company.partner_id,
         domain="[('country_id.code', '=', 'BR')]",
     )
 
@@ -175,8 +175,6 @@ class NFeDocument(models.Model):
     operation_type = fields.Selection(
         related="operation_nature_id.type",
         string="Tipo de Operação",
-        required=True,
-        readonly=True,
         store=True,
     )
     # Código numérico que compõe a Chave de Acesso. Número aleatório gerado pelo emitente para cada NF-e para evitar acessos indevidos da NF-e. (v2.0)
@@ -211,16 +209,12 @@ class NFeDocument(models.Model):
     document_model = fields.Selection(
         related="series_id.document_model",
         string="Modelo do Documento Fiscal",
-        readonly=True,
-        required=True,
         store=True,
     )
 
     nfe_series = fields.Integer(
         related="series_id.series",
         string="Série do Documento Fiscal",
-        readonly=True,
-        required=True,
         store=True,
     )
 
@@ -255,7 +249,7 @@ class NFeDocument(models.Model):
     destination_id = fields.Selection(
         DESTINATION_ID,
         string="Identificador de Local de Destino",
-        required=True,
+        # required=True,
         readonly=True,
         compute="_compute_destination_id",
         store=True,
@@ -314,25 +308,11 @@ class NFeDocument(models.Model):
         EMISSION_TYPE, string="Tipo de Emissão da NF-e", required=True, default="1"
     )
 
-    # Informar o Dígito Verificador da Chave de Acesso da NF-e, o DV será calculado com a aplicação do algoritmo módulo 11 (base 2,9) da Chave de Acesso. (vide item 5.4 do MOC – Visão Geral)
-    access_key_dv = fields.Integer(
-        string="Dígito Verificador Chave de Acesso",
-        size=1,
-        readonly=True,
-        required=True,
-        compute="_compute_access_key_dv",
-    )
-
-    @api.depends("access_key")
-    def _compute_access_key_dv(self):
-        for record in self:
-            record.access_key_dv = 0
-
     # Informar o ambiente de emissão da NF-e. 0 = Produção; 1 = Homologação
     env_emission = fields.Selection(
         related="company_id.fiscal_document_emission_env",
         string="Ambiente de Emissão",
-        required=True,
+        # required=True,
         readonly=True,
         store=True,
     )
@@ -376,7 +356,11 @@ class NFeDocument(models.Model):
 
     # Informar a versão do aplicativo emissor de NF-e.
     app_version = fields.Char(
-        string="Versão do Aplicativo Emissor", required=True, size=20, default="1.0.0"
+        string="Versão do Aplicativo Emissor",
+        required=True,
+        size=20,
+        default="1.0.0",
+        readonly=True,
     )
 
     # === Grupo BA. Documento Fiscal Referenciado ===
@@ -457,7 +441,6 @@ class NFeDocument(models.Model):
     issuer_legal_name = fields.Char(
         related="issuer_id.legal_name",
         string="Razão Social",
-        required=True,
         store=True,
         size=60,
         readonly=True,
@@ -477,7 +460,6 @@ class NFeDocument(models.Model):
         related="issuer_id.street",
         string="Logradouro",
         store=True,
-        required=True,
         size=60,
     )
 
@@ -486,7 +468,6 @@ class NFeDocument(models.Model):
         related="issuer_id.street_number",
         string="Número",
         store=True,
-        required=True,
         size=60,
     )
 
@@ -503,7 +484,6 @@ class NFeDocument(models.Model):
         related="issuer_id.district",
         string="Bairro",
         store=True,
-        required=True,
         size=60,
     )
 
@@ -512,7 +492,6 @@ class NFeDocument(models.Model):
         related="issuer_id.city_id.ibge_code",
         string="Código do Município",
         store=True,
-        required=True,
         size=7,
     )
 
@@ -521,7 +500,6 @@ class NFeDocument(models.Model):
         related="issuer_id.city_id.name",
         string="Município",
         store=True,
-        required=True,
         size=60,
     )
 
@@ -530,7 +508,6 @@ class NFeDocument(models.Model):
         related="issuer_id.state_id.code",
         string="UF",
         store=True,
-        required=True,
         size=2,
     )
 
@@ -539,7 +516,6 @@ class NFeDocument(models.Model):
         related="issuer_id.unformatted_zip",
         string="CEP",
         store=True,
-        required=True,
         size=8,
     )
 
@@ -547,6 +523,8 @@ class NFeDocument(models.Model):
     issuer_country_code = fields.Integer(
         string="Código País",
         store=True,
+        default=1058,
+        readonly=True,
         size=4,
     )
 
@@ -561,20 +539,20 @@ class NFeDocument(models.Model):
 
     # Telefone do emitente. Preencher com DDD + número. Opcional.
     issuer_phone = fields.Char(
+        related="issuer_id.phone",
         string="Telefone Emitente",
         store=True,
         size=14,
-        compute="_compute_issuer_phone",
-        raedonly=True,
+        # compute="_compute_issuer_phone",
     )
 
-    @api.depends("issuer_id.phone")
-    def _compute_issuer_phone(self):
-        for record in self:
-            if record.issuer_id.phone:
-                return "".join(ch for ch in record.issuer_id.phone if ch.isdigit())
-            else:
-                record.issuer_phone = False
+    # @api.depends("issuer_id.phone")
+    # def _compute_issuer_phone(self):
+    #     for record in self:
+    #         if record.issuer_id.phone:
+    #             return "".join(ch for ch in record.issuer_id.phone if ch.isdigit())
+    #         else:
+    #             record.issuer_phone = False
 
     # Inscrição Estadual do Emitente. Informar somente algarismos, sem formatação.
     issuer_ie = fields.Char(
@@ -605,12 +583,20 @@ class NFeDocument(models.Model):
     #     CRT_SELECTION, string="Código de Regime Tributário",
     # )
 
+    issuer_fiscal_framework = fields.Selection(
+        related="issuer_id.fiscal_framework",
+        string="Regime Fiscal",
+        store=True,
+        readonly=True,
+    )
+
     # === Grupo E. Identificação do Destinatário da NF-e  ===
     # Identificação do Destinatário da NF-e. Obrigatório para NF-e (modelo 55).
 
     recipient_id = fields.Many2one(
         comodel_name="res.partner",
         string="Destinatário",
+        domain="[('country_id.code', '=', 'BR')]",
         required=True,
     )
 
@@ -628,6 +614,7 @@ class NFeDocument(models.Model):
         for record in self:
             if (
                 record.recipient_id.company_type == "company"
+                and record.recipient_id.vat
                 and len(record.recipient_id.vat) == 14
             ):
                 record.recipient_cnpj = record.recipient_id.vat
@@ -669,6 +656,7 @@ class NFeDocument(models.Model):
         for record in self:
             if (
                 record.recipient_id.company_type == "person"
+                and record.recipient_id.vat
                 and len(record.recipient_id.vat) == 11
             ):
                 record.recipient_cpf = record.recipient_id.vat
@@ -725,15 +713,15 @@ class NFeDocument(models.Model):
                 )
 
     # Razão Social ou Nome do destinatário. Obrigatório para NF-e (modelo 55), opcional para NFC-e (modelo 65)
-    recipient_name = fields.Char(
+    recipient_legal_name = fields.Char(
         related="recipient_id.legal_name",
         string="Razão Social/Nome Destinatário",
         store=True,
         size=60,
     )
 
-    @api.constrains("recipient_name")
-    def _check_recipient_name(self):
+    @api.constrains("recipient_legal_name")
+    def _check_recipient_legal_name(self):
         for record in self:
             if record.document_model == "55":
                 raise ValidationError(
@@ -871,37 +859,38 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_zip = False
 
-    # # Código do País do destinatário. Usar Tabela BACEN. Opcional.
-    # recipient_country_code = fields.Integer(
-    #     related="recipient_id.country_id.code",
-    #     string="Código País Destinatário",
-    #     store=True,
-    #     size=4,
-    # )
+    # Código do País do destinatário. Usar Tabela BACEN. Opcional.
+    recipient_country_code = fields.Integer(
+        string="Código País Destinatário",
+        store=True,
+        default=1058,
+        readonly=True,
+        size=4,
+    )
 
-    # # Nome do País do destinatário. Opcional.
-    # recipient_country_name = fields.Char(
-    #     related="recipient_id.country_id.name",
-    #     string="Nome País Destinatário",
-    #     store=True,
-    #     size=60,
-    # )
+    # Nome do País do destinatário. Opcional.
+    recipient_country_name = fields.Char(
+        related="recipient_id.country_id.name",
+        string="Nome País Destinatário",
+        store=True,
+        size=60,
+    )
 
     # Telefone do destinatário. Preencher com o Código DDD + número do telefone. Nas operações com exterior é permitido informar o código do país + código da localidade + número do telefone (v2.0)
     recipient_phone = fields.Char(
         related="recipient_id.phone",
         string="Telefone Destinatário",
-        compute="_compute_recipient_phone",
+        #        compute="_compute_recipient_phone",
         store=True,
         size=14,
     )
 
-    def _compute_recipient_phone(self):
-        for record in self:
-            if record.recipient_id.phone and is_valid_phone(record.recipient_id.phone):
-                return "".join(filter(str.isdigit, record.recipient_id.phone))
-            else:
-                record.recipient_phone = False
+    # def _compute_recipient_phone(self):
+    #     for record in self:
+    #         if record.recipient_id.phone and is_valid_phone(record.recipient_id.phone):
+    #             return "".join(filter(str.isdigit, record.recipient_id.phone))
+    #         else:
+    #             record.recipient_phone = False
 
     # Indicador da IE do Destinatário. Para NFC-e ou operação com Exterior, informar 9 e não a tag IE.
     recipient_ie_indicator = fields.Selection(
@@ -911,6 +900,7 @@ class NFeDocument(models.Model):
         compute="_compute_recipient_ie_indicator",
     )
 
+    @api.depends("recipient_id", "document_model")
     def _compute_recipient_ie_indicator(self):
         for record in self:
             if record.document_model == "65":
@@ -1035,39 +1025,130 @@ class NFeDocument(models.Model):
     # Totais do ICMS
 
     # Base de Cálculo do ICMS.
-    total_icms_base = fields.Float(string="BC do ICMS", digits=(13, 2))
+    total_icms_base = fields.Float(
+        string="BC do ICMS",
+        digits=(13, 2),
+        compute="_compute_total_icms_base",
+        store=True,
+    )
 
-    total_icms = fields.Float(string="Valor Total do ICMS", digits=(13, 2))
+    def _is_issuer_simples_nacional(self):
+        return self.issuer_id.fiscal_framework in ("1", "2")
+
+    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    def _compute_total_icms_base(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_icms_base = 0.00
+            else:
+                record.total_icms_base = sum(
+                    record.invoice_line_ids.mapped("icms_bc_value")
+                )
+
+    total_icms = fields.Float(
+        string="Valor Total do ICMS",
+        digits=(13, 2),
+        compute="_compute_total_icms",
+        store=True,
+    )
+
+    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    def _compute_total_icms(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_icms = 0.00
+            else:
+                record.total_icms = sum(record.invoice_line_ids.mapped("icms_value"))
+
     # Valor Total do ICMS.
 
+    # soma do valor do icms desonerado dos items, nao implementado
     total_icms_deson = fields.Float(string="Valor ICMS Desonerado", digits=(13, 2))
     # Valor Total do ICMS desonerado.
 
     # == icms difal ==
 
+    # Valor Total do Fundo de Combate à Pobreza da UF de Destino.
     total_fcp_uf_dest = fields.Float(
         string="Valor Total FCP da UF de Destino", digits=(13, 2)
     )
-    # Valor Total do Fundo de Combate à Pobreza da UF de Destino.
 
+    # Valor Total do ICMS da UF de Destino.
     total_icms_uf_dest = fields.Float(
         string="Valor Total do ICMS da UF de Destino", digits=(13, 2)
     )
-    # Valor Total do ICMS da UF de Destino.
 
-    total_fcp = fields.Float(string="Valor Total FCP", digits=(13, 2))
-    # Valor Total do Fundo de Combate à Pobreza.
-
-    total_icms_st_base = fields.Float(
-        string="Valor Total da Base de Calculo do ICMS ST", digits=(13, 2)
+    total_icms_interestadual = fields.Float(
+        string="Valor Total do ICMS Interestadual", digits=(13, 2)
     )
-    # Valor Total da Base de Calculo do ICMS ST.
 
-    total_icms_st_value = fields.Float(string="Valor Total do ICMS ST", digits=(13, 2))
+    # Valor Total do Fundo de Combate à Pobreza.
+    total_fcp = fields.Float(
+        string="Valor Total FCP",
+        digits=(13, 2),
+        compute="_compute_total_fcp",
+        store=True,
+    )
+
+    def _compute_total_fcp(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_fcp = 0.00
+            else:
+                record.total_fcp = sum(record.invoice_line_ids.mapped("icms_fcp_value"))
+
+    # Valor Total da Base de Calculo do ICMS ST.
+    total_icms_st_base = fields.Float(
+        string="Valor Total da Base de Calculo do ICMS ST",
+        digits=(13, 2),
+        compute="_compute_total_icms_st_base",
+        store=True,
+    )
+
+    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    def _compute_total_icms_st_base(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_icms_st_base = 0.00
+            else:
+                record.total_icms_st_base = sum(
+                    record.invoice_line_ids.mapped("icms_st_bc_value")
+                )
+
     # Valor Total do ICMS ST.
+    total_icms_st_value = fields.Float(
+        string="Valor Total do ICMS ST",
+        digits=(13, 2),
+        compute="_compute_total_icms_st_value",
+        store=True,
+    )
+
+    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    def _compute_total_icms_st_value(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_icms_st_value = 0.00
+            else:
+                record.total_icms_st_value = sum(
+                    record.invoice_line_ids.mapped("icms_st_value")
+                )
 
     # Valor Total do FCP retido por Substituição Tributária.
-    total_icms_st_fcp = fields.Float(string="Valor Total FCP ST", digits=(13, 2))
+    total_icms_st_fcp = fields.Float(
+        string="Valor Total FCP ST",
+        digits=(13, 2),
+        compute="_compute_total_icms_st_fcp",
+        store=True,
+    )
+
+    def _compute_total_icms_st_fcp(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_icms_st_fcp = 0.00
+            else:
+                record.total_icms_st_fcp = sum(
+                    record.invoice_line_ids.mapped("icms_st_fcp_value")
+                )
 
     # Valor Total do FCP ST Retido Anteriormente por Substituição Tributária.
     total_icms_fcp_st_retention = fields.Float(
@@ -1078,7 +1159,7 @@ class NFeDocument(models.Model):
     # Valor Total dos Produtos e Serviços.
     total_products = fields.Float(
         string="Valor Total dos Produtos e Serviços",
-        required=True,
+        # required=True,
         digits=(13, 2),
         store=True,
         compute="_compute_total_products",
@@ -1087,7 +1168,12 @@ class NFeDocument(models.Model):
     @api.depends("invoice_line_ids")
     def _compute_total_products(self):
         for record in self:
-            record.total_products = sum(record.invoice_line_ids.mapped("total_value"))
+            if len(record.invoice_line_ids) == 0:
+                record.total_products = 0.00
+            else:
+                record.total_products = sum(
+                    record.invoice_line_ids.mapped("total_value")
+                )
 
     # Valor Total do Frete.
     total_freight = fields.Float(
@@ -1101,10 +1187,10 @@ class NFeDocument(models.Model):
     @api.depends("invoice_line_ids")
     def _compute_total_freight(self):
         for record in self:
-            computed_sum = sum(record.invoice_line_ids.mapped("freight_value"))
-            # Only update if field is empty or if computed sum is greater
-            if not record.total_freight or computed_sum > record.total_freight:
-                record.total_freight = computed_sum
+            if not record.total_freight:
+                record.total_freight = sum(
+                    record.invoice_line_ids.mapped("freight_value")
+                )
 
     @api.constrains("total_freight")
     def _check_total_freight_minimum(self):
@@ -1131,10 +1217,10 @@ class NFeDocument(models.Model):
     @api.depends("invoice_line_ids")
     def _compute_total_insurance(self):
         for record in self:
-            computed_sum = sum(record.invoice_line_ids.mapped("insurance_value"))
-            # Only update if field is empty or if computed sum is greater
-            if not record.total_insurance or computed_sum > record.total_insurance:
-                record.total_insurance = computed_sum
+            if not record.total_insurance:
+                record.total_insurance = sum(
+                    record.invoice_line_ids.mapped("insurance_value")
+                )
 
     @api.constrains("total_insurance")
     def _check_total_insurance_minimum(self):
@@ -1161,10 +1247,10 @@ class NFeDocument(models.Model):
     @api.depends("invoice_line_ids")
     def _compute_total_discount(self):
         for record in self:
-            computed_sum = sum(record.invoice_line_ids.mapped("discount_value"))
-            # Only update if field is empty or if computed sum is greater
-            if not record.total_discount or computed_sum > record.total_discount:
-                record.total_discount = computed_sum
+            if not record.total_discount:
+                record.total_discount = sum(
+                    record.invoice_line_ids.mapped("discount_value")
+                )
 
     @api.constrains("total_discount")
     def _check_total_discount_minimum(self):
@@ -1180,26 +1266,76 @@ class NFeDocument(models.Model):
                 )
 
     total_ii = fields.Float(
-        string="Valor Total do Imposto de Importação", digits=(13, 2)
+        string="Valor Total do Imposto de Importação",
+        digits=(13, 2),
+        default=0.00,
+        readonly=True,
     )
     # Valor Total do Imposto de Importação.
 
-    total_ipi = fields.Float(string="Valor Total do IPI", digits=(13, 2))
+    total_ipi = fields.Float(
+        string="Valor Total do IPI",
+        digits=(13, 2),
+        compute="_compute_total_ipi",
+        store=True,
+    )
     # Valor Total do IPI.
 
+    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    def _compute_total_ipi(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_ipi = 0.00
+            else:
+                record.total_ipi = sum(record.invoice_line_ids.mapped("ipi_value"))
+
     total_ipi_returned = fields.Float(
-        string="Valor Total do IPI Devolvido", digits=(13, 2)
+        string="Valor Total do IPI Devolvido",
+        digits=(13, 2),
+        compute="_compute_total_ipi_returned",
+        store=True,
     )
     # Valor Total do IPI Devolvido.
 
-    total_pis = fields.Float(string="Valor Total do PIS", digits=(13, 2))
+    @api.depends("invoice_line_ids")
+    def _compute_total_ipi_returned(self):
+        for record in self:
+            record.total_ipi_returned = sum(
+                record.invoice_line_ids.mapped("total_ipi_returned")
+            )
+
+    total_pis = fields.Float(
+        string="Valor Total do PIS",
+        digits=(13, 2),
+        compute="_compute_total_pis",
+        store=True,
+    )
     # Valor Total do PIS.
+
+    @api.depends("invoice_line_ids")
+    def _compute_total_pis(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_pis = 0.00
+            else:
+                record.total_pis = sum(record.invoice_line_ids.mapped("pis_value"))
 
     total_cofins = fields.Float(string="Valor Total da COFINS", digits=(13, 2))
     # Valor Total da COFINS.
 
+    @api.depends("invoice_line_ids")
+    def _compute_total_cofins(self):
+        for record in self:
+            if record._is_issuer_simples_nacional():
+                record.total_cofins = 0.00
+            else:
+                record.total_cofins = sum(
+                    record.invoice_line_ids.mapped("cofins_value")
+                )
+
     total_other_expenses = fields.Float(
-        string="Outras Despesas Acessórias", digits=(13, 2)
+        string="Outras Despesas Acessórias",
+        digits=(13, 2),
     )
     # Outras Despesas acessórias.
 
@@ -1216,10 +1352,16 @@ class NFeDocument(models.Model):
         for record in self:
             record.total_nfe = (
                 record.total_products
+                - record.total_discount
+                - record.total_icms_deson
+                + record.total_icms_st_value
+                + record.total_icms_st_fcp
                 + record.total_freight
                 + record.total_insurance
                 + record.total_other_expenses
-                - record.total_discount
+                + record.total_ii
+                + record.total_ipi
+                + record.total_ipi_returned
             )
 
     total_approx_taxes = fields.Float(
@@ -1326,11 +1468,39 @@ class NFeDocument(models.Model):
     # === Grupo YA. Informações de Pagamento  ===
     # pag - Grupo de Informações de Pagamento. Obrigatório.
 
+    remaining_payment_value = fields.Float(
+        string="Valor Restante do Pagamento",
+        digits=(13, 2),
+        compute="_compute_remaining_payment_value",
+        readonly=True,
+    )
+
+    @api.depends("payment_detail_ids.payment_value", "total_nfe")
+    def _compute_remaining_payment_value(self):
+        for record in self:
+            record.remaining_payment_value = record.total_nfe - sum(
+                record.payment_detail_ids.mapped("payment_value")
+            )
+
     payment_detail_ids = fields.One2many(
         comodel_name="l10n_br_nfe.nfe.document.payment",
         inverse_name="nfe_id",
         string="Detalhes do Pagamento",
     )
+
+    @api.constrains("payment_detail_ids", "total_nfe")
+    def _check_payment_detail_ids(self):
+        for record in self:
+            if len(record.payment_detail_ids) == 0:
+                raise ValidationError(_("Deve ter pelo menos um detalhe de pagamento."))
+            if record.total_nfe != sum(
+                record.payment_detail_ids.mapped("payment_value")
+            ):
+                raise ValidationError(
+                    _(
+                        "O valor total da NF-e deve ser igual ao valor total dos pagamentos."
+                    )
+                )
 
     # Grupo Z. Informações Adicionais da NF-e
     # Deverá informar a base legal do benefício fiscal utilizado nos dados
@@ -1361,6 +1531,60 @@ class NFeDocument(models.Model):
     # • "PERMITE O APROVEITAMENTO DO CRÉDITO DE ICMS NO VALOR DE R$ ...;
     # CORRESPONDENTE À ALÍQUOTA DE .%, NOS TERMOS DO ART. 23, DA LC 123/2006".
     additional_information = fields.Text(string="Informações Adicionais", size=2000)
+
+    mandatory_additional_information_ids = fields.Many2many(
+        comodel_name="l10n_br_nfe.nfe.additional_information",
+        string="Informações Adicionais Obrigatórias",
+        compute="_compute_mandatory_additional_information_ids",
+        relation="nfe_additional_information_rel",
+        store=True,
+    )
+
+    @api.depends("issuer_id", "issuer_id.fiscal_framework")
+    def _compute_mandatory_additional_information_ids(self):
+        for record in self:
+            print("record.issuer_id", record.issuer_id)
+            print(
+                "record.issuer_id.fiscal_framework", record.issuer_id.fiscal_framework
+            )
+            external_ids = []
+            if record.issuer_id and record.issuer_id.fiscal_framework in (
+                "1",
+                "2",
+            ):
+                external_ids = [
+                    "l10n_br_nfe.add_info_simples_nacional",
+                    "l10n_br_nfe.add_info_nao_gera_credito_fiscal_ipi",
+                ]
+
+            if external_ids:
+                records = self.env["l10n_br_nfe.nfe.additional_information"].browse()
+                for xml_id in external_ids:
+                    records += self.env.ref(xml_id)
+                record.mandatory_additional_information_ids = records
+
+            else:
+                record.mandatory_additional_information_ids = self.env[
+                    "l10n_br_nfe.nfe.additional_information"
+                ]
+
+    mandatory_additional_information = fields.Text(
+        string="Informações Adicionais Obrigatórias",
+        compute="_compute_mandatory_additional_information",
+        store=True,
+    )
+
+    @api.depends("mandatory_additional_information_ids")
+    def _compute_mandatory_additional_information(self):
+        for record in self:
+            # Filter out empty/False values
+            info_values = record.mandatory_additional_information_ids.mapped(
+                "additional_information"
+            )
+            # Join only non-empty strings
+            record.mandatory_additional_information = "\n".join(
+                filter(None, info_values)
+            )
 
     # Grupo ZD. Informações do Responsável Técnico (NT 2018.005)
 
@@ -1449,40 +1673,47 @@ class NFeDocument(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get("nfe_number"):  # Só gerar se não existir
+                # Generate nfe_number before creation
+                # You'll need to adapt this based on your _generate_nfe_number logic
+                vals["nfe_number"] = self._generate_nfe_number(vals)
+            # if not vals.get("access_key"):
+            #     # Generate access_key before creation
+            #     vals["access_key"] = self.generate_access_key(vals)
+
         records = super().create(vals_list)
-        for record in records:
-            if not record.nfe_number:  # Só gerar se não existir
-                record._generate_nfe_number()
-                record.access_key = record.generate_access_key()
         return records
 
-    def _generate_nfe_number(self):
+    def _generate_nfe_number(self, vals):
         """Gera o número da NFe de forma controlada"""
-        self.ensure_one()
+        # self.ensure_one()
 
-        if not self.series_id:
+        series_id = vals.get("series_id")
+        if not series_id:
             raise ValidationError("Série é obrigatória para gerar o número da NFe")
 
-        if self.nfe_number:
-            return
+        # Get the series record and call next_seq_number()
+        series = self.env["l10n_br_nfe.nfe.series"].browse(series_id)
+        nfe_number = series.next_seq_number()
 
-        self.nfe_number = self.series_id.next_seq_number()
+        return nfe_number
 
-    def generate_access_key(self):
-        uf_code = self.issuer_state_code
-        year_month_day = self.issue_datetime.strftime("%y%m")
-        issuer_document = self.issuer_cnpj or self.issuer_cpf
+    def generate_access_key(self, vals):
+        uf_code = vals.get("issuer_state_code")
+        year_month_day = vals.get("issue_datetime").strftime("%y%m")
+        issuer_document = vals.get("issuer_cnpj") or vals.get("issuer_cpf")
         padded_issuer_document = issuer_document.zfill(14)
-        document_model = self.document_model
+        document_model = vals.get("document_model")
         series = self.series_id.nfe_series
         padded_series = series.zfill(3)
-        nfe_number = self.nfe_number
+        nfe_number = vals.get("nfe_number")
         padded_nfe_number = nfe_number.zfill(9)
         emission_type = self.emission_type
-        random_number = self.random_number
+        random_number = vals.get("random_number")
         padded_random_number = random_number.zfill(8)
 
-        number_without_dv = "{uf_code}{year_month_day}{padded_issuer_document}{document_model}{padded_series}{padded_nfe_number}{emission_type}{padded_random_number}"
+        number_without_dv = f"{uf_code}{year_month_day}{padded_issuer_document}{document_model}{padded_series}{padded_nfe_number}{emission_type}{padded_random_number}"
 
         dv = self._calculate_mod11_dv(number_without_dv)
 

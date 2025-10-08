@@ -1,7 +1,9 @@
 # Copyright (C) 2021  Renato Lima - Akretion <renato.lima@akretion.com.br>
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
 
-from odoo import api, models
+from odoo import api, models, fields, _
+from odoo.exceptions import ValidationError
+
 
 from ..constants.fiscal import (
     NCM_FOR_SERVICE_REF,
@@ -14,6 +16,29 @@ from ..constants.fiscal import (
 class ProductMixin(models.AbstractModel):
     _name = "l10n_br_fiscal.product.mixin"
     _description = "Fiscal Product Mixin"
+
+    no_barcode = fields.Boolean("No Barcode", default=False)
+
+    # @api.constrains("no_barcode", "barcode")
+    # def _check_no_barcode(self):
+    #     for record in self:
+    #         print(record.no_barcode)
+    #         print(record.barcode)
+    #         if record.no_barcode and record.barcode:
+    #             raise ValidationError(
+    #                 _(
+    #                     "Conflito: Produto marcado como 'Não possui código de barras' "
+    #                     "mas código de barras foi informado: '%s'"
+    #                 )
+    #                 % record.barcode
+    #             )
+
+    #         if not record.no_barcode and not (record.barcode or "").strip():
+    #             raise ValidationError(
+    #                 _(
+    #                     "O Código de Barras é obrigatório se o produto tiver código de barras. Marque a opção 'Não possui código de barras' se o produto não tiver código de barras."
+    #                 )
+    #             )
 
     @api.model_create_multi
     def create(self, vals_list):

@@ -15,3 +15,5 @@
 "l10n_br_nfe_nfe_document_payment_manager","NFE Document Payment Manager","model_l10n_br_nfe_nfe_document_payment","l10n_br_nfe.group_nfe_manager",1,1,1,1
 "l10n_br_nfe_nfe_document_installment_user","NFE Document Installment User","model_l10n_br_nfe_nfe_document_installment","l10n_br_nfe.group_user_nfe",1,0,0,0
 "l10n_br_nfe_nfe_document_installment_manager","NFE Document Installment Manager","model_l10n_br_nfe_nfe_document_installment","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_additional_information_user","NFE Additional Information User","model_l10n_br_nfe_nfe_additional_information","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_additional_information_manager","NFE Additional Information Manager","model_l10n_br_nfe_nfe_additional_information","l10n_br_nfe.group_nfe_manager",1,1,1,1

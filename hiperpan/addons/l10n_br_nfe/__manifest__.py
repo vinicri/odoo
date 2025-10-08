@@ -10,15 +10,25 @@
         # security
         "security/nfe_security.xml",
         "security/ir.model.access.csv",
+        # data
+        "data/l10n_br_nfe.nfe.additional_information.csv",
         # views
         "views/nfe_series_views.xml",
         "views/nfe_invalidate_numbers_views.xml",
         "views/nfe_tech_contact_views.xml",
         "views/nfe_operation_nature_views.xml",
         "views/nfe_document.xml",
+        "views/nfe_document_line.xml",
+        "views/nfe_document_payment.xml",
+        "views/nfe_additional_information.xml",
         "views/uom_views.xml",
         "views/nfe_uom_category_views.xml",
         "views/res_company.xml",
         "views/nfe_menus.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "l10n_br_nfe/static/src/scss/nfe_form.scss",
+        ],
+    },
 }
