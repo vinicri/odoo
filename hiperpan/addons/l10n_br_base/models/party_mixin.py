@@ -112,11 +112,17 @@ class PartyMixin(models.AbstractModel):
     @api.constrains("inscr_est", "company_type")
     def _check_no_inscr_est(self):
         for record in self:
-            if (
-                record.company_type == "company"
-                and not record.inscr_est
-                and not record.no_inscr_est
-            ):
+            # Check if this is a res.partner with company_type or a res.company
+            is_company = False
+
+            if record._name == "res.partner":
+                # For partners, check the company_type field
+                is_company = record.company_type == "company"
+            elif record._name == "res.company":
+                # For companies, always treat as company
+                is_company = True
+
+            if is_company and not record.inscr_est and not record.no_inscr_est:
                 raise ValidationError(
                     "Preencha a Inscrição Estadual ou confirme que a empresa não tem Inscrição Estadual no campo 'Não tem Inscrição Estadual'."
                 )

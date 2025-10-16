@@ -5,6 +5,9 @@
     <field name="model">l10n_br_nfe.nfe.document</field>
     <field name="arch" type="xml">
       <form>
+        <header>
+          <button name="action_generate_nfe" type="object" string="Gerar NF-e" class="oe_highlight" />
+        </header>
         <sheet>
 
           <group>
@@ -185,6 +188,7 @@
           </div>
 
           <group>
+            <field name="ref_nfe_numbers" invisible="emission_finality == '1'" />
             <field name="invoice_line_ids" context="{'default_issuer_id': issuer_id}"/>
           </group>
 

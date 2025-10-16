@@ -7,6 +7,7 @@
     <field name="arch" type="xml">
       <xpath expr="//field[@name='ipi_contributes']" position="after">
         <field name="fiscal_document_emission_env" string="Ambiente de Emissão de Documentos Fiscais" />
+        <field name="time_zone" string="Time Zone" />
       </xpath>
     </field>
   </record>

@@ -2,6 +2,282 @@ from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 from .utils import is_valid_phone
 import random
+import pytz
+
+# from ..utils import nfe as nfe_utils
+import lxml.etree as etree
+
+
+def convert_datetime_to_company_tz(dt_utc, company):
+    """
+    Converte um datetime UTC para o timezone da empresa.
+
+    Args:
+        dt_utc: datetime object (pode ser naive ou aware em UTC)
+
+    Returns:
+        datetime object no timezone da empresa
+    """
+
+    if not dt_utc:
+        return None
+
+    # Garante que o datetime está em UTC
+    if dt_utc.tzinfo is None:
+        utc_dt = pytz.UTC.localize(dt_utc)
+    else:
+        utc_dt = dt_utc.astimezone(pytz.UTC)
+
+    # Converte para o timezone da empresa
+    company_tz = pytz.timezone(company.time_zone)
+    return utc_dt.astimezone(company_tz)
+
+
+def format_datetime_for_nfe(dt_field, company):
+    """
+    Formata um datetime para o padrão NFe: AAAA-MM-DDThh:mm:ssTZD
+
+    Args:
+        dt_field: datetime do Odoo (em UTC)
+
+    Returns:
+        String formatada no padrão ISO 8601 com timezone
+        Exemplo: '2025-04-04T06:22:00-03:00'
+    """
+    if not dt_field:
+        return None
+
+    # Converte para o timezone da empresa
+    local_dt = convert_datetime_to_company_tz(dt_field, company)
+
+    # Formata no padrão ISO 8601
+    return local_dt.isoformat()
+
+
+def buildNfeXmlFromNfeDocumentModel(nfe_document):
+    root = etree.Element("nfe")
+
+    # grupo A
+    infNfe = etree.SubElement(root, "infNfe")
+    infNfe.set("versao", nfe_document.nfe_version)
+    infNfe.set("Id", nfe_document.access_key)
+
+    # grupo B
+    ide = etree.SubElement(infNfe, "ide")
+    cUF = etree.SubElement(ide, "cUF")
+    cUF.text = nfe_document.issuer_state_code
+
+    cNF = etree.SubElement(ide, "cNF")
+    cNF.text = nfe_document.random_number
+
+    natOp = etree.SubElement(ide, "natOp")
+    natOp.text = nfe_document.operation_nature_name
+
+    mod = etree.SubElement(ide, "mod")
+    mod.text = nfe_document.document_model
+
+    serie = etree.SubElement(ide, "serie")
+    serie.text = str(nfe_document.nfe_series)
+
+    nNF = etree.SubElement(ide, "nNF")
+    nNF.text = str(nfe_document.nfe_number)
+
+    dhEmi = etree.SubElement(ide, "dhEmi")
+    dhEmi.text = format_datetime_for_nfe(
+        nfe_document.issue_datetime, nfe_document.company_id
+    )
+
+    if nfe_document.document_model == "55":
+        # nao se deve informar para NFC-e
+        dhSaiEnt = etree.SubElement(ide, "dhSaiEnt")
+        dhSaiEnt.text = format_datetime_for_nfe(
+            nfe_document.departure_arrival_datetime, nfe_document.company_id
+        )
+
+    tpNF = etree.SubElement(ide, "tpNF")
+    tpNF.text = nfe_document.operation_type
+
+    idDest = etree.SubElement(ide, "idDest")
+    idDest.text = nfe_document.destination_id
+
+    cMunFG = etree.SubElement(ide, "cMunFG")
+    cMunFG.text = nfe_document.city_code_fg
+
+    tpImp = etree.SubElement(ide, "tpImp")
+    tpImp.text = nfe_document.danfe_print_format
+
+    tpEmis = etree.SubElement(ide, "tpEmis")
+    tpEmis.text = nfe_document.emission_type
+
+    cDV = etree.SubElement(ide, "cDV")
+    cDV.text = nfe_document.access_key[-1]
+
+    tpAmb = etree.SubElement(ide, "tpAmb")
+    tpAmb.text = nfe_document.env_emission
+
+    finNFe = etree.SubElement(ide, "finNFe")
+    finNFe.text = nfe_document.emission_finality
+
+    indFinal = etree.SubElement(ide, "indFinal")
+    indFinal.text = nfe_document.final_customer_operation
+
+    indPres = etree.SubElement(ide, "indPres")
+    indPres.text = nfe_document.presence_indicator
+
+    if nfe_document.intermediator_indicator:
+        indIntermed = etree.SubElement(ide, "indIntermed")
+        indIntermed.text = nfe_document.intermediator_indicator
+
+    procEmi = etree.SubElement(ide, "procEmi")
+    procEmi.text = nfe_document.emission_process
+
+    verProc = etree.SubElement(ide, "verProc")
+    verProc.text = nfe_document.app_version
+
+    if nfe_document.emission_finality != "1":
+        # grupo BA - Documento Fiscal Referenciado
+        NFref = etree.SubElement(ide, "NFref")
+
+        for ref_nfe_number in nfe_document.ref_nfe_numbers:
+            refNFe = etree.SubElement(NFref, "refNFe")
+            refNFe.text = ref_nfe_number.access_key
+
+    # emitente
+    emit = etree.SubElement(root, "emit")
+
+    if nfe_document.issuer_id.company_type == "company":
+        CNPJ = etree.SubElement(emit, "CNPJ")
+        CNPJ.text = nfe_document.issuer_cnpj
+    else:
+        CPF = etree.SubElement(emit, "CPF")
+        CPF.text = nfe_document.issuer_cpf
+
+    xNome = etree.SubElement(emit, "xNome")
+    xNome.text = nfe_document.issuer_legal_name
+
+    xFant = etree.SubElement(emit, "xFant")
+    xFant.text = nfe_document.issuer_trade_name
+
+    enderEmit = etree.SubElement(emit, "enderEmit")
+    xLgr = etree.SubElement(enderEmit, "xLgr")
+    xLgr.text = nfe_document.issuer_street
+
+    nro = etree.SubElement(enderEmit, "nro")
+    nro.text = nfe_document.issuer_street_number
+
+    if nfe_document.issuer_street_complement:
+        xCpl = etree.SubElement(enderEmit, "xCpl")
+        xCpl.text = nfe_document.issuer_street_complement
+
+    xBairro = etree.SubElement(enderEmit, "xBairro")
+    xBairro.text = nfe_document.issuer_district
+
+    cMun = etree.SubElement(enderEmit, "cMun")
+    cMun.text = nfe_document.issuer_city_code
+
+    xMun = etree.SubElement(enderEmit, "xMun")
+    xMun.text = nfe_document.issuer_city_name
+
+    UF = etree.SubElement(enderEmit, "UF")
+    UF.text = nfe_document.issuer_state
+
+    CEP = etree.SubElement(enderEmit, "CEP")
+    CEP.text = nfe_document.issuer_zip
+
+    # opicional para o Brasil
+    #  cPais = etree.SubElement(enderEmit, "cPais")
+    # cPais.text = nfe_document.issuer_country_code
+
+    # xPais = etree.SubElement(enderEmit, "xPais")
+    # xPais.text = nfe_document.issuer_country_name
+
+    fone = etree.SubElement(enderEmit, "fone")
+    fone.text = nfe_document.issuer_phone
+
+    IE = etree.SubElement(emit, "IE")
+    IE.text = nfe_document.issuer_ie
+
+    CRT = etree.SubElement(emit, "CRT")
+    CRT.text = nfe_document.issuer_fiscal_framework
+
+    if nfe_document.recipient_id:
+        # Grupo E - Destinatário
+        dest = etree.SubElement(root, "dest")
+
+        if nfe_document.recipient_id.is_foreign:
+            idEstrangeiro = etree.SubElement(dest, "idEstrangeiro")
+            idEstrangeiro.text = nfe_document.recipient_foreign_id
+        elif nfe_document.recipient_id.company_type == "company":
+            dCNPJ = etree.SubElement(dest, "CNPJ")
+            dCNPJ.text = nfe_document.recipient_cnpj
+        else:
+            dCPF = etree.SubElement(dest, "CPF")
+            dCPF.text = nfe_document.recipient_cpf
+
+        dXNome = etree.SubElement(dest, "xNome")
+        dXNome.text = nfe_document.recipient_legal_name
+
+        dEnderDest = etree.SubElement(dest, "enderDest")
+
+        dXlgr = etree.SubElement(dEnderDest, "xLgr")
+        dXlgr.text = nfe_document.recipient_street
+
+        dNro = etree.SubElement(dEnderDest, "nro")
+        dNro.text = nfe_document.recipient_street_number
+
+        dXCpl = etree.SubElement(dEnderDest, "xCpl")
+        dXCpl.text = nfe_document.recipient_street_complement
+
+        dXBairro = etree.SubElement(dEnderDest, "xBairro")
+        dXBairro.text = nfe_document.recipient_district
+
+        dCMun = etree.SubElement(dEnderDest, "cMun")
+        dCMun.text = nfe_document.recipient_city_code
+
+        dXMun = etree.SubElement(dEnderDest, "xMun")
+        dXMun.text = nfe_document.recipient_city_name
+
+        dUF = etree.SubElement(dEnderDest, "UF")
+        dUF.text = nfe_document.recipient_state
+
+        dCEP = etree.SubElement(dEnderDest, "CEP")
+        dCEP.text = nfe_document.recipient_zip
+
+        if nfe_document.recipient_id.is_foreign:
+            dCEP = etree.SubElement(dEnderDest, "CEP")
+            dCEP.text = nfe_document.recipient_zip
+
+        # dCPais = etree.SubElement(dEnderDest, "cPais")
+        # dCPais.text = nfe_document.recipient_country_code
+
+        # dXpais = etree.SubElement(dEnderDest, "xPais")
+        # dXpais.text = nfe_document.recipient_country_name
+
+        if nfe_document.recipient_phone:
+            dFone = etree.SubElement(dEnderDest, "fone")
+            dFone.text = nfe_document.recipient_phone
+
+        indIEDest = etree.SubElement(dest, "indIEDest")
+        indIEDest.text = nfe_document.recipient_ie_indicator
+
+        if nfe_document.recipient_ie_indicator == "1":
+            dIE = etree.SubElement(dest, "IE")
+            dIE.text = nfe_document.recipient_ie
+
+        if nfe_document.recipient_suframa:
+            dSuframa = etree.SubElement(dest, "Suframa")
+            dSuframa.text = nfe_document.recipient_suframa
+
+        if nfe_document.recipient_email:
+            dEmail = etree.SubElement(dest, "email")
+            dEmail.text = nfe_document.recipient_email
+
+    return root
+
+
+def printNfeXml(nfe_document):
+    root = buildNfeXmlFromNfeDocumentModel(nfe_document)
+    print(etree.tostring(root, pretty_print=True).decode("utf-8"))
 
 
 OPERATION_TYPE = [("0", "Entrada"), ("1", "Saída")]
@@ -178,13 +454,14 @@ class NFeDocument(models.Model):
         store=True,
     )
     # Código numérico que compõe a Chave de Acesso. Número aleatório gerado pelo emitente para cada NF-e para evitar acessos indevidos da NF-e. (v2.0)
-    random_number = fields.Integer(
+    random_number = fields.Char(
         string="Número Aleatório", size=8, compute="_compute_random_number"
     )
 
     def _compute_random_number(self):
         for record in self:
-            record.random_number = random.randint(00000000, 99999999)
+            random_number = random.randint(00000000, 99999999)
+            record.random_number = str(random_number).zfill(8)
 
     # Série do Documento Fiscal. Preencher com zeros se a NF-e não possuir série.
     # Faixas de série 1-889 para Aplicativo do Contribuinte (CNPJ).
@@ -255,7 +532,14 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("issuer_id", "recipient_id")
+    @api.depends(
+        "issuer_id",
+        "recipient_id",
+        "issuer_id.state_id",
+        "recipient_id.state_id",
+        "issuer_id.country_id",
+        "recipient_id.country_id",
+    )
     def _compute_destination_id(self):
         for record in self:
             if record.issuer_id.state_id == record.recipient_id.state_id:
@@ -274,34 +558,47 @@ class NFeDocument(models.Model):
         help="Código do Município de Ocorrência do Fato Gerador do ICMS. Usar Tabela IBGE.",
     )
 
-    def _danfe_print_format_default(self):
-        if self.document_model == "55":
-            return "1"
-        else:
-            return "4"
-
-    def _danfe_print_format_options(self):
-        if self.document_model == "55":
-            return [
-                ("0", "Sem geração de DANFE"),
-                ("1", "DANFE normal, Retrato"),
-                ("2", "DANFE normal, Paisagem"),
-                ("3", "DANFE Simplificado"),
-            ]
-        else:
-            return [
-                ("0", "Sem geração de DANFE"),
-                ("4", "DANFE NFC-e"),
-                ("5", "DANFE NFC-e em mensagem eletrônica"),
-            ]
-
     # Formato de Impressão do DANFE.
     danfe_print_format = fields.Selection(
-        lambda self: self._danfe_print_format_options(),
+        DANFE_PRINT_FORMAT,
         string="Formato de Impressão do DANFE",
         required=True,
-        default=_danfe_print_format_default,
+        # default=_danfe_print_format_default,
     )
+
+    @api.onchange("document_model")
+    def _onchange_document_model_danfe(self):
+        for record in self:
+            # Reset danfe_print_format to valid default when document_model changes"""
+            if record.document_model == "55":
+                # For NF-e, valid options are 0, 1, 2, 3
+                if record.danfe_print_format not in ["0", "1", "2", "3"]:
+                    record.danfe_print_format = "1"
+            elif record.document_model == "65":
+                # For NFC-e, valid options are 0, 4, 5
+                if record.danfe_print_format not in ["0", "4", "5"]:
+                    record.danfe_print_format = "4"
+
+    @api.constrains("danfe_print_format")
+    def _check_danfe_print_format(self):
+        for record in self:
+            if record.document_model == "55" and record.danfe_print_format not in [
+                "0",
+                "1",
+                "2",
+                "3",
+            ]:
+                raise ValidationError(
+                    _("O Formato de Impressão do DANFE é inválido para NF-e.")
+                )
+            elif record.document_model == "65" and record.danfe_print_format not in [
+                "0",
+                "4",
+                "5",
+            ]:
+                raise ValidationError(
+                    _("O Formato de Impressão do DANFE é inválido para NFC-e.")
+                )
 
     # Tipo de Emissão da NF-e. Para NFC-e, somente 9 e 4 (a critério da UF) são válidas. [19, 20]
     emission_type = fields.Selection(
@@ -343,15 +640,32 @@ class NFeDocument(models.Model):
     intermediator_indicator = fields.Selection(
         INTERMEDIATOR_INDICATOR,
         string="Indicador de Intermediador/Marketplace",
-        default="0",
     )
+
+    @api.constrains("intermediator_indicator")
+    def _check_intermediator_indicator(self):
+        for record in self:
+            if (
+                record.presence_indicator in ["2", "3"]
+                and not record.intermediator_indicator
+            ):
+                raise ValidationError(
+                    _("O Indicador de Intermediador/Marketplace é obrigatório.")
+                )
+            if (
+                record.presence_indicator in ["0", "1", "4", "5", "9"]
+                and record.intermediator_indicator
+            ):
+                raise ValidationError(
+                    _("O Indicador de Intermediador/Marketplace é inválido.")
+                )
 
     # Processo de emissão da NF-e.
     emission_process = fields.Selection(
         EMISSION_PROCESS,
         string="Processo de Emissão da NF-e",
         required=True,
-        default="1",
+        default="0",
     )
 
     # Informar a versão do aplicativo emissor de NF-e.
@@ -368,9 +682,26 @@ class NFeDocument(models.Model):
     # se cliente devolver a mercadoria, faz uma nota de entrada referenciando a nota de saida
     # referencia documento fiscal emitido pela empresa
     ref_nfe_numbers = fields.Many2many(
-        comodel_name="l10n_br_nfe.nfe_document",
+        comodel_name="l10n_br_nfe.nfe.document",
         string="NFe e NFCe Referenciadas",
+        relation="nfe_document_ref_nfe_numbers_rel",
+        column1="nfe_id",
+        column2="ref_nfe_id",
+        domain="[('id', '!=', id)]",
     )
+
+    @api.constrains("ref_nfe_numbers", "emission_finality")
+    def _check_ref_nfe_numbers(self):
+        for record in self:
+            if (
+                record.emission_finality in ["2", "3", "4"]
+                and not record.ref_nfe_numbers
+            ):  # para devolucao de mercadoria, nao precisa referenciar
+                raise ValidationError(
+                    _(
+                        "A NF-e complementar, de ajuste ou devolução de mercadoria deve referenciar ao menos uma NF-e ou NFC-e."
+                    )
+                )
 
     # todo referenciar notas fiscais de entrada, criar um novo campo
 
@@ -384,7 +715,7 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.depends("issuer_id")
+    @api.depends("issuer_id", "issuer_id.company_type", "issuer_id.vat")
     def _compute_issuer_cnpj(self):
         for record in self:
             if (
@@ -413,7 +744,7 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.depends("issuer_id")
+    @api.depends("issuer_id", "issuer_id.company_type", "issuer_id.vat")
     def _compute_issuer_cpf(self):
         for record in self:
             if (
@@ -497,11 +828,27 @@ class NFeDocument(models.Model):
 
     # Nome do município do emitente.
     issuer_city_name = fields.Char(
-        related="issuer_id.city_id.name",
         string="Município",
         store=True,
         size=60,
+        compute="_compute_issuer_city_name",
     )
+
+    @api.depends("issuer_id", "issuer_id.city_id")
+    def _compute_issuer_city_name(self):
+        for record in self:
+            if record.issuer_id.city_id:
+                record.issuer_city_name = record.issuer_id.city_id.with_context(
+                    lang="pt_BR"
+                ).name
+            else:
+                record.issuer_city_name = False
+
+    @api.constrains("issuer_city_name")
+    def _check_issuer_city_name(self):
+        for record in self:
+            if not record.issuer_city_name:
+                raise ValidationError(_("O Município do Emitente é obrigatório."))
 
     # Sigla da UF do emitente.
     issuer_state = fields.Char(
@@ -530,12 +877,27 @@ class NFeDocument(models.Model):
 
     # Nome do País do emitente. Brasil ou BRASIL. Opcional.
     issuer_country_name = fields.Char(
-        related="issuer_id.country_id.name",
         string="Nome País",
         store=True,
         size=60,
+        compute="_compute_issuer_country_name",
     )
-    # Nome do País do emitente. Brasil ou BRASIL. Opcional.
+
+    @api.depends("issuer_id", "issuer_id.country_id")
+    def _compute_issuer_country_name(self):
+        for record in self:
+            if record.issuer_id.country_id:
+                record.issuer_country_name = record.issuer_id.country_id.with_context(
+                    lang="pt_BR"
+                ).name
+            else:
+                record.issuer_country_name = False
+
+    @api.constrains("issuer_country_name")
+    def _check_issuer_country_name(self):
+        for record in self:
+            if not record.issuer_country_name:
+                raise ValidationError(_("O Nome do País do Emitente é obrigatório."))
 
     # Telefone do emitente. Preencher com DDD + número. Opcional.
     issuer_phone = fields.Char(
@@ -562,6 +924,14 @@ class NFeDocument(models.Model):
         size=14,
         readonly=True,
     )
+
+    @api.constrains("issuer_ie")
+    def _check_issuer_ie(self):
+        for record in self:
+            if not record.issuer_ie:
+                raise ValidationError(
+                    _("A Inscrição Estadual do Emitente é obrigatória.")
+                )
 
     # IE do Substituto Tributário da UF de destino da mercadoria. Opcional.
     # issuer_iest = fields.Char(string="IE Substituto Tributário Emitente", store=True, size=14)
@@ -590,6 +960,12 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
+    @api.constrains("issuer_fiscal_framework")
+    def _check_issuer_fiscal_framework(self):
+        for record in self:
+            if not record.issuer_fiscal_framework:
+                raise ValidationError(_("O Regime Fiscal do Emitente é obrigatório."))
+
     # === Grupo E. Identificação do Destinatário da NF-e  ===
     # Identificação do Destinatário da NF-e. Obrigatório para NF-e (modelo 55).
 
@@ -600,6 +976,14 @@ class NFeDocument(models.Model):
         required=True,
     )
 
+    @api.constrains("recipient_id")
+    def _check_recipient_id(self):
+        for record in self:
+            if record.document_model == "55" and not record.recipient_id:
+                raise ValidationError(
+                    _("Para NF-e modelo 55, o Destinatário é obrigatório.")
+                )
+
     # CNPJ do destinatário
     recipient_cnpj = fields.Char(
         compute="_compute_recipient_cnpj",
@@ -609,13 +993,19 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.depends("recipient_id")
+    @api.depends(
+        "recipient_id",
+        "recipient_id.company_type",
+        "recipient_id.vat",
+        "recipient_id.is_foreign",
+    )
     def _compute_recipient_cnpj(self):
         for record in self:
             if (
                 record.recipient_id.company_type == "company"
                 and record.recipient_id.vat
                 and len(record.recipient_id.vat) == 14
+                and not record.recipient_id.is_foreign
             ):
                 record.recipient_cnpj = record.recipient_id.vat
             else:
@@ -625,21 +1015,15 @@ class NFeDocument(models.Model):
     def _check_recipient_cnpj(self):
         for record in self:
             if (
-                record.recipient_id.company_type == "company"
-                and not record.recipient_cnpj
-                and record.document_model == "55"
+                record.recipient_id
+                and record.recipient_id.company_type == "company"
+                and not record.recipient_id.is_foreign
             ):
-                raise ValidationError(_("O CNPJ do Destinatário é obrigatório."))
-            if record.recipient_cnpj and not (len(record.recipient_cnpj) == 14):
-                if record.document_model == "55":
+                if not record.recipient_cnpj:
+                    raise ValidationError(_("O CNPJ do Destinatário é obrigatório."))
+                elif not (len(record.recipient_cnpj) == 14):
                     raise ValidationError(
                         _("O CNPJ do Destinatário deve ter 14 caracteres.")
-                    )
-                else:
-                    raise ValidationError(
-                        _(
-                            "O CNPJ do Destinatário deve ter 14 caracteres ou estar em branco."
-                        )
                     )
 
     # CPF do destinatário
@@ -651,13 +1035,19 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.depends("recipient_id")
+    @api.depends(
+        "recipient_id",
+        "recipient_id.company_type",
+        "recipient_id.vat",
+        "recipient_id.is_foreign",
+    )
     def _compute_recipient_cpf(self):
         for record in self:
             if (
                 record.recipient_id.company_type == "person"
                 and record.recipient_id.vat
                 and len(record.recipient_id.vat) == 11
+                and not record.recipient_id.is_foreign
             ):
                 record.recipient_cpf = record.recipient_id.vat
             else:
@@ -667,21 +1057,15 @@ class NFeDocument(models.Model):
     def _check_recipient_cpf(self):
         for record in self:
             if (
-                record.recipient_id.company_type == "person"
-                and not record.recipient_cpf
-                and record.document_model == "55"
+                record.recipient_id
+                and record.recipient_id.company_type == "person"
+                and not record.recipient_id.is_foreign
             ):
-                raise ValidationError(_("O CPF do Destinatário é obrigatório."))
-            if record.recipient_cpf and not (len(record.recipient_cpf) == 11):
-                if record.document_model == "55":
+                if not record.recipient_cpf:
+                    raise ValidationError(_("O CPF do Destinatário é obrigatório."))
+                elif not (len(record.recipient_cpf) == 11):
                     raise ValidationError(
                         _("O CPF do Destinatário deve ter 11 caracteres.")
-                    )
-                else:
-                    raise ValidationError(
-                        _(
-                            "O CPF do Destinatário deve ter 11 caracteres ou estar em branco."
-                        )
                     )
 
     # Identificação do destinatário no caso de comprador estrangeiro. Informar esta tag no caso de operação com o exterior
@@ -692,7 +1076,7 @@ class NFeDocument(models.Model):
         size=20,
     )
 
-    @api.depends("recipient_id")
+    @api.depends("recipient_id", "recipient_id.vat", "recipient_id.is_foreign")
     def _compute_recipient_foreign_id(self):
         for record in self:
             if record.recipient_id.is_foreign:
@@ -703,11 +1087,7 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_foreign_id")
     def _check_recipient_foreign_id(self):
         for record in self:
-            if (
-                record.recipient_id.is_foreign
-                and not record.recipient_foreign_id
-                and record.document_model == "55"
-            ):
+            if record.recipient_id and record.recipient_id.is_foreign:
                 raise ValidationError(
                     _("O ID Estrangeiro do Destinatário é obrigatório.")
                 )
@@ -723,7 +1103,7 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_legal_name")
     def _check_recipient_legal_name(self):
         for record in self:
-            if record.document_model == "55":
+            if record.recipient_id and not record.recipient_legal_name:
                 raise ValidationError(
                     _("A Razão Social/Nome do Destinatário é obrigatória.")
                 )
@@ -739,7 +1119,7 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_street")
     def _check_recipient_street(self):
         for record in self:
-            if record.document_model == "55":
+            if record.recipient_id and not record.recipient_street:
                 raise ValidationError(_("O Logradouro do Destinatário é obrigatório."))
 
     # Número do endereço do destinatário.
@@ -753,7 +1133,7 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_street_number")
     def _check_recipient_street_number(self):
         for record in self:
-            if record.document_model == "55":
+            if record.recipient_id and not record.recipient_street_number:
                 raise ValidationError(_("O Número do Destinatário é obrigatório."))
 
     # Complemento do endereço do destinatário. Opcional.
@@ -775,7 +1155,7 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_district")
     def _check_recipient_district(self):
         for record in self:
-            if record.document_model == "55":
+            if record.recipient_id and not record.recipient_district:
                 raise ValidationError(_("O Bairro do Destinatário é obrigatório."))
 
     # Código do município do destinatário. Usar Tabela IBGE.
@@ -789,7 +1169,7 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_city_code")
     def _check_recipient_city_code(self):
         for record in self:
-            if record.document_model == "55":
+            if record.recipient_id and not record.recipient_city_code:
                 raise ValidationError(
                     _("O Código do Município do Destinatário é obrigatório.")
                 )
@@ -802,10 +1182,15 @@ class NFeDocument(models.Model):
         size=60,
     )
 
+    @api.depends("recipient_id", "recipient_id.city_id", "recipient_id.is_foreign")
     def _compute_recipient_city_name(self):
         for record in self:
             if record.recipient_id.city_id:
-                record.recipient_city_name = record.recipient_id.city_id.name
+                city_name = record.recipient_id.city_id.with_context(lang="pt_BR").name
+                if city_name:
+                    record.recipient_city_name = city_name
+                else:
+                    record.recipient_city_name = False
             elif record.recipient_id.is_foreign:
                 record.recipient_city_name = "EXTERIOR"
             else:
@@ -814,7 +1199,7 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_city_name")
     def _check_recipient_city_name(self):
         for record in self:
-            if record.document_model == "55":
+            if record.recipient_id and not record.recipient_city_name:
                 raise ValidationError(
                     _("O Nome do Município do Destinatário é obrigatório.")
                 )
@@ -827,6 +1212,7 @@ class NFeDocument(models.Model):
         size=2,
     )
 
+    @api.depends("recipient_id", "recipient_id.state_id", "recipient_id.is_foreign")
     def _compute_recipient_state(self):
         for record in self:
             if record.recipient_id.state_id:
@@ -839,7 +1225,7 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_state")
     def _check_recipient_state(self):
         for record in self:
-            if record.document_model == "55":
+            if record.recipient_id and not record.recipient_zip:
                 raise ValidationError(_("A Sigla da UF do Destinatário é obrigatória."))
 
     # Código do CEP do destinatário. Informar zeros não significativos. Opcional.
@@ -851,6 +1237,7 @@ class NFeDocument(models.Model):
         compute="_compute_recipient_zip",
     )
 
+    @api.depends("recipient_id", "recipient_id.unformatted_zip")
     def _compute_recipient_zip(self):
         for record in self:
             if record.recipient_id.unformatted_zip:
@@ -870,11 +1257,29 @@ class NFeDocument(models.Model):
 
     # Nome do País do destinatário. Opcional.
     recipient_country_name = fields.Char(
-        related="recipient_id.country_id.name",
         string="Nome País Destinatário",
         store=True,
         size=60,
+        compute="_compute_recipient_country_name",
     )
+
+    @api.depends("recipient_id.country_id")
+    def _compute_recipient_country_name(self):
+        for record in self:
+            if record.recipient_id.country_id:
+                record.recipient_country_name = (
+                    record.recipient_id.country_id.with_context(lang="pt_BR").name
+                )
+            else:
+                record.recipient_country_name = False
+
+    @api.constrains("recipient_country_name")
+    def _check_recipient_country_name(self):
+        for record in self:
+            if record.recipient_id and not record.recipient_country_name:
+                raise ValidationError(
+                    _("O Nome do País do Destinatário é obrigatório.")
+                )
 
     # Telefone do destinatário. Preencher com o Código DDD + número do telefone. Nas operações com exterior é permitido informar o código do país + código da localidade + número do telefone (v2.0)
     recipient_phone = fields.Char(
@@ -896,39 +1301,49 @@ class NFeDocument(models.Model):
     recipient_ie_indicator = fields.Selection(
         RECIPIENT_IE_INDICATOR,
         string="Indicador da IE do Destinatário",
-        required=True,
         compute="_compute_recipient_ie_indicator",
     )
 
-    @api.depends("recipient_id", "document_model")
+    @api.depends(
+        "recipient_id",
+        "document_model",
+        "recipient_id.is_foreign",
+        "recipient_id.company_type",
+        "recipient_id.no_inscr_est",
+    )
     def _compute_recipient_ie_indicator(self):
         for record in self:
-            if record.document_model == "65":
-                record.recipient_ie_indicator = "9"
-            elif (
-                record.recipient_id.is_foreign
-                or record.recipient_id.company_type == "person"
-            ):
-                record.recipient_ie_indicator = "9"
-            elif record.recipient_id.no_inscr_est:
-                record.recipient_ie_indicator = "2"
+            if record.recipient_id:
+                if (
+                    record.recipient_id.is_foreign
+                    or record.recipient_id.company_type == "person"
+                ):
+                    record.recipient_ie_indicator = "9"
+                elif record.recipient_id.no_inscr_est:
+                    record.recipient_ie_indicator = "2"
+                else:
+                    record.recipient_ie_indicator = "1"
             else:
-                record.recipient_ie_indicator = "1"
+                record.recipient_ie_indicator = False
 
     @api.constrains("recipient_ie_indicator")
     def _check_recipient_ie_indicator(self):
         for record in self:
-            raise ValidationError(_("O Indicador da IE do Destinatário é obrigatório."))
+            if record.recipient_id and not record.recipient_ie_indicator:
+                raise ValidationError(
+                    _("O Indicador da IE do Destinatário é obrigatório.")
+                )
 
     # Inscrição Estadual do Destinatário. Obrigatorio se o indicador da IE do Destinatário for 1
     recipient_ie = fields.Char(
         string="Inscrição Estadual Destinatário",
         compute="_compute_recipient_ie",
+        # related="recipient_id.inscr_est",
         store=True,
         size=14,
     )
 
-    @api.depends("recipient_ie_indicator")
+    @api.depends("recipient_ie_indicator", "recipient_id", "recipient_id.inscr_est")
     def _compute_recipient_ie(self):
         for record in self:
             if record.recipient_ie_indicator == "1" and record.recipient_id.inscr_est:
@@ -939,14 +1354,10 @@ class NFeDocument(models.Model):
     @api.constrains("recipient_ie")
     def _check_recipient_ie(self):
         for record in self:
-            if record.document_model == "55" and record.recipient_ie_indicator == "1":
-                raise ValidationError(
-                    _("A Inscrição Estadual do Destinatário é obrigatória.")
-                )
             if (
-                record.recipient_id.company_type == "company"
+                record.recipient_id
                 and record.recipient_ie_indicator == "1"
-                and not record.recipient_id.no_inscr_est
+                and not record.recipient_ie
             ):
                 raise ValidationError(
                     _("A Inscrição Estadual do Destinatário é obrigatória.")
@@ -1607,14 +2018,14 @@ class NFeDocument(models.Model):
     )
     # Status de controle interno do documento na Odoo.
 
-    @api.constrains("series", "nfe_number", "emission_type")
+    @api.constrains("series_id", "nfe_number", "emission_type")
     def _check_unique_nfe_natural_key(self):
         # Validação da Chave Natural (UF, CNPJ/CPF do Emitente, Série, Número, Modelo, Ambiente de Autorização/Tipo de Emissão)
         # O Sistema de Autorização de Uso da SEFAZ rejeita pedidos de autorização duplicados de Chave Natural.
         for record in self:
             domain = [
                 ("document_model", "=", record.document_model),
-                ("series", "=", record.series),
+                ("nfe_series", "=", f"{record.series_id.series}"),
                 ("nfe_number", "=", record.nfe_number),
                 ("emission_type", "=", record.emission_type),
                 ("id", "!=", record.id),
@@ -1678,11 +2089,12 @@ class NFeDocument(models.Model):
                 # Generate nfe_number before creation
                 # You'll need to adapt this based on your _generate_nfe_number logic
                 vals["nfe_number"] = self._generate_nfe_number(vals)
-            # if not vals.get("access_key"):
-            #     # Generate access_key before creation
-            #     vals["access_key"] = self.generate_access_key(vals)
 
         records = super().create(vals_list)
+        for record in records:
+            if not record.access_key:
+                # Generate access_key before creation
+                record.access_key = record.generate_access_key()
         return records
 
     def _generate_nfe_number(self, vals):
@@ -1699,21 +2111,22 @@ class NFeDocument(models.Model):
 
         return nfe_number
 
-    def generate_access_key(self, vals):
-        uf_code = vals.get("issuer_state_code")
-        year_month_day = vals.get("issue_datetime").strftime("%y%m")
-        issuer_document = vals.get("issuer_cnpj") or vals.get("issuer_cpf")
+    def generate_access_key(self):
+        uf_code = self.issuer_state_code
+        year_month_day = fields.Datetime.from_string(self.issue_datetime).strftime(
+            "%y%m"
+        )  # vals.get("issue_datetime").strftime("%y%m")
+        issuer_document = self.issuer_cnpj or self.issuer_cpf
         padded_issuer_document = issuer_document.zfill(14)
-        document_model = vals.get("document_model")
-        series = self.series_id.nfe_series
+        document_model = self.document_model
+        series = str(self.nfe_series)
         padded_series = series.zfill(3)
-        nfe_number = vals.get("nfe_number")
+        nfe_number = str(self.nfe_number)
         padded_nfe_number = nfe_number.zfill(9)
         emission_type = self.emission_type
-        random_number = vals.get("random_number")
-        padded_random_number = random_number.zfill(8)
+        random_number = self.random_number
 
-        number_without_dv = f"{uf_code}{year_month_day}{padded_issuer_document}{document_model}{padded_series}{padded_nfe_number}{emission_type}{padded_random_number}"
+        number_without_dv = f"{uf_code}{year_month_day}{padded_issuer_document}{document_model}{padded_series}{padded_nfe_number}{emission_type}{random_number}"
 
         dv = self._calculate_mod11_dv(number_without_dv)
 
@@ -1761,3 +2174,7 @@ class NFeDocument(models.Model):
             dv = 11 - remainder
 
         return dv
+
+    def action_generate_nfe(self):
+        printNfeXml(self)
+        print("action", self)

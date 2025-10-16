@@ -67,7 +67,7 @@ class NFeDocumentLine(models.Model):
     @api.constrains("product_code")
     def _check_product_code(self):
         for record in self:
-            if record.product_code:
+            if not record.product_code:
                 raise ValidationError(_("O Código do Produto é obrigatório."))
 
     # Preencher com o código GTIN-8, GTIN-12, GTIN-13 ou GTIN-14 (antigos códigos EAN, UPC e DUN-14)
@@ -92,10 +92,9 @@ class NFeDocumentLine(models.Model):
     product_description = fields.Char(
         # related="product_id.name",
         string="Descrição do Produto",
-        # required=True,
         size=120,
-        # store=True,
-        # compute="_compute_product_description",
+        store=True,
+        compute="_compute_product_description",
     )
 
     @api.depends("product_id", "product_id.name")
@@ -109,11 +108,11 @@ class NFeDocumentLine(models.Model):
             else:
                 record.product_description = False
 
-    # @api.constrains("product_description")
-    # def _check_product_description(self):
-    #     for record in self:
-    #         if not record.product_description:
-    #             raise ValidationError(_("A Descrição do Produto é obrigatória."))
+    @api.constrains("product_description")
+    def _check_product_description(self):
+        for record in self:
+            if not record.product_description:
+                raise ValidationError(_("A Descrição do Produto é obrigatória."))
 
     # Código NCM com 8 dígitos. Obrigatório.
     # Para serviço ou item sem produto, informar “00” (dois zeros)
@@ -129,7 +128,7 @@ class NFeDocumentLine(models.Model):
     @api.constrains("ncm_code")
     def _check_ncm_code(self):
         for record in self:
-            if record.ncm_code:
+            if not record.ncm_code:
                 raise ValidationError(_("O Código NCM é obrigatório."))
 
     # Código CEST (Código Especificador da Substituição Tributária). Opcional.
