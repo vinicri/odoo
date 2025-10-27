@@ -94,8 +94,8 @@
                     <field name="recipient_country_name"/>
                   </div>
                   <div class="nfe_party_line">
-                    <label for="recipient_phone">Telefone</label>
-                    <field name="recipient_phone" />
+                    <label for="recipient_formatted_phone">Telefone</label>
+                    <field name="recipient_formatted_phone" />
                   </div>
                 </div>
                 <div class="nfe_lines_container">
@@ -168,8 +168,8 @@
                     <field name="issuer_country_name"/>
                   </div>
                   <div class="nfe_party_line">
-                    <label for="issuer_phone">Telefone</label>
-                    <field name="issuer_phone" />
+                    <label for="issuer_formatted_phone">Telefone</label>
+                    <field name="issuer_formatted_phone" />
                   </div>
                 </div>
                 <div class="nfe_lines_container">
@@ -188,9 +188,17 @@
           </div>
 
           <group>
-            <field name="ref_nfe_numbers" invisible="emission_finality == '1'" />
             <field name="invoice_line_ids" context="{'default_issuer_id': issuer_id}"/>
           </group>
+
+          <notebook>
+            <page string="Documentos Referenciados" invisible="emission_finality == '1'">
+              <field name="ref_nfe_numbers" />
+            </page>
+            <page string="Pessoas Autorizadas a Acessar XML">
+              <field name="authorized_xml_access_ids" />
+            </page>
+          </notebook>
 
           <group>
             <field name="total_icms_base" />

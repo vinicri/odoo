@@ -65,7 +65,11 @@ class DataAbstract(models.AbstractModel):
 
     @api.model
     def name_search(
-        self, name, args=None, operator="ilike", limit=100, #name_get_uid=None
+        self,
+        name,
+        args=None,
+        operator="ilike",
+        limit=100,  # name_get_uid=None
     ):
         # if operator == "ilike" and not (name or "").strip():
         #     domain = []
@@ -76,19 +80,21 @@ class DataAbstract(models.AbstractModel):
                     [
                         "|",
                         "|",
-                        ("name", "ilike", name ),
+                        ("name", "ilike", name),
                         ("code", "=ilike", name + "%"),
                         ("code_unmasked", "=ilike", name + "%"),
                     ],
                 ]
             )
-            records = self.search_fetch(domain, ['display_name'], limit=limit)
+            records = self.search_fetch(domain, ["display_name"], limit=limit)
             return [(record.id, record.display_name) for record in records.sudo()]
 
         return super().name_search(
-            name, args=args, operator=operator, limit=limit, #name_get_uid=name_get_uid
+            name,
+            args=args,
+            operator=operator,
+            limit=limit,  # name_get_uid=name_get_uid
         )
-    
 
     # @api.depends("code", "name")
     # def _compute_display_name(self):
@@ -101,7 +107,6 @@ class DataAbstract(models.AbstractModel):
     #         return [(r.id, f"{r.code}") for r in self]
 
     #     return [(r.id, f"{r.code} - {truncate_name(r.name)}") for r in self]
-
 
     @api.depends("code", "name")
     def _compute_display_name(self):

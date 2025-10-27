@@ -40,7 +40,6 @@
                     <field name="icms_tax_group_id" />
                     <field name="icms_tax_id" />
                     <field name="icms_cst" />
-                    <field name="nfe_cst" />
                     <field name="icms_tax_percent" />
                     <field name="icms_value" />
                   </group>

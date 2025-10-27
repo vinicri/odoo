@@ -191,8 +191,9 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     # xPais = etree.SubElement(enderEmit, "xPais")
     # xPais.text = nfe_document.issuer_country_name
 
-    fone = etree.SubElement(enderEmit, "fone")
-    fone.text = nfe_document.issuer_phone
+    if nfe_document.issuer_phone:
+        fone = etree.SubElement(enderEmit, "fone")
+        fone.text = nfe_document.issuer_phone
 
     IE = etree.SubElement(emit, "IE")
     IE.text = nfe_document.issuer_ie
@@ -272,7 +273,133 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
             dEmail = etree.SubElement(dest, "email")
             dEmail.text = nfe_document.recipient_email
 
+    if nfe_document.authorized_xml_access_ids:
+        autXML = etree.SubElement(root, "autXML")
+        for authorized_xml_access_id in nfe_document.authorized_xml_access_ids:
+            if (
+                authorized_xml_access_id.company_type == "company"
+                and len(authorized_xml_access_id.vat) == 14
+            ):
+                idEstrangeiro = etree.SubElement(autXML, "CNPJ")
+                idEstrangeiro.text = authorized_xml_access_id.vat
+            elif (
+                authorized_xml_access_id.company_type == "person"
+                and len(authorized_xml_access_id.vat) == 11
+                and authorized_xml_access_id.vat.isdigit()
+            ):
+                idEstrangeiro = etree.SubElement(autXML, "CPF")
+                idEstrangeiro.text = authorized_xml_access_id.vat
+
+    for item in nfe_document.invoice_line_ids:
+        det = etree.SubElement(root, "det")
+        det.set("nItem", str(item.item_number))
+
+        prod = etree.SubElement(det, "prod")
+
+        cProd = etree.SubElement(prod, "cProd")
+        cProd.text = item.product_code
+
+        if not item.product_id.no_barcode and not item.product_id.barcode:
+            raise ValidationError(
+                _(
+                    "O produto '%s' não possui código de barras mas não está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
+                )
+                % item.product_id.name
+            )
+        elif item.product_id.no_barcode and item.product_id.barcode:
+            raise ValidationError(
+                _(
+                    "O produto '%s' possui código de barras mas está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
+                )
+                % item.product_id.name
+            )
+
+        if item.product_id.barcode:
+            cEAN = etree.SubElement(prod, "cEAN")
+            cEAN.text = item.product_id.barcode
+        else:
+            cEAN = etree.SubElement(prod, "cEAN")
+            cEAN.text = "SEM GTIN"
+
+        xProd = etree.SubElement(prod, "xProd")
+        xProd.text = item.product_description
+
+        NCM = etree.SubElement(prod, "NCM")
+        NCM.text = item.product_id.ncm_id.code_unmasked
+
+        if item.product_id.cest_id:
+            CEST = etree.SubElement(prod, "CEST")
+            CEST.text = item.product_id.cest_id.code_unmasked
+
+        cfop = etree.SubElement(prod, "CFOP")
+        cfop.text = item.cfop_code
+
+        uCom = etree.SubElement(prod, "uCom")
+        uCom.text = item.unit
+
+        qCom = etree.SubElement(prod, "qCom")
+        qCom.text = f"{item.quantity:.4f}"
+
+        vUnCom = etree.SubElement(prod, "vUnCom")
+        vUnCom.text = f"{item.unit_price:.10f}"
+
+        vProd = etree.SubElement(prod, "vProd")
+        vProd.text = f"{item.total_value:.2f}"
+
+        cEANTrib = etree.SubElement(prod, "cEANTrib")
+        cEANTrib.text = item.gtin_trib
+
+        uTrib = etree.SubElement(prod, "uTrib")
+        uTrib.text = item.unit_trib
+
+        qTrib = etree.SubElement(prod, "qTrib")
+        qTrib.text = f"{item.quantity_trib:.4f}"
+
+        vUnTrib = etree.SubElement(prod, "vUnTrib")
+        vUnTrib.text = f"{item.unit_value_trib:.10f}"
+
+        if item.freight_value:
+            vFrete = etree.SubElement(prod, "vFrete")
+            vFrete.text = f"{item.freight_value:.2f}"
+
+        if item.insurance_value:
+            vSeg = etree.SubElement(prod, "vSeg")
+            vSeg.text = f"{item.insurance_value:.2f}"
+
+        if item.discount_value:
+            vDesc = etree.SubElement(prod, "vDesc")
+            vDesc.text = f"{item.discount_value:.2f}"
+
+        if item.other_expenses_value:
+            vOutro = etree.SubElement(prod, "vOutro")
+            vOutro.text = f"{item.other_expenses_value:.2f}"
+
+        indTot = etree.SubElement(prod, "indTot")
+        indTot.text = item.include_in_total
+
+        imposto = etree.SubElement(det, "imposto")
+
+        icms = etree.SubElement(imposto, "ICMS")
+
+    # 101 - Tributada pelo Simples Nacional com permissão de crédito
+    # 102 - Tributada pelo Simples Nacional sem permissão de crédito
+    # 103 - Isenção do ICMS no Simples Nacional para faixa de receita bruta
+    # 201 - Tributada pelo Simples Nacional com permissão de crédito e com cobrança do ICMS por substituição tributária
+    # 202 - Tributada pelo Simples Nacional sem permissão de crédito e com cobrança do ICMS por substituição tributária
+    # 203 - Isenção do ICMS no Simples Nacional para faixa de receita bruta e com cobrança do ICMS por substituição tributária
+    # 300 - Imune
+    # 400 - Não tributada pelo Simples Nacional
+    # 500 - ICMS cobrado anteriormente por substituição tributária (substituído) ou por antecipação
+    # 900 - Outros
+
     return root
+
+
+def buildICMS(root, nfe_document_line):
+    icms_origin = nfe_document_line.icms_origin
+    icms_cst_code = nfe_document_line.icms_cst_code
+    icms_bc_modality = nfe_document_line.icms_bc_modality
+    icms_bc_value = nfe_document_line.icms_bc_value
 
 
 def printNfeXml(nfe_document):
@@ -900,21 +1027,26 @@ class NFeDocument(models.Model):
                 raise ValidationError(_("O Nome do País do Emitente é obrigatório."))
 
     # Telefone do emitente. Preencher com DDD + número. Opcional.
-    issuer_phone = fields.Char(
+    issuer_formatted_phone = fields.Char(
         related="issuer_id.phone",
         string="Telefone Emitente",
-        store=True,
-        size=14,
-        # compute="_compute_issuer_phone",
     )
 
-    # @api.depends("issuer_id.phone")
-    # def _compute_issuer_phone(self):
-    #     for record in self:
-    #         if record.issuer_id.phone:
-    #             return "".join(ch for ch in record.issuer_id.phone if ch.isdigit())
-    #         else:
-    #             record.issuer_phone = False
+    issuer_phone = fields.Char(
+        compute="_compute_issuer_phone",
+        string="Telefone Emitente",
+        store=True,
+    )
+
+    @api.depends("issuer_formatted_phone")
+    def _compute_issuer_phone(self):
+        for record in self:
+            if record.issuer_formatted_phone:
+                record.issuer_phone = "".join(
+                    filter(str.isdigit, record.issuer_formatted_phone)
+                )
+            else:
+                record.issuer_phone = False
 
     # Inscrição Estadual do Emitente. Informar somente algarismos, sem formatação.
     issuer_ie = fields.Char(
@@ -1282,13 +1414,26 @@ class NFeDocument(models.Model):
                 )
 
     # Telefone do destinatário. Preencher com o Código DDD + número do telefone. Nas operações com exterior é permitido informar o código do país + código da localidade + número do telefone (v2.0)
-    recipient_phone = fields.Char(
+    recipient_formatted_phone = fields.Char(
         related="recipient_id.phone",
         string="Telefone Destinatário",
-        #        compute="_compute_recipient_phone",
-        store=True,
-        size=14,
     )
+
+    recipient_phone = fields.Char(
+        compute="_compute_recipient_phone",
+        string="Telefone Destinatário",
+        store=True,
+    )
+
+    @api.depends("recipient_formatted_phone")
+    def _compute_recipient_phone(self):
+        for record in self:
+            if record.recipient_formatted_phone:
+                record.recipient_phone = "".join(
+                    filter(str.isdigit, record.recipient_formatted_phone)
+                )
+            else:
+                record.recipient_phone = False
 
     # def _compute_recipient_phone(self):
     #     for record in self:
@@ -1408,7 +1553,7 @@ class NFeDocument(models.Model):
                     ):
                         raise ValidationError(
                             _(
-                                "As Pessoas Autorizadas a Acessar XML devem ter um CPF válido."
+                                f"As pessoas autorizadas a acessar o XML da NF-e devem ter um CPF válido. Verifique o CPF da pessoa: {authorized_xml_access_id.name}."
                             )
                         )
                     if authorized_xml_access_id.company_type == "company" and (
@@ -1417,7 +1562,7 @@ class NFeDocument(models.Model):
                     ):
                         raise ValidationError(
                             _(
-                                "As Pessoas Autorizadas a Acessar XML devem ter um CNPJ válido."
+                                f"As empresas autorizadas a acessar  o XML da NF-e devem ter um CNPJ válido. Verifique o CNPJ da empresa: {authorized_xml_access_id.name}."
                             )
                         )
 
@@ -1429,6 +1574,14 @@ class NFeDocument(models.Model):
         inverse_name="nfe_id",
         string="Itens da Nota Fiscal",
     )
+
+    @api.constrains("invoice_line_ids")
+    def _check_invoice_line_ids(self):
+        for record in self:
+            if len(record.invoice_line_ids) > 990:
+                raise ValidationError(
+                    _("O número máximo de itens da nota fiscal é 990.")
+                )
 
     # === Grupo W. Total da NF-e  ===
     # total - Totais da NF-e

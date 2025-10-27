@@ -13,7 +13,12 @@ class Cest(models.Model):
 
     name = fields.Char(required=True)
 
-    code_unmasked = fields.Char(size=7)
+    code_unmasked = fields.Char(size=7, compute="_compute_code_unmasked", store=True)
+
+    @api.depends("code")
+    def _compute_code_unmasked(self):
+        for record in self:
+            record.code_unmasked = "".join(filter(str.isdigit, record.code))
 
     item = fields.Char(required=True)
 
@@ -21,7 +26,7 @@ class Cest(models.Model):
 
     product_tmpl_ids = fields.One2many(
         comodel_name="product.template",
-        string="Products", 
+        string="Products",
         readonly=True,
         inverse_name="cest_id",
     )
@@ -83,7 +88,11 @@ class Cest(models.Model):
 
     @api.model
     def name_search(
-        self, name, args=None, operator="ilike", limit=100,
+        self,
+        name,
+        args=None,
+        operator="ilike",
+        limit=100,
     ):
         # if operator == "ilike" and not (name or "").strip():
         #     domain = []
@@ -94,16 +103,18 @@ class Cest(models.Model):
                     [
                         "|",
                         "|",
-                        ("name", "ilike", name ),
+                        ("name", "ilike", name),
                         ("code", "=ilike", name + "%"),
                         ("code_unmasked", "=ilike", name + "%"),
                     ],
                 ]
             )
-            records = self.search_fetch(domain, ['display_name'], limit=limit)
+            records = self.search_fetch(domain, ["display_name"], limit=limit)
             return [(record.id, record.display_name) for record in records.sudo()]
 
         return super().name_search(
-            name, args=args, operator=operator, limit=limit, 
+            name,
+            args=args,
+            operator=operator,
+            limit=limit,
         )
-    

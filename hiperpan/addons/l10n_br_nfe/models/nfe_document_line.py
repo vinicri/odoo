@@ -74,18 +74,17 @@ class NFeDocumentLine(models.Model):
     # Para produtos que não possuem código de barras com GTIN, deve ser informado o literal “SEM GTIN”
     gtin = fields.Char(
         related="product_id.barcode",
-        # compute="_compute_gtin",
         string="Código de Barras",
         store=True,
         size=14,
-        # required=True,
         readonly=True,
     )
 
-    # @api.depends("product_id")
-    # def _compute_gtin(self):
-    #     for record in self:
-    #         record.gtin = record.product_id.barcode
+    @api.constrains("gtin")
+    def _check_gtin(self):
+        for record in self:
+            if not record.gtin:
+                raise ValidationError(_("O Código de Barras é obrigatório."))
 
     # Descrição do produto ou serviço.
     # Para NFC-e em homologação, a descrição do primeiro item deve ser "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL".
@@ -160,16 +159,35 @@ class NFeDocumentLine(models.Model):
     unit = fields.Char(
         related="product_id.uom_id.nfe_name",
         string="Unidade de Venda",
-        # required=True,
         readonly=True,
         size=6,
         store=True,
     )
 
+    @api.constrains("unit")
+    def _check_unit(self):
+        for record in self:
+            if not record.unit:
+                raise ValidationError(
+                    _(
+                        "A Unidade de Venda é obrigatória. Informe a unidade de comercialização no cadastro do produto."
+                    )
+                )
+
     # Informar a quantidade de comercialização do produto.
     quantity = fields.Float(
         string="Quantidade de Venda", required=True, digits=(11, 4), default=1
     )
+
+    @api.constrains("quantity")
+    def _check_quantity(self):
+        for record in self:
+            if not record.quantity:
+                raise ValidationError(_("A Quantidade de Venda é obrigatória."))
+            elif record.quantity < 0:
+                raise ValidationError(
+                    _("A Quantidade de Venda deve ser maior ou igual a 0.")
+                )
 
     # Valor Unitário de Comercialização do produto, informativo (0-10 decimais). [48, 49]
     unit_price = fields.Float(
@@ -178,6 +196,16 @@ class NFeDocumentLine(models.Model):
         required=True,
         digits=(11, 2),
     )
+
+    @api.constrains("unit_price")
+    def _check_unit_price(self):
+        for record in self:
+            if not record.unit_price:
+                raise ValidationError(_("O Valor Unitário é obrigatório."))
+            elif record.unit_price < 0:
+                raise ValidationError(
+                    _("O Valor Unitário deve ser maior ou igual a 0.")
+                )
 
     unit_discount_value = fields.Float(
         string="Valor de desconto por unidade",
@@ -219,7 +247,7 @@ class NFeDocumentLine(models.Model):
                 record.unit_price = False
 
     # Valor Total Bruto do Produto/Serviço.
-    # O valor do ICMS faz parte do Valor Total Bruto
+    # Somente o valor do produto vezes a quantidade. Não inclui o valor do desconto, do frete, do seguro, etc.
     total_value = fields.Float(
         compute="_compute_total_value",
         string="Valor Total Bruto do Produto/Serviço",
@@ -229,46 +257,70 @@ class NFeDocumentLine(models.Model):
         store=True,
     )
 
-    @api.depends("unit_price", "quantity", "discount_value", "other_expenses_value")
+    @api.depends("unit_price", "quantity")
     def _compute_total_value(self):
         for record in self:
-            record.total_value = (
-                record.unit_price * record.quantity
-                - record.discount_value
-                + record.other_expenses_value
-            )
+            record.total_value = record.unit_price * record.quantity
+
+    @api.constrains("total_value")
+    def _check_total_value(self):
+        for record in self:
+            if not record.total_value:
+                raise ValidationError(
+                    _("O Valor Total Bruto do Produto/Serviço é obrigatório.")
+                )
+            if record.total_value < 0:
+                raise ValidationError(
+                    _(
+                        "O Valor Total Bruto do Produto/Serviço deve ser maior ou igual a 0."
+                    )
+                )
 
     # O GTIN da unidade tributável deve corresponder àquele da menor unidade comercializável identificada por código GTIN.
     # Para produtos que não possuem código de barras com GTIN, deve ser informado o literal "SEM GTIN”
     # Obrigatório.
     gtin_trib = fields.Char(
         related="product_id.barcode",
-        compute="_compute_gtin",
         string="GTIN da Unidade Tributável",
         store=True,
         size=14,
-        # required=True,
         readonly=True,
     )
+
+    @api.constrains("gtin_trib")
+    def _check_gtin_trib(self):
+        for record in self:
+            if not record.gtin_trib:
+                raise ValidationError(_("O GTIN da Unidade Tributável é obrigatório."))
 
     # Unidade Tributável. Obrigatório.
     unit_trib = fields.Char(
         related="product_id.uom_id.nfe_name",
         string="Unidade Tributável",
-        # required=True,
         readonly=True,
         size=6,
         store=True,
     )
 
+    @api.constrains("unit_trib")
+    def _check_unit_trib(self):
+        for record in self:
+            if not record.unit_trib:
+                raise ValidationError(_("A Unidade Tributável é obrigatória."))
+
     # Quantidade Tributável. Obrigatório.
     quantity_trib = fields.Float(
         string="Quantidade Tributável",
         compute="_compute_quantity_trib",
-        # required=True,
         readonly=True,
         digits=(11, 4),
     )
+
+    @api.constrains("quantity_trib")
+    def _check_quantity_trib(self):
+        for record in self:
+            if not record.quantity_trib:
+                raise ValidationError(_("A Quantidade Tributável é obrigatória."))
 
     @api.depends("quantity")
     def _compute_quantity_trib(self):
@@ -278,10 +330,15 @@ class NFeDocumentLine(models.Model):
     unit_value_trib = fields.Float(
         string="Valor Unitário",
         readonly=True,
-        # required=True,
         digits=(11, 10),
         compute="_compute_unit_value_trib",
     )
+
+    @api.constrains("unit_value_trib")
+    def _check_unit_value_trib(self):
+        for record in self:
+            if not record.unit_value_trib:
+                raise ValidationError(_("O Valor Unitário Tributável é obrigatório."))
 
     @api.depends("unit_price")
     def _compute_unit_value_trib(self):
@@ -323,17 +380,12 @@ class NFeDocumentLine(models.Model):
         default="1",
     )
 
+    # esse campo vem do contexto do documento fiscal
     issuer_id = fields.Many2one(
         comodel_name="res.partner",
         string="Emitente",
         readonly=True,
     )
-
-    @api.onchange("issuer_id")
-    def _onchange_issuer_id(self):
-        if self.issuer_id:
-            print("self.issuer_id", self.issuer_id.company_id.id)
-            print("self.issuer_id", self.issuer_id.name)
 
     # ===  impostos ===
 
@@ -351,10 +403,6 @@ class NFeDocumentLine(models.Model):
     @api.depends("issuer_id", "issuer_id.fiscal_framework")
     def _compute_icms_tax_group_id(self):
         for record in self:
-            print(
-                "record.issuer_id.fiscal_framework",
-                record.issuer_id.fiscal_framework,
-            )
             if not record.issuer_id or not record.issuer_id.fiscal_framework:
                 record.icms_tax_group_id = False
                 return
@@ -382,6 +430,14 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    @api.constrains("icms_origin")
+    def _check_icms_origin(self):
+        for record in self:
+            if not record.icms_origin:
+                raise ValidationError(_("A Origem da Mercadoria é obrigatória."))
+            if record.icms_origin not in ("0", "1", "2", "3", "4", "5", "6", "7", "8"):
+                raise ValidationError(_("A Origem da Mercadoria é inválida."))
+
     icms_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="Imposto",
@@ -389,12 +445,73 @@ class NFeDocumentLine(models.Model):
         required=True,
     )
 
+    @api.constrains("icms_tax_id")
+    def _check_icms_tax_id(self):
+        for record in self:
+            if not record.icms_tax_id:
+                raise ValidationError(
+                    _(
+                        f"O ICMS não foi informado para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+            print(
+                "record.icms_tax_id.tax_group_id.id", record.icms_tax_id.tax_group_id.id
+            )
+            print("record.icms_tax_group_id.id", record.icms_tax_group_id.id)
+            if (
+                record.nfe_id.issuer_id.fiscal_framework in ("1", "2")
+                and record.icms_tax_id.tax_group_id.id
+                != self.env.ref("l10n_br_fiscal.tax_group_icmssn").id
+            ):
+                raise ValidationError(
+                    _(
+                        f"O ICMS informado para o produto {record.product_description} é invalido para regime fiscal da empresa emitente (Simples Nacional)."
+                    )
+                )
+            if (
+                record.nfe_id.issuer_id.fiscal_framework not in ("1", "2")
+                and record.icms_tax_id.tax_group_id.id
+                != self.env.ref("l10n_br_fiscal.tax_group_icms").id
+            ):
+                raise ValidationError(
+                    _(
+                        f"O ICMS informado para o produto {record.product_description} é invalido para regime fiscal da empresa emitente (Regime Normal)."
+                    )
+                )
+
     icms_cst_id = fields.Many2one(
         related="icms_tax_id.cst_out_id",
         string="CST ICMS",
         readonly=True,
         # required=True,
     )
+
+    @api.constrains("icms_cst_id")
+    def _check_icms_cst_id(self):
+        for record in self:
+            if not record.icms_cst_id:
+                raise ValidationError(
+                    _(
+                        f"O CST do ICMS é invalido para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+
+    icms_cst_code = fields.Char(
+        related="icms_cst_id.code",
+        string="CST ICMS",
+        store=True,
+        readonly=True,
+    )
+
+    @api.constrains("icms_cst_code")
+    def _check_icms_cst_code(self):
+        for record in self:
+            if not record.icms_cst_code:
+                raise ValidationError(
+                    _(
+                        f"O código do CST do ICMS é invalido para o item da nota fiscal: {record.product_description}."
+                    )
+                )
 
     # devolucao de simples nacional csosn 900
     # descatar o icms da nota de entrada pra empresa poder tomar o credito
@@ -406,33 +523,28 @@ class NFeDocumentLine(models.Model):
     # e no campo de "IPI Devolvido"
     icms_cst = fields.Char(
         compute="_compute_icms_cst",
-        related="icms_cst_id.code",
         string="CST ICMS",
-        size=3,
         store=True,
         readonly=True,
     )
-
-    nfe_cst = fields.Char(
-        string="CST",
-        compute="_compute_nfe_cst",
-    )
-
-    @api.depends("icms_origin", "icms_cst")
-    def _compute_nfe_cst(self):
-        for record in self:
-            if record.icms_origin and record.icms_cst:
-                record.nfe_cst = f"{record.icms_origin}{record.icms_cst}"
-            else:
-                record.nfe_cst = False
 
     @api.depends("icms_cst_id", "icms_origin")
     def _compute_icms_cst(self):
         for record in self:
             if record.icms_origin and record.icms_cst_id:
-                record.icms_cst = f"{record.icms_cst_id.code}{record.icms_origin}"
+                record.icms_cst = f"{record.icms_origin}{record.icms_cst_id.code}"
             else:
                 record.icms_cst = False
+
+    @api.constrains("icms_cst")
+    def _check_icms_cst(self):
+        for record in self:
+            if not record.icms_cst:
+                raise ValidationError(
+                    _(
+                        f"O CST do ICMS é invalido para o item da nota fiscal: {record.product_description}."
+                    )
+                )
 
     # todo colocar na definicao do imposto tax
     icms_bc_modality = fields.Selection(
@@ -444,6 +556,21 @@ class NFeDocumentLine(models.Model):
             ("3", "Valor da Operação"),
         ],
     )
+
+    @api.constrains("icms_bc_modality")
+    def _check_icms_bc_modality(self):
+        for record in self:
+            # todo adicionar os csts em que é obrigatório informar a modalidade da base de calculo
+            if not record.icms_bc_modality and record.icms_cst_code in (
+                "00",
+                "10",
+                "20",
+            ):
+                raise ValidationError(
+                    _(
+                        f"A modalidade da base de calculo do ICMS é invalido para o item da nota fiscal: {record.product_description}."
+                    )
+                )
 
     icms_tax_percent = fields.Float(
         related="icms_tax_id.percent_amount",
@@ -464,9 +591,22 @@ class NFeDocumentLine(models.Model):
         store=True,
     )
 
+    @api.depends(
+        "total_value",
+        "freight_value",
+        "insurance_value",
+        "other_expenses_value",
+        "discount_value",
+    )
     def _compute_icms_bc_value(self):
         for record in self:
-            record.icms_bc_value = False
+            record.icms_bc_value = (
+                record.total_value
+                + record.freight_value
+                + record.insurance_value
+                + record.other_expenses_value
+                - record.discount_value
+            )
 
     icms_deferment_percent = fields.Float(
         string="Percentual de Diferimento", digits=(3, 4)
