@@ -382,7 +382,12 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         # Grupo N - ICMS
         icms = etree.SubElement(imposto, "ICMS")
         buildICMS(icms, item, nfe_document.final_customer_operation == "1")
+        buildIPI(imposto, item)
 
+        buildPIS(imposto, item)
+        buildCOFINS(imposto, item)
+
+        buildIPIReturned(imposto, item)
     # 101 - Tributada pelo Simples Nacional com permissão de crédito
     # 102 - Tributada pelo Simples Nacional sem permissão de crédito
     # 103 - Isenção do ICMS no Simples Nacional para faixa de receita bruta
@@ -395,6 +400,129 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     # 900 - Outros
 
     return root
+
+
+def buildIPIReturned(root, line):
+    # todo checar se é nota
+    recipient_fiscal_framework = line.nfe_id.recipient_fiscal_framework
+    is_return_fiscal_document = line.nfe_id.emission_finality == "4"
+
+    if not is_return_fiscal_document:
+        return
+
+    if recipient_fiscal_framework in ("1", "2"):
+        raise ValidationError(
+            _(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"Grupo IPI Devolvido não deve ser informado se o regime fiscal do destinatário for Simples Nacional."
+            )
+        )
+    elif recipient_fiscal_framework == "3":
+        ipi_returned_fields = [
+            line.total_ipi_returned,
+            line.total_product_returned_percentage,
+        ]
+        if any(ipi_returned_fields) and not all(ipi_returned_fields):
+            raise ValidationError(
+                _(
+                    f"Geração de XML: (Produto: {line.product_description})"
+                    f"Grupo IPI Devolvido deve ser informado com todos os campos: Valor Total do IPI Devolvido e Percentual da Mercadoria Devolvida."
+                )
+            )
+
+        impostoDevol = etree.SubElement(root, "impostoDevol")
+
+        pDevol = etree.SubElement(impostoDevol, "pDevol")
+        pDevol.text = f"{line.total_ipi_returned:.2f}"
+
+        ipi = etree.SubElement(impostoDevol, "IPI")
+
+        vIPIDevol = etree.SubElement(ipi, "vIPIDevol")
+        vIPIDevol.text = f"{line.total_ipi_returned:.2f}"
+
+
+def buildIPI(root, line):
+    issuer_fiscal_framework = line.nfe_id.issuer_fiscal_framework
+
+    if issuer_fiscal_framework in ("1", "2"):
+        if not line.product_id.fiscal_type_id.code in ("03", "04", "05", "06"):
+            # se não for um produto fabricado, o grupo IPI não é informado
+            return
+
+        ipi = etree.SubElement(root, "IPI")
+
+        cEnq = etree.SubElement(ipi, "cEnq")
+        cEnq.text = "999"
+
+        IPITrib = etree.SubElement(ipi, "IPITrib")
+
+        CST = etree.SubElement(IPITrib, "CST")
+        CST.text = "99"
+
+    else:
+        raise ValidationError(
+            _(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"Grupo IPI não é suportado ainda para o regime normal."
+            )
+        )
+
+
+def buildPIS(root, line):
+    issuer_fiscal_framework = line.nfe_id.issuer_fiscal_framework
+
+    if issuer_fiscal_framework in ("1", "2"):
+        pis = etree.SubElement(root, "PIS")
+
+        PISOutr = etree.SubElement(pis, "PISOutr")
+
+        CST = etree.SubElement(PISOutr, "CST")
+        CST.text = "99"
+
+        qBCProd = etree.SubElement(PISOutr, "qBCProd")
+        qBCProd.text = "0.0000"
+
+        vAliqProd = etree.SubElement(PISOutr, "vAliqProd")
+        vAliqProd.text = "0.0000"
+
+        vPIS = etree.SubElement(PISOutr, "vPIS")
+        vPIS.text = "0.00"
+
+    else:
+        raise ValidationError(
+            _(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"Grupo PIS não é suportado ainda para o regime normal."
+            )
+        )
+
+
+def buildCOFINS(root, line):
+    issuer_fiscal_framework = line.nfe_id.issuer_fiscal_framework
+
+    if issuer_fiscal_framework in ("1", "2"):
+        cofins = etree.SubElement(root, "COFINS")
+
+        COFINSOutr = etree.SubElement(cofins, "COFINSOutr")
+
+        CST = etree.SubElement(COFINSOutr, "CST")
+        CST.text = "99"
+
+        qBCProd = etree.SubElement(COFINSOutr, "qBCProd")
+        qBCProd.text = "0.0000"
+
+        vAliqProd = etree.SubElement(COFINSOutr, "vAliqProd")
+        vAliqProd.text = "0.0000"
+
+        vCOFINS = etree.SubElement(COFINSOutr, "vCOFINS")
+        vCOFINS.text = "0.00"
+    else:
+        raise ValidationError(
+            _(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"Grupo COFINS não é suportado ainda para o regime normal."
+            )
+        )
 
 
 def buildICMS(icms_root, nfe_document_line, is_final_customer):
@@ -1895,7 +2023,7 @@ class NFeDocument(models.Model):
 
     issuer_fiscal_framework = fields.Selection(
         related="issuer_id.fiscal_framework",
-        string="Regime Fiscal",
+        string="Regime Fiscal do Emitente",
         store=True,
         readonly=True,
     )
@@ -1914,6 +2042,13 @@ class NFeDocument(models.Model):
         string="Destinatário",
         domain="[('country_id.code', '=', 'BR')]",
         required=True,
+    )
+
+    recipient_fiscal_framework = fields.Selection(
+        related="recipient_id.fiscal_framework",
+        string="Regime Fiscal do Destinatário",
+        store=True,
+        readonly=True,
     )
 
     @api.constrains("recipient_id")
