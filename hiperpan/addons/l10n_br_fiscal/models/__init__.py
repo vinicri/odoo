@@ -5,6 +5,7 @@ from . import cfop
 from . import ncm
 from . import ncm_genre
 from . import tax_group
+from . import ipi_guideline
 from . import cst
 from . import tax
 from . import product_mixin

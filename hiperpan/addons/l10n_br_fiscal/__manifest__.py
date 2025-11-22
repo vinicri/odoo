@@ -13,6 +13,7 @@
         # data
         "data/l10n_br_fiscal.tax.group.csv",
         "data/l10n_br_fiscal.cst.csv",
+        "data/l10n_br_fiscal.ipi.guideline.csv",
         "data/l10n_br_fiscal.tax.csv",
         "data/l10n_br_fiscal.cnae.csv",
         "data/l10n_br_fiscal.ncm.genre.csv",
@@ -36,6 +37,7 @@
         "views/fiscal_views.xml",
         "views/res_company.xml",
         "views/res_partner.xml",
+        "views/ipi_guideline.xml",
     ],
     "external_dependencies": {
         "python": ["erpbrasil.base"],
