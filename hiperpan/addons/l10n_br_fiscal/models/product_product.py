@@ -52,3 +52,7 @@ class ProductProduct(models.Model):
     def _compute_fiscal_genre_id(self):
         for record in self:
             self._extract_fiscal_genre_id(record)
+
+    fiscal_additional_information = fields.Text(
+        string="Informações adicionais de produto para documento fiscal"
+    )

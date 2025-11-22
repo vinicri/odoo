@@ -145,6 +145,17 @@ class ProductTemplate(models.Model):
         for record in self:
             self._extract_fiscal_genre_id(record)
 
+    fiscal_additional_information = fields.Text(
+        string="Informações adicionais de produto para documento fiscal"
+    )
+
+    @api.depends("product_variant_ids.fiscal_additional_information")
+    def _compute_fiscal_additional_information(self):
+        self._compute_template_field_from_variant_field("fiscal_additional_information")
+
+    def _set_fiscal_additional_information(self):
+        self._set_product_variant_field("fiscal_additional_information")
+
     # Some modules of the repo depend on stock and have
     # demo products of type 'product' (this type is added to product.template
     # in the stock module).
