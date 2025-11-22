@@ -159,7 +159,7 @@ class PartyMixin(models.AbstractModel):
 
     phone = fields.Char(
         string="Telefone",
-        compute="_compute_phone",
+        # compute="_compute_phone",
         inverse="_inverse_phone",
         readonly=False,
         store=True,
@@ -167,8 +167,8 @@ class PartyMixin(models.AbstractModel):
     )
 
     @api.onchange("phone", "country_id")
-    def _compute_phone(self):
-        if self.country_id.code == "BR":
+    def _onchange_phone(self):
+        if self.phone and self.country_id.code == "BR":
             self.phone = self._format_br_phone(self.phone)
         else:
             self.phone = False

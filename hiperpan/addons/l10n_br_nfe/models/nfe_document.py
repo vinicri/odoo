@@ -302,14 +302,14 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         if not item.product_id.no_barcode and not item.product_id.barcode:
             raise ValidationError(
                 _(
-                    "O produto '%s' não possui código de barras mas não está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
+                    "Geração de XML: O produto '%s' não possui código de barras mas não está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
                 )
                 % item.product_id.name
             )
         elif item.product_id.no_barcode and item.product_id.barcode:
             raise ValidationError(
                 _(
-                    "O produto '%s' possui código de barras mas está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
+                    "Geração de XML: O produto '%s' possui código de barras mas está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
                 )
                 % item.product_id.name
             )
@@ -379,7 +379,9 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
         imposto = etree.SubElement(det, "imposto")
 
+        # Grupo N - ICMS
         icms = etree.SubElement(imposto, "ICMS")
+        buildICMS(icms, item, nfe_document.final_customer_operation == "1")
 
     # 101 - Tributada pelo Simples Nacional com permissão de crédito
     # 102 - Tributada pelo Simples Nacional sem permissão de crédito
@@ -395,11 +397,817 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     return root
 
 
-def buildICMS(root, nfe_document_line):
-    icms_origin = nfe_document_line.icms_origin
+def buildICMS(icms_root, nfe_document_line, is_final_customer):
+    """
+    Constrói o XML do ICMS conforme layout NFe 4.00
+
+    Args:
+        icms_root: Elemento <ICMS> onde serão adicionados os subelementos
+        nfe_document_line: Linha do documento NFe com os dados tributários
+    """
+    # Determina se é Simples Nacional (CSOSN) ou Regime Normal (CST)
     icms_cst_code = nfe_document_line.icms_cst_code
-    icms_bc_modality = nfe_document_line.icms_bc_modality
-    icms_bc_value = nfe_document_line.icms_bc_value
+    icms_origin = nfe_document_line.icms_origin
+    issuer_fiscal_framework = nfe_document_line.nfe_id.issuer_fiscal_framework
+
+    # Simples Nacional - CSOSN (101, 102, 103, 201, 202, 203, 300, 400, 500, 900)
+    if issuer_fiscal_framework in ("1", "2"):
+        _buildICMSSN(
+            icms_root, nfe_document_line, icms_origin, icms_cst_code, is_final_customer
+        )
+    # Regime Normal - CST (00, 10, 20, 30, 40, 41, 50, 51, 60, 70, 90)
+    # else:
+    #    #  TODO: Implementar
+    #    #  _buildICMSRegimeNormal(icms_root, nfe_document_line, icms_origin, icms_cst_code)
+
+
+def _buildICMSRegimeNormal(icms_root, line, origin, cst):
+    """Constrói XML ICMS para Regime Normal conforme Manual NFe 4.00"""
+
+    if cst == "00":
+        # N02 - Tributada integralmente
+        icms00 = etree.SubElement(icms_root, "ICMS00")
+
+        # N11 - Origem da mercadoria (obrigatório)
+        orig = etree.SubElement(icms00, "orig")
+        orig.text = origin
+
+        # N12 - CST (obrigatório)
+        CST = etree.SubElement(icms00, "CST")
+        CST.text = cst
+
+        # N13 - Modalidade BC (obrigatório)
+        modBC = etree.SubElement(icms00, "modBC")
+        modBC.text = line.icms_bc_modality or "3"
+
+        # N15 - Valor BC (obrigatório)
+        vBC = etree.SubElement(icms00, "vBC")
+        vBC.text = f"{line.icms_bc_value:.2f}"
+
+        # N16 - Alíquota (obrigatório)
+        pICMS = etree.SubElement(icms00, "pICMS")
+        pICMS.text = f"{line.icms_tax_percent:.2f}"
+
+        # N17 - Valor ICMS (obrigatório)
+        vICMS = etree.SubElement(icms00, "vICMS")
+        vICMS.text = f"{line.icms_value:.2f}"
+
+        # N17b - Base FCP (opcional)
+        if line.icms_fcp_bc_value:
+            vBCFCP = etree.SubElement(icms00, "vBCFCP")
+            vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
+
+            # N17c - Percentual FCP (opcional)
+            if line.icms_fcp_tax_percent:
+                pFCP = etree.SubElement(icms00, "pFCP")
+                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+
+            # N17d - Valor FCP (opcional)
+            if line.icms_fcp_value:
+                vFCP = etree.SubElement(icms00, "vFCP")
+                vFCP.text = f"{line.icms_fcp_value:.2f}"
+
+    elif cst == "10":
+        # N03 - Tributada com cobrança de ICMS por ST
+        icms10 = etree.SubElement(icms_root, "ICMS10")
+
+        orig = etree.SubElement(icms10, "orig")
+        orig.text = origin
+
+        CST = etree.SubElement(icms10, "CST")
+        CST.text = cst
+
+        # N13 - Modalidade BC
+        modBC = etree.SubElement(icms10, "modBC")
+        modBC.text = line.icms_bc_modality or "3"
+
+        # N15 - Valor BC
+        vBC = etree.SubElement(icms10, "vBC")
+        vBC.text = f"{line.icms_bc_value:.2f}"
+
+        # N16 - Alíquota
+        pICMS = etree.SubElement(icms10, "pICMS")
+        pICMS.text = f"{line.icms_tax_percent:.2f}"
+
+        # N17 - Valor ICMS
+        vICMS = etree.SubElement(icms10, "vICMS")
+        vICMS.text = f"{line.icms_value:.2f}"
+
+        # N17b-d - FCP (opcional)
+        if line.icms_fcp_bc_value:
+            vBCFCP = etree.SubElement(icms10, "vBCFCP")
+            vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
+
+            if line.icms_fcp_tax_percent:
+                pFCP = etree.SubElement(icms10, "pFCP")
+                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+
+            if line.icms_fcp_value:
+                vFCP = etree.SubElement(icms10, "vFCP")
+                vFCP.text = f"{line.icms_fcp_value:.2f}"
+
+        # N18 - Modalidade BC ST (obrigatório)
+        modBCST = etree.SubElement(icms10, "modBCST")
+        modBCST.text = line.icms_st_modality or "4"
+
+        # N19 - MVA ST (opcional)
+        if line.icms_st_mva_percent:
+            pMVAST = etree.SubElement(icms10, "pMVAST")
+            pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
+
+        # N20 - Redução BC ST (opcional)
+        if line.icms_st_reduction_percent:
+            pRedBCST = etree.SubElement(icms10, "pRedBCST")
+            pRedBCST.text = f"{line.icms_st_reduction_percent:.4f}"
+
+        # N21 - Valor BC ST (obrigatório)
+        vBCST = etree.SubElement(icms10, "vBCST")
+        vBCST.text = f"{line.icms_st_bc_value:.2f}"
+
+        # N22 - Alíquota ICMS ST (obrigatório)
+        pICMSST = etree.SubElement(icms10, "pICMSST")
+        pICMSST.text = f"{line.icms_st_tax_percent:.2f}"
+
+        # N23 - Valor ICMS ST (obrigatório)
+        vICMSST = etree.SubElement(icms10, "vICMSST")
+        vICMSST.text = f"{line.icms_st_value:.2f}"
+
+        # N23a-c - FCP ST (opcional)
+        if line.icms_st_fcp_bc_value:
+            vBCFCPST = etree.SubElement(icms10, "vBCFCPST")
+            vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
+
+            if line.icms_st_fcp_tax_percent:
+                pFCPST = etree.SubElement(icms10, "pFCPST")
+                pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+
+            if line.icms_st_fcp_value:
+                vFCPST = etree.SubElement(icms10, "vFCPST")
+                vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+
+    elif cst == "20":
+        # N04 - Com redução de BC
+        icms20 = etree.SubElement(icms_root, "ICMS20")
+
+        orig = etree.SubElement(icms20, "orig")
+        orig.text = origin
+
+        CST = etree.SubElement(icms20, "CST")
+        CST.text = cst
+
+        # N13 - Modalidade BC
+        modBC = etree.SubElement(icms20, "modBC")
+        modBC.text = line.icms_bc_modality or "3"
+
+        # N14 - Percentual redução BC (obrigatório para CST 20)
+        pRedBC = etree.SubElement(icms20, "pRedBC")
+        pRedBC.text = f"{line.icms_bc_reduction_percent:.4f}"
+
+        # N15 - Valor BC
+        vBC = etree.SubElement(icms20, "vBC")
+        vBC.text = f"{line.icms_bc_value:.2f}"
+
+        # N16 - Alíquota
+        pICMS = etree.SubElement(icms20, "pICMS")
+        pICMS.text = f"{line.icms_tax_percent:.2f}"
+
+        # N17 - Valor ICMS
+        vICMS = etree.SubElement(icms20, "vICMS")
+        vICMS.text = f"{line.icms_value:.2f}"
+
+        # N17b-d - FCP (opcional)
+        if line.icms_fcp_bc_value:
+            vBCFCP = etree.SubElement(icms20, "vBCFCP")
+            vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
+
+            if line.icms_fcp_tax_percent:
+                pFCP = etree.SubElement(icms20, "pFCP")
+                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+
+            if line.icms_fcp_value:
+                vFCP = etree.SubElement(icms20, "vFCP")
+                vFCP.text = f"{line.icms_fcp_value:.2f}"
+
+        # TODO: N27a - vICMSDeson (desoneração) - não implementado
+        # TODO: N28 - motDesICMS (motivo desoneração) - não implementado
+
+    elif cst == "30":
+        # N05 - Isenta ou não tributada com cobrança de ICMS por ST
+        icms30 = etree.SubElement(icms_root, "ICMS30")
+
+        orig = etree.SubElement(icms30, "orig")
+        orig.text = origin
+
+        CST = etree.SubElement(icms30, "CST")
+        CST.text = cst
+
+        # N18 - Modalidade BC ST (obrigatório)
+        modBCST = etree.SubElement(icms30, "modBCST")
+        modBCST.text = line.icms_st_modality or "4"
+
+        # N19 - MVA ST (opcional)
+        if line.icms_st_mva_percent:
+            pMVAST = etree.SubElement(icms30, "pMVAST")
+            pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
+
+        # N20 - Redução BC ST (opcional)
+        if line.icms_st_reduction_percent:
+            pRedBCST = etree.SubElement(icms30, "pRedBCST")
+            pRedBCST.text = f"{line.icms_st_reduction_percent:.4f}"
+
+        # N21 - Valor BC ST (obrigatório)
+        vBCST = etree.SubElement(icms30, "vBCST")
+        vBCST.text = f"{line.icms_st_bc_value:.2f}"
+
+        # N22 - Alíquota ICMS ST (obrigatório)
+        pICMSST = etree.SubElement(icms30, "pICMSST")
+        pICMSST.text = f"{line.icms_st_tax_percent:.2f}"
+
+        # N23 - Valor ICMS ST (obrigatório)
+        vICMSST = etree.SubElement(icms30, "vICMSST")
+        vICMSST.text = f"{line.icms_st_value:.2f}"
+
+        # N23a-c - FCP ST (opcional)
+        if line.icms_st_fcp_bc_value:
+            vBCFCPST = etree.SubElement(icms30, "vBCFCPST")
+            vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
+
+            if line.icms_st_fcp_tax_percent:
+                pFCPST = etree.SubElement(icms30, "pFCPST")
+                pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+
+            if line.icms_st_fcp_value:
+                vFCPST = etree.SubElement(icms30, "vFCPST")
+                vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+
+        # TODO: N27a - vICMSDeson (desoneração) - não implementado
+        # TODO: N28 - motDesICMS (motivo desoneração) - não implementado
+
+    elif cst in ("40", "41", "50"):
+        # N06 - Isenta (40) / Não tributada (41) / Suspensão (50)
+        icms40 = etree.SubElement(icms_root, "ICMS40")
+
+        orig = etree.SubElement(icms40, "orig")
+        orig.text = origin
+
+        CST = etree.SubElement(icms40, "CST")
+        CST.text = cst
+
+        # TODO: N27a - vICMSDeson (desoneração) - não implementado
+        # TODO: N28 - motDesICMS (motivo desoneração) - não implementado
+
+    elif cst == "51":
+        # N07 - Diferimento
+        icms51 = etree.SubElement(icms_root, "ICMS51")
+
+        orig = etree.SubElement(icms51, "orig")
+        orig.text = origin
+
+        CST = etree.SubElement(icms51, "CST")
+        CST.text = cst
+
+        # N13 - Modalidade BC (opcional para CST 51)
+        if line.icms_bc_modality:
+            modBC = etree.SubElement(icms51, "modBC")
+            modBC.text = line.icms_bc_modality
+
+        # N14 - Redução BC (opcional)
+        if line.icms_bc_reduction_percent:
+            pRedBC = etree.SubElement(icms51, "pRedBC")
+            pRedBC.text = f"{line.icms_bc_reduction_percent:.4f}"
+
+        # N15 - Valor BC (opcional)
+        if line.icms_bc_value:
+            vBC = etree.SubElement(icms51, "vBC")
+            vBC.text = f"{line.icms_bc_value:.2f}"
+
+        # N16 - Alíquota (opcional)
+        if line.icms_tax_percent:
+            pICMS = etree.SubElement(icms51, "pICMS")
+            pICMS.text = f"{line.icms_tax_percent:.2f}"
+
+        # N17 - Valor ICMS Operação (opcional)
+        if line.icms_value:
+            vICMSOp = etree.SubElement(icms51, "vICMSOp")
+            vICMSOp.text = f"{line.icms_value:.2f}"
+
+        # N26 - Percentual diferimento (obrigatório para CST 51)
+        pDif = etree.SubElement(icms51, "pDif")
+        pDif.text = f"{line.icms_deferment_percent:.4f}"
+
+        # N27 - Valor ICMS diferido (obrigatório)
+        vICMSDif = etree.SubElement(icms51, "vICMSDif")
+        vICMSDif.text = f"{line.icms_deferment_value:.2f}"
+
+        # N17 - Valor ICMS (calculado: vICMSOp - vICMSDif)
+        if line.icms_value and line.icms_deferment_value:
+            vICMS = etree.SubElement(icms51, "vICMS")
+            vICMS.text = f"{(line.icms_value - line.icms_deferment_value):.2f}"
+
+        # N17b-d - FCP (opcional)
+        if line.icms_fcp_bc_value:
+            vBCFCP = etree.SubElement(icms51, "vBCFCP")
+            vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
+
+            if line.icms_fcp_tax_percent:
+                pFCP = etree.SubElement(icms51, "pFCP")
+                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+
+            if line.icms_fcp_value:
+                vFCP = etree.SubElement(icms51, "vFCP")
+                vFCP.text = f"{line.icms_fcp_value:.2f}"
+
+    elif cst == "60":
+        # N08 - ICMS cobrado anteriormente por ST
+        icms60 = etree.SubElement(icms_root, "ICMS60")
+
+        orig = etree.SubElement(icms60, "orig")
+        orig.text = origin
+
+        CST = etree.SubElement(icms60, "CST")
+        CST.text = cst
+
+        # TODO: Campos específicos do CST 60 (não implementados)
+        # N24 - vBCSTRet (BC do ICMS ST retido)
+        # N25 - pST (Alíquota suportada pelo consumidor final)
+        # N25a - vICMSSubstituto (Valor do ICMS Próprio do Substituto)
+        # N26 - vICMSSTRet (Valor do ICMS ST retido)
+        # N26a - vBCFCPSTRet (BC FCP retido por ST)
+        # N26b - pFCPSTRet (% FCP retido por ST)
+        # N26c - vFCPSTRet (Valor FCP retido por ST)
+        # TODO: N27a - vICMSDeson
+        # TODO: N28 - motDesICMS
+
+    elif cst == "70":
+        # N09 - Com redução de BC e cobrança de ICMS por ST
+        icms70 = etree.SubElement(icms_root, "ICMS70")
+
+        orig = etree.SubElement(icms70, "orig")
+        orig.text = origin
+
+        CST = etree.SubElement(icms70, "CST")
+        CST.text = cst
+
+        # N13 - Modalidade BC
+        modBC = etree.SubElement(icms70, "modBC")
+        modBC.text = line.icms_bc_modality or "3"
+
+        # N14 - Percentual redução BC (obrigatório para CST 70)
+        pRedBC = etree.SubElement(icms70, "pRedBC")
+        pRedBC.text = f"{line.icms_bc_reduction_percent:.4f}"
+
+        # N15 - Valor BC
+        vBC = etree.SubElement(icms70, "vBC")
+        vBC.text = f"{line.icms_bc_value:.2f}"
+
+        # N16 - Alíquota
+        pICMS = etree.SubElement(icms70, "pICMS")
+        pICMS.text = f"{line.icms_tax_percent:.2f}"
+
+        # N17 - Valor ICMS
+        vICMS = etree.SubElement(icms70, "vICMS")
+        vICMS.text = f"{line.icms_value:.2f}"
+
+        # N17b-d - FCP (opcional)
+        if line.icms_fcp_bc_value:
+            vBCFCP = etree.SubElement(icms70, "vBCFCP")
+            vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
+
+            if line.icms_fcp_tax_percent:
+                pFCP = etree.SubElement(icms70, "pFCP")
+                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+
+            if line.icms_fcp_value:
+                vFCP = etree.SubElement(icms70, "vFCP")
+                vFCP.text = f"{line.icms_fcp_value:.2f}"
+
+        # N18 - Modalidade BC ST (obrigatório)
+        modBCST = etree.SubElement(icms70, "modBCST")
+        modBCST.text = line.icms_st_modality or "4"
+
+        # N19 - MVA ST (opcional)
+        if line.icms_st_mva_percent:
+            pMVAST = etree.SubElement(icms70, "pMVAST")
+            pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
+
+        # N20 - Redução BC ST (opcional)
+        if line.icms_st_reduction_percent:
+            pRedBCST = etree.SubElement(icms70, "pRedBCST")
+            pRedBCST.text = f"{line.icms_st_reduction_percent:.4f}"
+
+        # N21 - Valor BC ST (obrigatório)
+        vBCST = etree.SubElement(icms70, "vBCST")
+        vBCST.text = f"{line.icms_st_bc_value:.2f}"
+
+        # N22 - Alíquota ICMS ST (obrigatório)
+        pICMSST = etree.SubElement(icms70, "pICMSST")
+        pICMSST.text = f"{line.icms_st_tax_percent:.2f}"
+
+        # N23 - Valor ICMS ST (obrigatório)
+        vICMSST = etree.SubElement(icms70, "vICMSST")
+        vICMSST.text = f"{line.icms_st_value:.2f}"
+
+        # N23a-c - FCP ST (opcional)
+        if line.icms_st_fcp_bc_value:
+            vBCFCPST = etree.SubElement(icms70, "vBCFCPST")
+            vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
+
+            if line.icms_st_fcp_tax_percent:
+                pFCPST = etree.SubElement(icms70, "pFCPST")
+                pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+
+            if line.icms_st_fcp_value:
+                vFCPST = etree.SubElement(icms70, "vFCPST")
+                vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+
+        # TODO: N27a - vICMSDeson
+        # TODO: N28 - motDesICMS
+
+    elif cst == "90":
+        # N10 - Outros
+        icms90 = etree.SubElement(icms_root, "ICMS90")
+
+        orig = etree.SubElement(icms90, "orig")
+        orig.text = origin
+
+        CST = etree.SubElement(icms90, "CST")
+        CST.text = cst
+
+        # Para CST 90, os campos são opcionais dependendo da situação
+        if line.icms_bc_modality:
+            modBC = etree.SubElement(icms90, "modBC")
+            modBC.text = line.icms_bc_modality
+
+        if line.icms_bc_value:
+            vBC = etree.SubElement(icms90, "vBC")
+            vBC.text = f"{line.icms_bc_value:.2f}"
+
+        if line.icms_bc_reduction_percent:
+            pRedBC = etree.SubElement(icms90, "pRedBC")
+            pRedBC.text = f"{line.icms_bc_reduction_percent:.4f}"
+
+        if line.icms_tax_percent:
+            pICMS = etree.SubElement(icms90, "pICMS")
+            pICMS.text = f"{line.icms_tax_percent:.2f}"
+
+        if line.icms_value:
+            vICMS = etree.SubElement(icms90, "vICMS")
+            vICMS.text = f"{line.icms_value:.2f}"
+
+        # FCP (opcional)
+        if line.icms_fcp_bc_value:
+            vBCFCP = etree.SubElement(icms90, "vBCFCP")
+            vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
+
+            if line.icms_fcp_tax_percent:
+                pFCP = etree.SubElement(icms90, "pFCP")
+                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+
+            if line.icms_fcp_value:
+                vFCP = etree.SubElement(icms90, "vFCP")
+                vFCP.text = f"{line.icms_fcp_value:.2f}"
+
+        # ICMS ST (opcional)
+        if line.icms_st_modality:
+            modBCST = etree.SubElement(icms90, "modBCST")
+            modBCST.text = line.icms_st_modality
+
+        if line.icms_st_mva_percent:
+            pMVAST = etree.SubElement(icms90, "pMVAST")
+            pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
+
+        if line.icms_st_reduction_percent:
+            pRedBCST = etree.SubElement(icms90, "pRedBCST")
+            pRedBCST.text = f"{line.icms_st_reduction_percent:.4f}"
+
+        if line.icms_st_bc_value:
+            vBCST = etree.SubElement(icms90, "vBCST")
+            vBCST.text = f"{line.icms_st_bc_value:.2f}"
+
+        if line.icms_st_tax_percent:
+            pICMSST = etree.SubElement(icms90, "pICMSST")
+            pICMSST.text = f"{line.icms_st_tax_percent:.2f}"
+
+        if line.icms_st_value:
+            vICMSST = etree.SubElement(icms90, "vICMSST")
+            vICMSST.text = f"{line.icms_st_value:.2f}"
+
+        # FCP ST (opcional)
+        if line.icms_st_fcp_bc_value:
+            vBCFCPST = etree.SubElement(icms90, "vBCFCPST")
+            vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
+
+            if line.icms_st_fcp_tax_percent:
+                pFCPST = etree.SubElement(icms90, "pFCPST")
+                pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+
+            if line.icms_st_fcp_value:
+                vFCPST = etree.SubElement(icms90, "vFCPST")
+                vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+
+        # TODO: N27a - vICMSDeson
+        # TODO: N28 - motDesICMS
+
+
+def _buildICMSSN(icms_root, line, origin, csosn, is_final_customer):
+    """Constrói XML ICMS para Simples Nacional (CSOSN) conforme Manual NFe 4.00"""
+
+    if csosn == "101":
+        # N10c - Tributada SN com permissão de crédito
+        icmssn101 = etree.SubElement(icms_root, "ICMSSN101")
+
+        # N11 - Origem
+        orig = etree.SubElement(icmssn101, "orig")
+        orig.text = origin
+
+        # N12a - CSOSN
+        CSOSN = etree.SubElement(icmssn101, "CSOSN")
+        CSOSN.text = csosn
+
+        # N29 - Alíquota de crédito (obrigatório)
+        pCredSN = etree.SubElement(icmssn101, "pCredSN")
+        pCredSN.text = f"{line.icms_sn_credit_percent:.4f}"
+
+        # N30 - Valor de crédito (obrigatório)
+        vCredICMSSN = etree.SubElement(icmssn101, "vCredICMSSN")
+        vCredICMSSN.text = f"{line.icms_sn_credit_value:.2f}"
+
+    elif csosn in ("102", "103", "300", "400"):
+        # N10d - Tributada SN sem crédito (102, 103)
+        # N10d - Imune (300) - exportacao de mercadorias
+        # N10d - Não tributada SN (400)
+        # - operações de remessa de um modo geral (remessa para industrialização por encomenda, remessa para utilização em prestação de serviço, remessa para locação, remessa para beneficiamento, remessa em comodato, remessa em demonstração, remessa para conserto);
+        # - operações realizadas a título gratuito (amostras, bonificações, doações, brindes);
+        # - operações de transferência de mercadorias entre matriz e filial mesmo que entre Unidades da Federação distintas;
+        # - operações de transferência de propriedade (onde exista o sucessor e o sucedido).
+        icmssn102 = etree.SubElement(icms_root, "ICMSSN102")
+
+        orig = etree.SubElement(icmssn102, "orig")
+        orig.text = origin
+
+        CSOSN = etree.SubElement(icmssn102, "CSOSN")
+        CSOSN.text = csosn
+
+    elif csosn == "201":
+        # N10e - Tributada SN com crédito e com cobrança de ICMS por ST
+        icmssn201 = etree.SubElement(icms_root, "ICMSSN201")
+
+        orig = etree.SubElement(icmssn201, "orig")
+        orig.text = origin
+
+        CSOSN = etree.SubElement(icmssn201, "CSOSN")
+        CSOSN.text = csosn
+
+        _buildICMSSNST(icmssn201, line)
+
+        if not line.icms_sn_credit_percent or line.icms_sn_credit_percent <= 0:
+            raise ValidationError(
+                "Geração de XML: Aliquota de Crédito do ICMS SN é obrigatório pro CST SN 201."
+            )
+
+        # N29 - Alíquota de crédito (obrigatório)
+        pCredSN = etree.SubElement(icmssn201, "pCredSN")
+        pCredSN.text = f"{line.icms_sn_credit_percent:.4f}"
+
+        if not line.icms_sn_credit_value or line.icms_sn_credit_value <= 0:
+            raise ValidationError(
+                "Geração de XML: Valor de Crédito do ICMS SN é obrigatório pro CST SN 201."
+            )
+
+        # N30 - Valor de crédito (obrigatório)
+        vCredICMSSN = etree.SubElement(icmssn201, "vCredICMSSN")
+        vCredICMSSN.text = f"{line.icms_sn_credit_value:.2f}"
+
+    elif csosn in ("202", "203"):
+        # N10f - Tributada SN sem crédito e com cobrança de ICMS por ST (202, 203)
+        icmssn202 = etree.SubElement(icms_root, "ICMSSN202")
+
+        orig = etree.SubElement(icmssn202, "orig")
+        orig.text = origin
+
+        CSOSN = etree.SubElement(icmssn202, "CSOSN")
+        CSOSN.text = csosn
+
+        _buildICMSSNST(icmssn202, line)
+
+    elif csosn == "500":
+        # N10h - ICMS cobrado anteriormente por ST (substituído) ou antecipação
+        icmssn500 = etree.SubElement(icms_root, "ICMSSN500")
+
+        orig = etree.SubElement(icmssn500, "orig")
+        orig.text = origin
+
+        CSOSN = etree.SubElement(icmssn500, "CSOSN")
+        CSOSN.text = csosn
+
+        if not is_final_customer:
+            raise ValidationError(
+                "TODO: Implementar CSOSN 500 para operação de consumidor final."
+            )
+
+        # TODO: Campos opcionais do CSOSN 500 (não implementados)
+        # N24 - vBCSTRet (BC do ICMS ST retido)
+        # N25 - pST (Alíquota suportada pelo consumidor final)
+        # N26 - vICMSSTRet (Valor do ICMS ST retido)
+        # N26a - vBCFCPSTRet (BC FCP retido por ST)
+        # N26b - pFCPSTRet (% FCP retido por ST)
+        # N26c - vFCPSTRet (Valor FCP retido por ST)
+
+    elif csosn == "900":
+        # N10i - Outros - ex: devolucao de mercadoria
+        icmssn900 = etree.SubElement(icms_root, "ICMSSN900")
+
+        orig = etree.SubElement(icmssn900, "orig")
+        orig.text = origin
+
+        CSOSN = etree.SubElement(icmssn900, "CSOSN")
+        CSOSN.text = csosn
+
+        icms_fields = [
+            line.icms_bc_modality,
+            line.icms_bc_value,
+            line.icms_tax_percent,
+            line.icms_value,
+        ]
+        if any(icms_fields) and not all(icms_fields):
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"Para o CSOSN 900 se o grupo do ICMS for informado, é obrigatório "
+                f"informar a modalidade da base de calculo, valor da base de calculo, "
+                f"aliquota do ICMS e valor do ICMS. Validação referente ao item da nota "
+                f"fiscal: {line.product_description}."
+            )
+
+        if line.icms_bc_modality:
+            modBC = etree.SubElement(icmssn900, "modBC")
+            modBC.text = line.icms_bc_modality
+
+            vBC = etree.SubElement(icmssn900, "vBC")
+            vBC.text = f"{line.icms_bc_value:.2f}"
+
+            pICMS = etree.SubElement(icmssn900, "pICMS")
+            pICMS.text = f"{line.icms_tax_percent:.2f}"
+
+            vICMS = etree.SubElement(icmssn900, "vICMS")
+            vICMS.text = f"{line.icms_value:.2f}"
+
+        if line.icms_bc_reduction_percent:
+            pRedBC = etree.SubElement(icmssn900, "pRedBC")
+            pRedBC.text = f"{line.icms_bc_reduction_percent:.4f}"
+
+        icms_st_fields = [
+            line.icms_st_modality,
+            line.icms_st_bc_value,
+            line.icms_st_tax_percent,
+            line.icms_st_value,
+        ]
+        if any(icms_st_fields) and not all(icms_st_fields):
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"Para o CSOSN 900 se o grupo do ICMS ST for informado, é obrigatório "
+                f"informar a modalidade da base de calculo ST, valor da base de calculo ST, "
+                f"aliquota do ICMS ST e valor do ICMS ST. Validação referente ao item da nota "
+                f"fiscal: {line.product_description}."
+            )
+
+        if line.icms_st_modality:
+            modBCST = etree.SubElement(icmssn900, "modBCST")
+            modBCST.text = line.icms_st_modality
+
+            vBCST = etree.SubElement(icmssn900, "vBCST")
+            vBCST.text = f"{line.icms_st_bc_value:.2f}"
+
+            pICMSST = etree.SubElement(icmssn900, "pICMSST")
+            pICMSST.text = f"{line.icms_st_tax_percent:.2f}"
+
+            vICMSST = etree.SubElement(icmssn900, "vICMSST")
+            vICMSST.text = f"{line.icms_st_value:.2f}"
+
+        if line.icms_st_modality == "4" and not line.icms_st_mva_percent:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"MVA ICMS ST é obrigatório para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%)."
+            )
+
+        if line.icms_st_mva_percent:
+            pMVAST = etree.SubElement(icmssn900, "pMVAST")
+            pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
+
+        if line.icms_st_reduction_percent:
+            pRedBCST = etree.SubElement(icmssn900, "pRedBCST")
+            pRedBCST.text = f"{line.icms_st_reduction_percent:.4f}"
+
+        icms_st_fcp_fields = [
+            line.icms_st_fcp_bc_value,
+            line.icms_st_fcp_tax_percent,
+            line.icms_st_fcp_value,
+        ]
+        if any(icms_st_fcp_fields) and not all(icms_st_fcp_fields):
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"Para o CSOSN 900 se o grupo do FCP ST for informado, é obrigatório informar "
+                f"o valor da base de calculo do FCP ST, aliquota do FCP ST e valor do FCP ST."
+            )
+
+        if line.icms_st_fcp_bc_value:
+            vBCFCPST = etree.SubElement(icmssn900, "vBCFCPST")
+            vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
+
+            pFCPST = etree.SubElement(icmssn900, "pFCPST")
+            pFCPST.text = f"{line.icms_st_fcp_tax_percent:.4f}"
+
+            vFCPST = etree.SubElement(icmssn900, "vFCPST")
+            vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+
+        icms_sn_credit_fields = [
+            line.icms_sn_credit_percent,
+            line.icms_sn_credit_value,
+        ]
+        if any(icms_sn_credit_fields) and not all(icms_sn_credit_fields):
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description})"
+                f"Para o CSOSN 900 se o grupo do ICMS SN for informado, é obrigatório "
+                f"informar a aliquota de crédito do ICMS SN ou o valor do crédito do ICMS SN."
+            )
+
+        if line.icms_sn_credit_percent:
+            pCredSN = etree.SubElement(icmssn900, "pCredSN")
+            pCredSN.text = f"{line.icms_sn_credit_percent:.4f}"
+
+            vCredICMSSN = etree.SubElement(icmssn900, "vCredICMSSN")
+            vCredICMSSN.text = f"{line.icms_sn_credit_value:.2f}"
+
+
+def _buildICMSSNST(icmssn_root, line):
+    # N18 - Modalidade BC ST (obrigatório)
+    if not line.icms_st_modality:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) Modalidade da Base de Calculo do ICMS ST é obrigatório pro CST SN 201."
+        )
+    modBCST = etree.SubElement(icmssn_root, "modBCST")
+    modBCST.text = line.icms_st_modality
+
+    # N19 - MVA ST (opcional)
+    if line.icms_st_modality == "4" and not line.icms_st_mva_percent:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) MVA ICMS ST é obrigatório para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%)."
+        )
+    if line.icms_st_mva_percent:
+        pMVAST = etree.SubElement(icmssn_root, "pMVAST")
+        pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
+
+    # N20 - Redução BC ST (opcional)
+    if line.icms_st_reduction_percent:
+        pRedBCST = etree.SubElement(icmssn_root, "pRedBCST")
+        pRedBCST.text = f"{line.icms_st_reduction_percent:.4f}"
+
+    # N21 - Valor BC ST (obrigatório)
+    if not line.icms_st_bc_value or line.icms_st_bc_value <= 0:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) Valor da Base de Calculo do ICMS ST é obrigatório pro CST SN 201."
+        )
+    vBCST = etree.SubElement(icmssn_root, "vBCST")
+    vBCST.text = f"{line.icms_st_bc_value:.2f}"
+
+    # N22 - Alíquota ICMS ST (obrigatório)
+    if not line.icms_st_tax_percent or line.icms_st_tax_percent <= 0:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) Alíquota do ICMS ST é obrigatório pro CST SN 201."
+        )
+    pICMSST = etree.SubElement(icmssn_root, "pICMSST")
+    pICMSST.text = f"{line.icms_st_tax_percent:.2f}"
+
+    # N23 - Valor ICMS ST (obrigatório)
+    if not line.icms_st_value or line.icms_st_value <= 0:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) Valor do ICMS ST é obrigatório pro CST SN 201."
+        )
+    vICMSST = etree.SubElement(icmssn_root, "vICMSST")
+    vICMSST.text = f"{line.icms_st_value:.2f}"
+
+    if not line.icms_st_fcp_bc_value or line.icms_st_fcp_bc_value <= 0:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) Valor da Base de Calculo do FCP ST é obrigatório pro CST SN 201."
+        )
+
+    vBCFCPST = etree.SubElement(icmssn_root, "vBCFCPST")
+    vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
+
+    if not line.icms_st_fcp_tax_percent or line.icms_st_fcp_tax_percent <= 0:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) Aliquota do FCP ST é obrigatório pro CST SN 201."
+        )
+
+    pFCPST = etree.SubElement(icmssn_root, "pFCPST")
+    pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+
+    if not line.icms_st_fcp_value or line.icms_st_fcp_value <= 0:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) Valor do FCP ST é obrigatório pro CST SN 201."
+        )
+
+    vFCPST = etree.SubElement(icmssn_root, "vFCPST")
+    vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
 
 
 def printNfeXml(nfe_document):
