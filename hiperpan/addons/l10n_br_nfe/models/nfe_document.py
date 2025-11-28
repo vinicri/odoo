@@ -388,6 +388,11 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         buildCOFINS(imposto, item)
 
         buildIPIReturned(imposto, item)
+
+        if item.additional_information:
+            additional_information = etree.SubElement(det, "infAdProd")
+            additional_information.text = item.additional_information
+
     # 101 - Tributada pelo Simples Nacional com permissão de crédito
     # 102 - Tributada pelo Simples Nacional sem permissão de crédito
     # 103 - Isenção do ICMS no Simples Nacional para faixa de receita bruta
@@ -2531,6 +2536,9 @@ class NFeDocument(models.Model):
 
     # Totais do ICMS
 
+    def _is_issuer_simples_nacional(self):
+        return self.issuer_id.fiscal_framework in ("1", "2")
+
     # Base de Cálculo do ICMS.
     total_icms_base = fields.Float(
         string="BC do ICMS",
@@ -2539,18 +2547,23 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    def _is_issuer_simples_nacional(self):
-        return self.issuer_id.fiscal_framework in ("1", "2")
-
     @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
     def _compute_total_icms_base(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_icms_base = 0.00
-            else:
-                record.total_icms_base = sum(
-                    record.invoice_line_ids.mapped("icms_bc_value")
+            total_icms_base = sum(record.invoice_line_ids.mapped("icms_bc_value"))
+            if (
+                record._is_issuer_simples_nacional()
+                and record.emission_finality == "1"
+                and not total_icms_base == 0.00
+            ):
+                raise ValidationError(
+                    _(
+                        "A soma da base de cálculo do ICMS deve ser zero para nota fiscal"
+                        " normal emitida por empresa do Simples Nacional."
+                    )
                 )
+            else:
+                record.total_icms_base = total_icms_base
 
     total_icms = fields.Float(
         string="Valor Total do ICMS",
@@ -2562,32 +2575,73 @@ class NFeDocument(models.Model):
     @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
     def _compute_total_icms(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_icms = 0.00
+            total_icms = sum(record.invoice_line_ids.mapped("icms_value"))
+            if (
+                record._is_issuer_simples_nacional()
+                and record.emission_finality == "1"
+                and not total_icms == 0.00
+            ):
+                raise ValidationError(
+                    _(
+                        "A soma do valor do ICMS deve ser zero para nota fiscal"
+                        " normal emitida por empresa do Simples Nacional."
+                    )
+                )
             else:
-                record.total_icms = sum(record.invoice_line_ids.mapped("icms_value"))
+                record.total_icms = total_icms
 
     # Valor Total do ICMS.
 
     # soma do valor do icms desonerado dos items, nao implementado
-    total_icms_deson = fields.Float(string="Valor ICMS Desonerado", digits=(13, 2))
+    total_icms_deson = fields.Float(
+        string="Valor ICMS Desonerado",
+        digits=(13, 2),
+        compute="_compute_total_icms_deson",
+        store=True,
+    )
+
+    def _compute_total_icms_deson(self):
+        for record in self:
+            record.total_icms_deson = 0.00
+
     # Valor Total do ICMS desonerado.
 
     # == icms difal ==
 
     # Valor Total do Fundo de Combate à Pobreza da UF de Destino.
     total_fcp_uf_dest = fields.Float(
-        string="Valor Total FCP da UF de Destino", digits=(13, 2)
+        string="Valor Total FCP da UF de Destino",
+        digits=(13, 2),
+        compute="_compute_total_fcp_uf_dest",
+        store=True,
     )
+
+    def _compute_total_fcp_uf_dest(self):
+        for record in self:
+            record.total_fcp_uf_dest = 0.00
 
     # Valor Total do ICMS da UF de Destino.
     total_icms_uf_dest = fields.Float(
-        string="Valor Total do ICMS da UF de Destino", digits=(13, 2)
+        string="Valor Total do ICMS da UF de Destino",
+        digits=(13, 2),
+        compute="_compute_total_icms_uf_dest",
+        store=True,
     )
 
+    def _compute_total_icms_uf_dest(self):
+        for record in self:
+            record.total_icms_uf_dest = 0.00
+
     total_icms_interestadual = fields.Float(
-        string="Valor Total do ICMS Interestadual", digits=(13, 2)
+        string="Valor Total do ICMS Interestadual",
+        digits=(13, 2),
+        compute="_compute_total_icms_interestadual",
+        store=True,
     )
+
+    def _compute_total_icms_interestadual(self):
+        for record in self:
+            record.total_icms_interestadual = 0.00
 
     # Valor Total do Fundo de Combate à Pobreza.
     total_fcp = fields.Float(
@@ -2597,12 +2651,23 @@ class NFeDocument(models.Model):
         store=True,
     )
 
+    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
     def _compute_total_fcp(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_fcp = 0.00
+            total_fcp = sum(record.invoice_line_ids.mapped("icms_fcp_value"))
+            if (
+                record._is_issuer_simples_nacional()
+                and record.emission_finality == "1"
+                and not total_fcp == 0.00
+            ):
+                raise ValidationError(
+                    _(
+                        "A soma do valor do FCP deve ser zero para nota fiscal"
+                        " normal emitida por empresa do Simples Nacional."
+                    )
+                )
             else:
-                record.total_fcp = sum(record.invoice_line_ids.mapped("icms_fcp_value"))
+                record.total_fcp = total_fcp
 
     # Valor Total da Base de Calculo do ICMS ST.
     total_icms_st_base = fields.Float(
@@ -2612,15 +2677,12 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    @api.depends("invoice_line_ids")
     def _compute_total_icms_st_base(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_icms_st_base = 0.00
-            else:
-                record.total_icms_st_base = sum(
-                    record.invoice_line_ids.mapped("icms_st_bc_value")
-                )
+            record.total_icms_st_base = sum(
+                record.invoice_line_ids.mapped("icms_st_bc_value")
+            )
 
     # Valor Total do ICMS ST.
     total_icms_st_value = fields.Float(
@@ -2630,15 +2692,12 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    @api.depends("invoice_line_ids")
     def _compute_total_icms_st_value(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_icms_st_value = 0.00
-            else:
-                record.total_icms_st_value = sum(
-                    record.invoice_line_ids.mapped("icms_st_value")
-                )
+            record.total_icms_st_value = sum(
+                record.invoice_line_ids.mapped("icms_st_value")
+            )
 
     # Valor Total do FCP retido por Substituição Tributária.
     total_icms_st_fcp = fields.Float(
@@ -2648,20 +2707,27 @@ class NFeDocument(models.Model):
         store=True,
     )
 
+    @api.depends("invoice_line_ids")
     def _compute_total_icms_st_fcp(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_icms_st_fcp = 0.00
-            else:
-                record.total_icms_st_fcp = sum(
-                    record.invoice_line_ids.mapped("icms_st_fcp_value")
-                )
+            record.total_icms_st_fcp = sum(
+                record.invoice_line_ids.mapped("icms_st_fcp_value")
+            )
 
     # Valor Total do FCP ST Retido Anteriormente por Substituição Tributária.
     total_icms_fcp_st_retention = fields.Float(
         string="Valor Total do FCP ST Retido Anteriormente por Substituição Tributária",
         digits=(13, 2),
+        compute="_compute_total_icms_fcp_st_retention",
+        store=True,
     )
+
+    @api.depends("invoice_line_ids")
+    def _compute_total_icms_fcp_st_retention(self):
+        for record in self:
+            record.total_icms_fcp_st_retention = sum(
+                record.invoice_line_ids.mapped("icms_fcp_st_retention_value")
+            )
 
     # Valor Total dos Produtos e Serviços.
     total_products = fields.Float(

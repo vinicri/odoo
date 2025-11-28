@@ -29,6 +29,8 @@
           </div>
           <group>
             <field name="discount_value" />
+            <field name="freight_value" readonly="1" />
+            <field name="insurance_value" />
             <field name="total_value" />
           </group>
           <notebook>
@@ -143,6 +145,7 @@
                 <group>
                   <field name="include_in_total" />
                   <field name="product_description" />
+                  <field name="additional_information" />
                 </group>
               </div>
               <group>
