@@ -2726,13 +2726,12 @@ class NFeDocument(models.Model):
     def _compute_total_icms_fcp_st_retention(self):
         for record in self:
             record.total_icms_fcp_st_retention = sum(
-                record.invoice_line_ids.mapped("icms_fcp_st_retention_value")
+                record.invoice_line_ids.mapped("icms_st_fcp_retention_value")
             )
 
     # Valor Total dos Produtos e Serviços.
     total_products = fields.Float(
         string="Valor Total dos Produtos e Serviços",
-        # required=True,
         digits=(13, 2),
         store=True,
         compute="_compute_total_products",
@@ -2741,102 +2740,93 @@ class NFeDocument(models.Model):
     @api.depends("invoice_line_ids")
     def _compute_total_products(self):
         for record in self:
-            if len(record.invoice_line_ids) == 0:
-                record.total_products = 0.00
-            else:
-                record.total_products = sum(
-                    record.invoice_line_ids.mapped("total_value")
-                )
+            record.total_products = sum(record.invoice_line_ids.mapped("total_value"))
 
     # Valor Total do Frete.
     total_freight = fields.Float(
         string="Valor Total do Frete",
         digits=(13, 2),
-        compute="_compute_total_freight",
-        store=True,
-        readonly=False,
+        required=True,
     )
 
-    @api.depends("invoice_line_ids")
-    def _compute_total_freight(self):
+    @api.onchange("total_freight")
+    def _onchange_total_freight(self):
         for record in self:
-            if not record.total_freight:
-                record.total_freight = sum(
-                    record.invoice_line_ids.mapped("freight_value")
-                )
+            record.distribute_total_value(record.total_freight, "freight_value")
+        return
 
-    @api.constrains("total_freight")
-    def _check_total_freight_minimum(self):
-        """Ensure total_freight is not smaller than the sum of invoice line freight values"""
-        for record in self:
-            computed_sum = sum(record.invoice_line_ids.mapped("freight_value"))
-            if record.total_freight < computed_sum:
-                raise ValidationError(
-                    _(
-                        "O frete total (%.2f) não pode ser menor que a soma dos fretes atribuidos aos produtos (%.2f)."
-                    )
-                    % (record.total_freight, computed_sum)
-                )
+    def distribute_total_value(self, total_value_to_distribute, item_key):
+        """Rateia o frete proporcionalmente entre os itens da nota fiscal."""
+        if not self.invoice_line_ids:
+            return
+
+        total_value = total_value_to_distribute or 0.0
+
+        # Se valor for zero, zera o valor de todos os itens
+        if total_value == 0:
+            for line in self.invoice_line_ids:
+                line[item_key] = 0.0
+            return
+
+        # Calcula o valor total de todos os itens
+        total_items_value = sum(line.total_value for line in self.invoice_line_ids)
+
+        # Se não houver valor total, distribui igualmente
+        if total_items_value == 0:
+            value_per_item = round(total_value / len(self.invoice_line_ids), 2)
+            accumulated = 0.0
+            lines = list(self.invoice_line_ids)
+            for line in lines[:-1]:
+                line[item_key] = value_per_item
+                accumulated += value_per_item
+            # Último item recebe o resto para evitar diferença de arredondamento
+            lines[-1][item_key] = round(total_value - accumulated, 2)
+            return
+
+        # Rateia proporcionalmente ao valor de cada item
+        accumulated = 0.0
+        lines = list(self.invoice_line_ids)
+        for line in lines[:-1]:
+            proportion = line.total_value / total_items_value
+            line[item_key] = round(total_value * proportion, 2)
+            accumulated += line[item_key]
+
+        # Último item recebe o resto para garantir que não haja diferença
+        lines[-1][item_key] = round(total_value - accumulated, 2)
 
     # Valor Total do Seguro.
     total_insurance = fields.Float(
         string="Valor Total do Seguro",
         digits=(13, 2),
-        compute="_compute_total_insurance",
-        store=True,
-        readonly=False,
+        required=True,
     )
 
-    @api.depends("invoice_line_ids")
-    def _compute_total_insurance(self):
+    @api.onchange("total_insurance")
+    def _onchange_total_insurance(self):
         for record in self:
-            if not record.total_insurance:
-                record.total_insurance = sum(
-                    record.invoice_line_ids.mapped("insurance_value")
-                )
-
-    @api.constrains("total_insurance")
-    def _check_total_insurance_minimum(self):
-        """Ensure total_insurance is not smaller than the sum of invoice line insurance values"""
-        for record in self:
-            computed_sum = sum(record.invoice_line_ids.mapped("insurance_value"))
-            if record.total_insurance < computed_sum:
-                raise ValidationError(
-                    _(
-                        "O seguro total (%.2f) não pode ser menor que a soma dos seguros atribuidos aos produtos (%.2f)."
-                    )
-                    % (record.total_insurance, computed_sum)
-                )
+            record.distribute_total_value(record.total_insurance, "insurance_value")
+        return
 
     # Valor Total do Desconto.
     total_discount = fields.Float(
         string="Valor Total do Desconto",
         digits=(13, 2),
-        compute="_compute_total_discount",
-        store=True,
-        readonly=False,
+        required=True,
     )
 
-    @api.depends("invoice_line_ids")
-    def _compute_total_discount(self):
+    @api.onchange("total_discount")
+    def _onchange_total_discount(self):
         for record in self:
-            if not record.total_discount:
-                record.total_discount = sum(
-                    record.invoice_line_ids.mapped("discount_value")
-                )
+            record.distribute_total_value(record.total_discount, "discount_value")
+        return
 
-    @api.constrains("total_discount")
-    def _check_total_discount_minimum(self):
-        """Ensure total_discount is not smaller than the sum of invoice line discount values"""
+    @api.onchange("invoice_line_ids.discount_value")
+    def _onchange_invoice_line_ids_discount_value(self):
         for record in self:
-            computed_sum = sum(record.invoice_line_ids.mapped("discount_value"))
-            if record.total_discount < computed_sum:
-                raise ValidationError(
-                    _(
-                        "O desconto total (%.2f) não pode ser menor que a soma dos descontos atribuidos aos produtos (%.2f)."
-                    )
-                    % (record.total_discount, computed_sum)
-                )
+            record.total_discount = sum(
+                record.invoice_line_ids.mapped("discount_value")
+            )
+        return
 
     total_ii = fields.Float(
         string="Valor Total do Imposto de Importação",
