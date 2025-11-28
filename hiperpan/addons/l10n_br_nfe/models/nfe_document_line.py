@@ -1139,6 +1139,42 @@ class NFeDocumentLine(models.Model):
     # valor icms desonarado
     # motivo de desoneração do icms
 
+    # === ICMS ST Retido Anteriormente por Substituição Tributária ===
+    # se para revenda, deve ser informado a base do ST, aliquota e valor. O mesmo vale para o FCP ST.
+
+    icms_st_retention_base_value = fields.Float(
+        string="Valor da Base de Calculo do ICMS ST Retido Anteriormente por Substituição Tributária",
+        digits=(13, 2),
+    )
+
+    icms_st_retention_tax_percent = fields.Float(
+        string="Alíquota suportada pelo Consumidor Final", digits=(3, 4)
+    )
+
+    icms_st_retention_value = fields.Float(
+        string="Valor do ICMS ST Retido Anteriormente por Substituição Tributária",
+        digits=(13, 2),
+    )
+
+    icms_do_substituto_value = fields.Float(
+        string="Valor do ICMS Próprio do Substituto",
+        digits=(13, 2),
+    )
+
+    icms_st_fcp_retention_base_value = fields.Float(
+        string="Valor da Base de Calculo do FCP ST Retido Anteriormente por Substituição Tributária",
+        digits=(13, 2),
+    )
+
+    icms_st_fcp_retention_tax_percent = fields.Float(
+        string="Alíquota suportada pelo Consumidor Final", digits=(3, 4)
+    )
+
+    icms_st_fcp_retention_value = fields.Float(
+        string="Valor do FCP ST Retido Anteriormente por Substituição Tributária",
+        digits=(13, 2),
+    )
+
     # ===  ipi ===
 
     # utilizando o padrao, depois implementar conforme seção 8.9 do MOC – Visão Geral (Tabela do Código de Enquadramento do IPI)
@@ -1651,4 +1687,11 @@ class NFeDocumentLine(models.Model):
         string="Percentual da Mercadoria Devolvida",
         digits=(3, 2),
         widget="percentage",
+    )
+
+    additional_information = fields.Text(
+        related="product_id.fiscal_additional_information",
+        string="Informações Adicionais do Produto",
+        store=True,
+        readonly=True,
     )
