@@ -210,32 +210,33 @@ class NFeDocumentLine(models.Model):
     unit_discount_value = fields.Float(
         string="Valor de desconto por unidade",
         digits=(11, 6),
+        compute="_compute_unit_discount_value",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("unit_price", "unit_discount_percent")
+    def _compute_unit_discount_value(self):
+        for record in self:
+            record.unit_discount_value = (
+                record.unit_price * record.unit_discount_percent / 100
+            )
 
     unit_discount_percent = fields.Float(
         string="Percentual de desconto por unidade",
         digits=(3, 4),
+        compute="_compute_unit_discount_percent",
+        store=True,
+        readonly=False,
     )
 
-    @api.onchange("unit_discount_value", "unit_price")
+    @api.depends("unit_price", "unit_discount_value")
     def _compute_unit_discount_percent(self):
         for record in self:
-            if record.unit_price and record.unit_discount_value:
+            if record.unit_price:
                 record.unit_discount_percent = (
                     record.unit_discount_value / record.unit_price * 100
                 )
-            else:
-                record.unit_discount_percent = 0
-
-    @api.onchange("unit_discount_percent", "unit_price")
-    def _compute_unit_discount_value(self):
-        for record in self:
-            if record.unit_price and record.unit_discount_percent:
-                record.unit_discount_value = (
-                    record.unit_price * record.unit_discount_percent / 100
-                )
-            else:
-                record.unit_discount_value = 0
 
     @api.onchange("product_id")
     def _onchange_product_id(self):
