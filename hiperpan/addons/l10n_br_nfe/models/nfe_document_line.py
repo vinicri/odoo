@@ -217,6 +217,8 @@ class NFeDocumentLine(models.Model):
 
     @api.depends("unit_price", "unit_discount_percent")
     def _compute_unit_discount_value(self):
+        if self.env.context.get("skip_discount_compute"):
+            return
         for record in self:
             record.unit_discount_value = (
                 record.unit_price * record.unit_discount_percent / 100
@@ -232,6 +234,8 @@ class NFeDocumentLine(models.Model):
 
     @api.depends("unit_price", "unit_discount_value")
     def _compute_unit_discount_percent(self):
+        if self.env.context.get("skip_discount_compute"):
+            return
         for record in self:
             if record.unit_price:
                 record.unit_discount_percent = (

@@ -2811,22 +2811,36 @@ class NFeDocument(models.Model):
     total_discount = fields.Float(
         string="Valor Total do Desconto",
         digits=(13, 2),
-        required=True,
+        compute="_compute_total_discount",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("invoice_line_ids.discount_value")
+    def _compute_total_discount(self):
+        for record in self:
+            record.total_discount = sum(
+                record.invoice_line_ids.mapped("discount_value")
+            )
 
     @api.onchange("total_discount")
     def _onchange_total_discount(self):
         for record in self:
             record.distribute_total_value(record.total_discount, "discount_value")
-        return
-
-    @api.onchange("invoice_line_ids.discount_value")
-    def _onchange_invoice_line_ids_discount_value(self):
-        for record in self:
-            record.total_discount = sum(
-                record.invoice_line_ids.mapped("discount_value")
-            )
-        return
+            for line in record.invoice_line_ids:
+                unit_discount = (
+                    line.discount_value / line.quantity if line.quantity else 0
+                )
+                line.with_context(skip_discount_compute=True).write(
+                    {
+                        "unit_discount_value": unit_discount,
+                        "unit_discount_percent": (
+                            unit_discount / line.unit_price * 100
+                            if line.unit_price
+                            else 0
+                        ),
+                    }
+                )
 
     total_ii = fields.Float(
         string="Valor Total do Imposto de Importação",
