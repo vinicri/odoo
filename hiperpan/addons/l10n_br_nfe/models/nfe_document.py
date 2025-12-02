@@ -2825,7 +2825,16 @@ class NFeDocument(models.Model):
 
     @api.onchange("total_discount")
     def _onchange_total_discount(self):
+        """Distribui o desconto total entre os itens da nota fiscal."""
         for record in self:
+            items_discount_sum = sum(record.invoice_line_ids.mapped("discount_value"))
+
+            # Se o total_discount é igual à soma dos descontos dos itens,
+            # significa que a mudança veio de um item sendo editado, não do usuário
+            # editando diretamente o campo total_discount. Neste caso, não redistribuir.
+            if abs((self.total_discount or 0) - items_discount_sum) < 0.01:
+                continue
+
             record.distribute_total_value(record.total_discount, "discount_value")
             for line in record.invoice_line_ids:
                 unit_discount = (
