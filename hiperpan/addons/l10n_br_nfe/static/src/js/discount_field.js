@@ -1,10 +1,9 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { floatField } from "@web/views/fields/float/float_field";
 import { _t } from "@web/core/l10n/translation";
 import { ConfirmationField, confirmationField } from "@l10n_br_nfe/js/fields/confirmation_field";
-
+import { getItemsWithNonZeroValue } from "@l10n_br_nfe/js/utils/total_fields_utils";
 /**
  * Widget personalizado para o campo total_discount que mostra um popup
  * de confirmação quando o usuário foca no campo e há itens com desconto.
@@ -18,36 +17,22 @@ export class DiscountWarningField extends ConfirmationField {
      * @returns {Array} Lista de itens com desconto
      */
     _getItemsWithDiscount() {
-        const record = this.props.record;
-        if (!record || !record.data) {
-            return [];
-        }
+        const linesWithDiscount = getItemsWithNonZeroValue(this.props.record, "discount_value");
 
-        const invoiceLines = record.data.invoice_line_ids;
-        if (!invoiceLines || !invoiceLines.records) {
-            return [];
-        }
-
-        const itemsWithDiscount = [];
-        for (const line of invoiceLines.records) {
-            const discountValue = line.data.discount_value || 0;
-            if (discountValue > 0) {
-                const productName =
-                    (line.data.product_id && line.data.product_id[1]) ||
-                    line.data.product_description ||
-                    "Item sem nome";
-                const unitDiscountValue = line.data.unit_discount_value || 0;
-                const unitDiscountPercent = line.data.unit_discount_percent || 0;
-
-                itemsWithDiscount.push({
-                    name: productName,
-                    discountValue: discountValue.toFixed(2),
-                    unitDiscountValue: unitDiscountValue.toFixed(2),
-                    unitDiscountPercent: unitDiscountPercent.toFixed(4),
-                });
-            }
-        }
-        return itemsWithDiscount;
+        return linesWithDiscount.map(line => {
+          const productName = (line.data.product_id && line.data.product_id[1]) ||
+          line.data.product_description ||
+          "Item sem nome";
+          const unitDiscountValue = line.data.unit_discount_value || 0;
+          const unitDiscountPercent = line.data.unit_discount_percent || 0;
+          const discountValue = line.data.discount_value || 0;
+          return {
+            name: productName,
+            discountValue: discountValue.toFixed(2),
+            unitDiscountValue: unitDiscountValue.toFixed(2),
+            unitDiscountPercent: unitDiscountPercent.toFixed(4),
+          };
+        });
     }
 
     /**

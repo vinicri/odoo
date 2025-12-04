@@ -2798,12 +2798,29 @@ class NFeDocument(models.Model):
     total_insurance = fields.Float(
         string="Valor Total do Seguro",
         digits=(13, 2),
-        required=True,
+        compute="_compute_total_insurance",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("invoice_line_ids.insurance_value")
+    def _compute_total_insurance(self):
+        for record in self:
+            record.total_insurance = sum(
+                record.invoice_line_ids.mapped("insurance_value")
+            )
 
     @api.onchange("total_insurance")
     def _onchange_total_insurance(self):
         for record in self:
+
+            items_insurance_sum = sum(record.invoice_line_ids.mapped("insurance_value"))
+            # Se o total_insurance é igual à soma dos valores do seguro dos itens,
+            # significa que a mudança veio de um item sendo editado, não do usuário
+            # editando diretamente o campo total_insurance. Neste caso, não redistribuir.
+            if abs((record.total_insurance or 0) - items_insurance_sum) < 0.01:
+                return
+
             record.distribute_total_value(record.total_insurance, "insurance_value")
         return
 
@@ -2919,11 +2936,41 @@ class NFeDocument(models.Model):
                     record.invoice_line_ids.mapped("cofins_value")
                 )
 
+    # Outras Despesas acessórias.
     total_other_expenses = fields.Float(
         string="Outras Despesas Acessórias",
         digits=(13, 2),
+        compute="_compute_total_other_expenses",
+        store=True,
+        readonly=False,
     )
-    # Outras Despesas acessórias.
+
+    @api.depends("invoice_line_ids")
+    def _compute_total_other_expenses(self):
+        for record in self:
+            record.total_other_expenses = sum(
+                record.invoice_line_ids.mapped("other_expenses_value")
+            )
+
+    @api.onchange("total_other_expenses")
+    def _onchange_total_other_expenses(self):
+        for record in self:
+
+            items_other_expenses_sum = sum(
+                record.invoice_line_ids.mapped("other_expenses_value")
+            )
+            # Se o total_other_expenses é igual à soma dos valores das outras despesas acessórias dos itens,
+            # significa que a mudança veio de um item sendo editado, não do usuário
+            # editando diretamente o campo total_other_expenses. Neste caso, não redistribuir.
+            if (
+                abs((record.total_other_expenses or 0) - items_other_expenses_sum)
+                < 0.01
+            ):
+                return
+
+            record.distribute_total_value(
+                record.total_other_expenses, "other_expenses_value"
+            )
 
     # Valor Total da NF-e.
     total_nfe = fields.Float(

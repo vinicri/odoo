@@ -30,8 +30,11 @@
         "web.assets_backend": [
             "l10n_br_nfe/static/src/scss/nfe_form.scss",
             "l10n_br_nfe/static/src/js/utils/focus_utils.js",
+            "l10n_br_nfe/static/src/js/utils/total_fields_utils.js",
             "l10n_br_nfe/static/src/js/fields/confirmation_field.js",
             "l10n_br_nfe/static/src/js/discount_field.js",
+            "l10n_br_nfe/static/src/js/insurance_field.js",
+            "l10n_br_nfe/static/src/js/other_expenses_field.js",
         ],
     },
 }

@@ -214,9 +214,9 @@
 
             <field name="total_products" />
             <field name="total_freight" />
-            <field name="total_insurance" />
+            <field name="total_insurance" widget="insurance_warning" />
             <field name="total_discount" widget="discount_warning" />
-            <field name="total_other_expenses" />
+            <field name="total_other_expenses" widget="other_expenses_warning" />
 
 
             <field name="total_pis" />
