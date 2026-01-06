@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- IBPT Tree View -->
+  <record id="l10n_br_fiscal_ibpt_list" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.ibpt.list</field>
+    <field name="model">l10n_br_fiscal.ibpt</field>
+    <field name="arch" type="xml">
+      <list string="IBPT Tax Estimates">
+        <header>
+          <button name="%(l10n_br_fiscal_ibpt_import_wizard_action)d" type="action" string="Import IBPT" icon="fa-upload" display="always"/>
+        </header>
+        <field name="code"/>
+        <field name="ex_tipi" optional="hide"/>
+        <field name="description"/>
+        <field name="type"/>
+        <field name="state_id"/>
+        <field name="federal_national" string="Federal Nac. (%)"/>
+        <field name="federal_imported" string="Federal Imp. (%)"/>
+        <field name="state_tax" string="State (%)"/>
+        <field name="municipal_tax" string="Municipal (%)"/>
+        <field name="version"/>
+        <field name="validity_start" optional="hide"/>
+        <field name="validity_end" optional="hide"/>
+        <field name="active" invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- IBPT Form View -->
+  <record id="l10n_br_fiscal_ibpt_form" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.ibpt.form</field>
+    <field name="model">l10n_br_fiscal.ibpt</field>
+    <field name="arch" type="xml">
+      <form string="IBPT Tax Estimate">
+        <sheet>
+          <div class="oe_button_box" name="button_box"/>
+          <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+          <group>
+            <group name="main">
+              <field name="code"/>
+              <field name="ex_tipi"/>
+              <field name="type"/>
+              <field name="state_id" options="{'no_create': True}"/>
+              <field name="ncm_id" readonly="1"/>
+            </group>
+            <group name="taxes">
+              <field name="federal_national"/>
+              <field name="federal_imported"/>
+              <field name="state_tax"/>
+              <field name="municipal_tax"/>
+            </group>
+          </group>
+          <group>
+            <group name="validity">
+              <field name="validity_start"/>
+              <field name="validity_end"/>
+            </group>
+            <group name="source">
+              <field name="version"/>
+              <field name="key"/>
+              <field name="source"/>
+            </group>
+          </group>
+          <group name="description">
+            <field name="description" nolabel="1" colspan="4"/>
+          </group>
+          <field name="active" invisible="1"/>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <!-- IBPT Search View -->
+  <record id="l10n_br_fiscal_ibpt_search" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.ibpt.search</field>
+    <field name="model">l10n_br_fiscal.ibpt</field>
+    <field name="arch" type="xml">
+      <search string="IBPT Tax Estimates">
+        <field name="code" filter_domain="[('code', 'ilike', self)]"/>
+        <field name="description"/>
+        <field name="state_id"/>
+        <field name="version"/>
+        <separator/>
+        <filter name="filter_products" string="Products" domain="[('type', '=', '0')]"/>
+        <filter name="filter_services" string="Services" domain="[('type', '=', '1')]"/>
+        <separator/>
+        <filter name="filter_active" string="Active" domain="[('active', '=', True)]"/>
+        <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
+        <separator/>
+        <group expand="0" string="Group By">
+          <filter name="group_state" string="State" context="{'group_by': 'state_id'}"/>
+          <filter name="group_type" string="Type" context="{'group_by': 'type'}"/>
+          <filter name="group_version" string="Version" context="{'group_by': 'version'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <!-- IBPT Action -->
+  <record id="ibpt_action" model="ir.actions.act_window">
+    <field name="name">IBPT Tax Estimates</field>
+    <field name="res_model">l10n_br_fiscal.ibpt</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="l10n_br_fiscal_ibpt_list"/>
+    <field name="search_view_id" ref="l10n_br_fiscal_ibpt_search"/>
+    <field name="context">{'search_default_filter_active': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">
+                No IBPT tax estimates found.
+      </p>
+      <p>
+                Import IBPT data using the "Import IBPT" wizard or create records manually.
+      </p>
+    </field>
+  </record>
+
+  <!-- IBPT Import Wizard Form View -->
+  <record id="l10n_br_fiscal_ibpt_import_wizard_form" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.ibpt.import.wizard.form</field>
+    <field name="model">l10n_br_fiscal.ibpt.import.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Import IBPT Data">
+        <group>
+          <field name="state_id" options="{'no_create': True}"/>
+          <field name="file" filename="filename"/>
+          <field name="filename" invisible="1"/>
+          <field name="replace_existing"/>
+        </group>
+        <footer>
+          <button name="action_import" type="object" string="Import" class="btn-primary"/>
+          <button string="Cancel" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- IBPT Import Wizard Action -->
+  <record id="l10n_br_fiscal_ibpt_import_wizard_action" model="ir.actions.act_window">
+    <field name="name">Import IBPT Data</field>
+    <field name="res_model">l10n_br_fiscal.ibpt.import.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+</odoo>
+

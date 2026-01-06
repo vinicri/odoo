@@ -9,6 +9,26 @@
         <field name="fiscal_document_emission_env" string="Ambiente de Emissão de Documentos Fiscais" />
         <field name="time_zone" string="Time Zone" />
       </xpath>
+      <xpath expr="//page[last()]" position="after">
+        <page string="IBPT" name="ibpt">
+          <group string="Configuração IBPT - De Olho no Imposto">
+            <group>
+              <field name="ibpt_token" password="True" />
+              <field name="ibpt_update_days" />
+            </group>
+            <group>
+              <div class="alert alert-info" role="alert">
+                <p>
+                  <strong>O que é o IBPT?</strong>
+                </p>
+                <p>O IBPT (Instituto Brasileiro de Planejamento e Tributação) fornece os dados de tributos aproximados que devem ser informados na Nota Fiscal, conforme Lei 12.741/2012.</p>
+                <p>Para obter seu token de acesso, cadastre-se em: <a href="https://deolhonoimposto.ibpt.org.br/" target="_blank">https://deolhonoimposto.ibpt.org.br/</a>
+                </p>
+              </div>
+            </group>
+          </group>
+        </page>
+      </xpath>
     </field>
   </record>
 </odoo>

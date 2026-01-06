@@ -4,7 +4,8 @@
 from odoo import _, fields, models
 
 from ..constants.fiscal import TAX_DOMAIN_II, TAX_DOMAIN_IPI
-#from .ibpt import get_ibpt_product
+
+# from .ibpt import get_ibpt_product
 
 
 class Ncm(models.Model):
@@ -35,7 +36,7 @@ class Ncm(models.Model):
 
     product_tmpl_ids = fields.One2many(
         comodel_name="product.template",
-        string="Products", 
+        string="Products",
         readonly=True,
         inverse_name="ncm_id",
     )

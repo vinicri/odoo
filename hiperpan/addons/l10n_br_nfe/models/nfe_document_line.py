@@ -1,5 +1,29 @@
+import logging
+
 from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
+
+# from odoo.addons.queue_job.job import job
+
+from .constants import NFE_EMISSION_FINALITY
+
+from ..utils.ibpt import (
+    get_ibpt_product_taxes,
+    calculate_approximate_taxes,
+    IBPTError,
+)
+
+_logger = logging.getLogger(__name__)
+
+# Fields that trigger IBPT re-fetch when changed
+IBPT_TRIGGER_FIELDS = {
+    "product_id",
+    "product_description",
+    "unit",
+    "total_value",
+    "gtin",
+    "icms_origin",
+}
 
 
 class NFeDocumentLine(models.Model):
@@ -33,7 +57,22 @@ class NFeDocumentLine(models.Model):
             else:
                 vals["item_number"] = 1
 
-        return super().create(vals)
+        record = super().create(vals)
+
+        # # Trigger IBPT fetch in background
+        # if record.product_id:
+        #     record.with_delay()._job_fetch_ibpt_taxes()
+
+        return record
+
+    def write(self, vals):
+        res = super().write(vals)
+        # # Trigger IBPT fetch in background when relevant fields change
+        # if any(field in vals for field in IBPT_TRIGGER_FIELDS):
+        #     for record in self:
+        #         if record.product_id:
+        # record.with_delay()._job_fetch_ibpt_taxes()
+        return res
 
     @api.model
     def _reorder_item_numbers(self, nfe_id):
@@ -83,8 +122,18 @@ class NFeDocumentLine(models.Model):
     @api.constrains("gtin")
     def _check_gtin(self):
         for record in self:
-            if not record.gtin:
-                raise ValidationError(_("O Código de Barras é obrigatório."))
+            if not record.product_id.no_barcode and not record.gtin:
+                raise ValidationError(
+                    _(
+                        "Verifique o cadastro do produto %s. O produto não está marcado como 'Não possui código de barras' mas o código de barras não foi informado."
+                    )
+                )
+            if record.product_id.no_barcode and record.gtin:
+                raise ValidationError(
+                    _(
+                        "Verifique o cadastro do produto %s. O produto está marcado como 'Não possui código de barras' mas o código de barras foi informado."
+                    )
+                )
 
     # Descrição do produto ou serviço.
     # Para NFC-e em homologação, a descrição do primeiro item deve ser "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL".
@@ -392,37 +441,41 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    # esse campo vem do contexto do documento fiscal, do nfe_document xml view.
+    emission_finality = fields.Selection(
+        NFE_EMISSION_FINALITY,
+        string="Finalidade da Emissão",
+        required=True,
+        readonly=True,
+    )
+
     # ===  impostos ===
 
-    icms_tax_group_id = fields.Many2one(
+    icms_allowed_tax_group_ids = fields.Many2many(
         comodel_name="l10n_br_fiscal.tax.group",
-        string="Grupo de Imposto ICMS",
-        store=True,
-        readonly=True,
-        compute="_compute_icms_tax_group_id",
+        string="Grupos de Imposto ICMS Permitidos",
+        compute="_compute_icms_allowed_tax_group_ids",
     )
 
     # 1 - Simples Nacional,
     # 2 - Simples Nacional – excesso de sublimite da receita bruta
     # 3 - Regime Normal
-    @api.depends("issuer_id", "issuer_id.fiscal_framework")
-    def _compute_icms_tax_group_id(self):
+    @api.depends("issuer_id", "issuer_id.fiscal_framework", "emission_finality")
+    def _compute_icms_allowed_tax_group_ids(self):
+        tax_group_icmssn = self.env.ref("l10n_br_fiscal.tax_group_icmssn")
+        tax_group_icms = self.env.ref("l10n_br_fiscal.tax_group_icms")
         for record in self:
-            if not record.issuer_id or not record.issuer_id.fiscal_framework:
-                record.icms_tax_group_id = False
-                return
-
-            if record.issuer_id and record.issuer_id.fiscal_framework in (
-                "1",
-                "2",
-            ):
-                record.icms_tax_group_id = self.env.ref(
-                    "l10n_br_fiscal.tax_group_icmssn"
-                ).id
+            print(record.emission_finality)
+            print(record.issuer_id.fiscal_framework)
+            if record.emission_finality == "4":
+                # Devolução: permite tanto ICMSSN quanto ICMS
+                record.icms_allowed_tax_group_ids = tax_group_icms | tax_group_icmssn
+            elif not record.issuer_id or not record.issuer_id.fiscal_framework:
+                record.icms_allowed_tax_group_ids = False  # empty recordset
+            elif record.issuer_id.fiscal_framework in ("1", "2"):
+                record.icms_allowed_tax_group_ids = tax_group_icmssn
             else:
-                record.icms_tax_group_id = self.env.ref(
-                    "l10n_br_fiscal.tax_group_icms"
-                ).id
+                record.icms_allowed_tax_group_ids = tax_group_icms
 
     # === ICMS ===
 
@@ -446,7 +499,7 @@ class NFeDocumentLine(models.Model):
     icms_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="Imposto",
-        domain="[('tax_group_id', '=', icms_tax_group_id)]",
+        domain="[('tax_group_id', 'in', icms_allowed_tax_group_ids)]",
         required=True,
     )
 
@@ -459,14 +512,11 @@ class NFeDocumentLine(models.Model):
                         f"O ICMS não foi informado para o item da nota fiscal: {record.product_description}."
                     )
                 )
-            print(
-                "record.icms_tax_id.tax_group_id.id", record.icms_tax_id.tax_group_id.id
-            )
-            print("record.icms_tax_group_id.id", record.icms_tax_group_id.id)
             if (
                 record.nfe_id.issuer_id.fiscal_framework in ("1", "2")
                 and record.icms_tax_id.tax_group_id.id
                 != self.env.ref("l10n_br_fiscal.tax_group_icmssn").id
+                and record.emission_finality != "4"
             ):
                 raise ValidationError(
                     _(
@@ -477,6 +527,7 @@ class NFeDocumentLine(models.Model):
                 record.nfe_id.issuer_id.fiscal_framework not in ("1", "2")
                 and record.icms_tax_id.tax_group_id.id
                 != self.env.ref("l10n_br_fiscal.tax_group_icms").id
+                and record.emission_finality != "4"
             ):
                 raise ValidationError(
                     _(
@@ -976,7 +1027,7 @@ class NFeDocumentLine(models.Model):
     def _check_icms_st_bc_value(self):
         for record in self:
             if (
-                record.icms_tax_id.cst_id.code in ("201", "202", "203")
+                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
                 and record.icms_st_bc_value <= 0
             ):
                 if record.icms_st_bc_value <= 0:
@@ -990,7 +1041,7 @@ class NFeDocumentLine(models.Model):
     def _check_icms_st_tax_percent(self):
         for record in self:
             if (
-                record.icms_tax_id.cst_id.code in ("201", "202", "203")
+                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
                 and record.icms_st_tax_percent <= 0
             ):
                 raise ValidationError(
@@ -1003,7 +1054,7 @@ class NFeDocumentLine(models.Model):
     def _check_icms_st_value(self):
         for record in self:
             if (
-                record.icms_tax_id.cst_id.code in ("201", "202", "203")
+                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
                 and record.icms_st_value <= 0
             ):
                 raise ValidationError(
@@ -1028,7 +1079,7 @@ class NFeDocumentLine(models.Model):
     @api.constrains("icms_st_fcp_tax_id")
     def _check_icms_st_fcp_tax_id(self):
         for record in self:
-            if record.icms_tax_id.cst_id.code in ("201", "202", "203"):
+            if record.icms_tax_id.cst_out_id.code in ("201", "202", "203"):
                 if not record.icms_st_fcp_tax_id:
                     raise ValidationError(
                         f"Produto: {record.product_description} - FCP ST deve ser informado para o CST {record.icms_cst_code}."
@@ -1071,7 +1122,7 @@ class NFeDocumentLine(models.Model):
     def _check_icms_st_fcp_tax_percent(self):
         for record in self:
             if (
-                record.icms_tax_id.cst_id.code in ("201", "202", "203")
+                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
                 and record.icms_st_fcp_tax_percent <= 0
             ):
                 raise ValidationError(
@@ -1086,7 +1137,7 @@ class NFeDocumentLine(models.Model):
     def _check_icms_st_fcp_bc_value(self):
         for record in self:
             if (
-                record.icms_tax_id.cst_id.code in ("201", "202", "203")
+                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
                 and record.icms_st_fcp_bc_value <= 0
             ):
                 raise ValidationError(
@@ -1099,7 +1150,7 @@ class NFeDocumentLine(models.Model):
     def _check_icms_st_fcp_value(self):
         for record in self:
             if (
-                record.icms_tax_id.cst_id.code in ("201", "202", "203")
+                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
                 and record.icms_st_fcp_value <= 0
             ):
                 raise ValidationError(
@@ -1127,6 +1178,62 @@ class NFeDocumentLine(models.Model):
                         f"informar a aliquota do FCP ST, valor da base de calculo do FCP ST e valor do FCP ST. Validação referente ao item da nota "
                         f"fiscal: {record.product_description}."
                     )
+                )
+
+    icms_deson_enabled = fields.Boolean(
+        string="ICMS Desoneração Habilitado",
+        compute="_compute_icms_deson_enabled",
+        store=False,
+    )
+
+    @api.depends("icms_cst_code")
+    def _compute_icms_deson_enabled(self):
+        for record in self:
+            record.icms_deson_enabled = record.icms_cst_code in (
+                "20",
+                "30",
+                "40",
+                "41",
+                "50",
+                "70",
+                "90",
+            )
+
+    @api.onchange("icms_cst_id")
+    def _onchange_icms_cst_id_clear_deson(self):
+        for record in self:
+            if record.icms_cst_id.code not in (
+                "20",
+                "30",
+                "40",
+                "41",
+                "50",
+                "70",
+                "90",
+            ):
+                record.icms_deson_value = 0.0
+                record.icms_deson_reason = False
+
+    icms_deson_value = fields.Float(
+        string="Valor do ICMS Desoneração",
+        digits=(13, 2),
+    )
+
+    icms_deson_reason = fields.Many2one(
+        comodel_name="l10n_br_fiscal.icms.deson.reason",
+        string="Motivo da Desoneração do ICMS",
+        domain="[('cst_ids', 'in', icms_cst_id)]",
+    )
+
+    @api.constrains("icms_deson_reason", "icms_deson_value")
+    def _check_icms_deson_required(self):
+        for record in self:
+            if record.icms_deson_reason and not record.icms_deson_value:
+                raise ValidationError(
+                    _(
+                        "Produto: %s - O Valor do ICMS Desoneração é obrigatório quando o Motivo da Desoneração do ICMS está definido."
+                    )
+                    % record.product_description
                 )
 
     # icms_st modalidade
@@ -1675,6 +1782,67 @@ class NFeDocumentLine(models.Model):
     #         if abs(record.product_value - calculated_value) > 0.01:
     #             raise ValidationError(_("O valor total do produto (vProd) do item %s difere do cálculo (Valor Unitário Comercial * Quantidade Comercial)." % record.sequence))
 
+    # === Grupo P Imposto de Importação ===
+
+    ii_bc_value = fields.Float(
+        string="Valor da Base de Calculo do Imposto de Importação",
+        digits=(13, 2),
+    )
+
+    ii_custom_expenses_value = fields.Float(
+        string="Valor das Despesas Aduanas e Alfandegárias",
+        digits=(13, 2),
+    )
+
+    ii_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="Imposto de Importação",
+        domain=[("tax_domain", "=", "ii")],
+    )
+
+    ii_tax_percent = fields.Float(
+        related="ii_tax_id.percent_amount",
+        string="Aliquota do Imposto de Importação",
+        digits=(3, 4),
+        readonly=True,
+        store=True,
+    )
+
+    ii_value = fields.Float(
+        string="Valor do Imposto de Importação",
+        digits=(13, 2),
+        compute="_compute_ii_value",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("ii_bc_value", "ii_tax_percent")
+    def _compute_ii_value(self):
+        for record in self:
+            record.ii_value = record.ii_bc_value * record.ii_tax_percent / 100
+
+    @api.constrains("ii_tax_id", "ii_bc_value")
+    def _check_ii_bc_value(self):
+        for record in self:
+            if record.ii_tax_id and not record.ii_bc_value:
+                raise ValidationError(
+                    _(
+                        "Produto: %s - O Valor da Base de Cálculo do Imposto de Importação é obrigatório quando o Imposto de Importação está definido."
+                    )
+                    % record.product_description
+                )
+
+    @api.constrains("ii_tax_id", "ii_custom_expenses_value")
+    def _check_ii_custom_expenses_value(self):
+        for record in self:
+            if record.ii_tax_id and not record.ii_custom_expenses_value:
+                raise ValidationError(
+                    _(
+                        "Produto: %s - O Valor das Despesas Aduaneiras e Alfandegárias é obrigatório quando o Imposto de Importação está definido."
+                    )
+                    % record.product_description
+                )
+
     # === Grupo UA. Tributos Devolvidos ===
     #  IPI Devolvido
 
@@ -1700,3 +1868,149 @@ class NFeDocumentLine(models.Model):
         store=True,
         readonly=True,
     )
+
+    approximate_federal_tax_amount = fields.Float(
+        string="Valor Aproximado do Imposto Federal",
+        digits=(13, 2),
+    )
+
+    approximate_state_tax_amount = fields.Float(
+        string="Valor Aproximado do Imposto Estadual",
+        digits=(13, 2),
+    )
+
+    approximate_municipal_tax_amount = fields.Float(
+        string="Valor Aproximado do Imposto Municipal",
+        digits=(13, 2),
+    )
+
+    approximate_tax_amount = fields.Float(
+        string="Valor Aproximado do Imposto",
+        digits=(13, 2),
+        compute="_compute_approximate_tax_amount",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends(
+        "approximate_federal_tax_amount",
+        "approximate_state_tax_amount",
+        "approximate_municipal_tax_amount",
+    )
+    def _compute_approximate_tax_amount(self):
+        for record in self:
+            record.approximate_tax_amount = (
+                record.approximate_federal_tax_amount
+                + record.approximate_state_tax_amount
+                + record.approximate_municipal_tax_amount
+            )
+
+    def action_fetch_ibpt_taxes(self):
+        """
+        Fetch approximate tributes from IBPT API for selected lines.
+        This method can be called from a button or server action.
+        """
+        for record in self:
+            record._fetch_ibpt_taxes()
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("IBPT"),
+                "message": _("Tributos aproximados atualizados com sucesso!"),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    # @job(default_channel="root.ibpt")
+    # def _job_fetch_ibpt_taxes(self):
+    #     """Job to fetch IBPT taxes in background."""
+    #     self._fetch_ibpt_taxes()
+
+    def _fetch_ibpt_taxes(self):
+        """
+        Fetch approximate tributes from IBPT API for this line.
+        """
+        self.ensure_one()
+
+        company = self.nfe_id.company_id
+
+        # Get IBPT token from company
+        token = company.ibpt_token
+        if not token:
+            raise UserError(
+                _(
+                    "Token IBPT não configurado. Configure o token nas configurações da empresa."
+                )
+            )
+
+        # Get CNPJ from company
+        cnpj = company.partner_id.vat
+        if not cnpj:
+            raise UserError(_("CNPJ da empresa não configurado."))
+
+        # Get NCM code
+        ncm_code = self.product_id.ncm_id.code_unmasked
+        ex_tipi = self.product_id.ncm_id.exception
+        if not ncm_code:
+            raise UserError(
+                _("Código NCM não configurado para o produto %s.")
+                % self.product_id.name
+            )
+
+        # Get UF (state) - from the NFe emitter
+        uf = company.partner_id.state_id.code
+        if not uf:
+            raise UserError(_("UF da empresa não configurada."))
+
+        value_with_discount = self.unit_price - self.unit_discount_value
+
+        try:
+            # Fetch tax rates from IBPT
+            tax_rates = get_ibpt_product_taxes(
+                token=token,
+                cnpj=cnpj,
+                ncm_code=ncm_code,
+                ex_tipi=ex_tipi,
+                uf=uf,
+                description=self.product_description or self.product_id.name,
+                unit=self.unit,
+                value=value_with_discount,
+                gtin=self.gtin,
+            )
+
+            # Check if product is imported based on ICMS origin
+            # Origins 1, 2, 6, 7 are imported products
+            is_imported = self.icms_origin in ("1", "2", "6", "7")
+
+            # Calculate tax amounts
+            tax_amounts = calculate_approximate_taxes(
+                tax_rates=tax_rates,
+                value_with_discount=value_with_discount,
+                quantity=self.quantity,
+                is_imported=is_imported,
+            )
+
+            # Update record with calculated values
+            self.write(
+                {
+                    "approximate_federal_tax_amount": tax_amounts["federal"],
+                    "approximate_state_tax_amount": tax_amounts["estadual"],
+                    "approximate_municipal_tax_amount": tax_amounts["municipal"],
+                }
+            )
+
+            _logger.info(
+                f"IBPT taxes fetched for line {self.id}: "
+                f"Federal={tax_amounts['federal']}, "
+                f"State={tax_amounts['estadual']}, "
+                f"Municipal={tax_amounts['municipal']}"
+            )
+
+        except IBPTError as e:
+            raise UserError(str(e))
+        except Exception as e:
+            _logger.exception("Error fetching IBPT taxes")
+            raise UserError(_("Erro ao buscar tributos do IBPT: %s") % str(e))

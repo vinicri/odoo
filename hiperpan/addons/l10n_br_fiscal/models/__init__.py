@@ -3,6 +3,7 @@ from . import cnae
 from . import cest
 from . import cfop
 from . import ncm
+from . import ibpt
 from . import ncm_genre
 from . import tax_group
 from . import ipi_guideline
@@ -16,3 +17,4 @@ from . import icms_origin
 from . import party_mixin
 from . import res_partner
 from . import res_company
+from . import icms_deson_reason

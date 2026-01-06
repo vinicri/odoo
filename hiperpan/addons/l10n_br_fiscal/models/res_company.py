@@ -1,4 +1,3 @@
-from re import A
 from odoo import models, fields, api
 
 

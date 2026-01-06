@@ -17,6 +17,19 @@ class Company(models.Model):
         default="1",
     )
 
+    # IBPT Configuration
+    ibpt_token = fields.Char(
+        string="Token IBPT",
+        help="Token de acesso à API do IBPT (De Olho no Imposto). "
+        "Obtenha em: https://deolhonoimposto.ibpt.org.br/",
+    )
+
+    ibpt_update_days = fields.Integer(
+        string="Dias para Atualização IBPT",
+        default=180,
+        help="Número de dias para considerar os dados do IBPT desatualizados.",
+    )
+
     @api.model
     def _get_timezone_list(self):
         """

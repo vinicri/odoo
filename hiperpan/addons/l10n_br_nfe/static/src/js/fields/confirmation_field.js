@@ -36,6 +36,11 @@ import { stealFocus } from "@l10n_br_nfe/js/utils/focus_utils";
  *    }
  */
 export class ConfirmationField extends FloatField {
+    static props = {
+        ...FloatField.props,
+        options: { type: Object, optional: true },
+    };
+
     setup() {
         super.setup();
         this.dialog = useService("dialog");

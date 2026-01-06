@@ -7,6 +7,7 @@
       <form>
         <header>
           <button name="action_generate_nfe" type="object" string="Gerar NF-e" class="oe_highlight" />
+          <button name="action_fetch_all_ibpt_taxes" type="object" string="Buscar Tributos IBPT" />
         </header>
         <sheet>
 
@@ -188,7 +189,7 @@
           </div>
 
           <group>
-            <field name="invoice_line_ids" context="{'default_issuer_id': issuer_id}"/>
+            <field name="invoice_line_ids" context="{'default_issuer_id': issuer_id, 'default_emission_finality': emission_finality}"/>
           </group>
 
           <notebook>
@@ -222,6 +223,7 @@
             <field name="total_pis" />
             <field name="total_cofins" />
 
+            <field name="total_approx_taxes" />
             <field name="total_nfe" />
           </group>
 

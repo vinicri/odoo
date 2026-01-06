@@ -12,6 +12,7 @@
             <field name="name" />
             <field name="exception" />
             <field name="exception_name" />
+            <field name="code_unmasked" />
             <field name="tax_ipi_id" />
           </group>
           <notebook>
@@ -37,6 +38,7 @@
         <field name="exception" />
         <field name="name" />
         <field name="exception_name" />
+        <field name="code_unmasked" />
       </list>
     </field>
   </record>

@@ -21,3 +21,8 @@
 "l10n_br_fiscal_icms_origin_manager","ICMS origin manager entitlement","model_l10n_br_fiscal_icms_origin","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
 "l10n_br_fiscal_ipi_guideline_user","IPI guideline user entitlement","model_l10n_br_fiscal_ipi_guideline","l10n_br_fiscal.group_user_fiscal",1,0,0,0
 "l10n_br_fiscal_ipi_guideline_manager","IPI guideline manager entitlement","model_l10n_br_fiscal_ipi_guideline","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_icms_deson_reason_user","ICMS deson reason user entitlement","model_l10n_br_fiscal_icms_deson_reason","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_icms_deson_reason_manager","ICMS deson reason manager entitlement","model_l10n_br_fiscal_icms_deson_reason","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_ibpt_user","IBPT user entitlement","model_l10n_br_fiscal_ibpt","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_ibpt_manager","IBPT manager entitlement","model_l10n_br_fiscal_ibpt","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_ibpt_import_wizard_manager","IBPT import wizard manager entitlement","model_l10n_br_fiscal_ibpt_import_wizard","l10n_br_fiscal.group_fiscal_manager",1,1,1,1

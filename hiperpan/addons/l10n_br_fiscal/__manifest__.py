@@ -22,6 +22,7 @@
         "data/l10n_br_fiscal.cest.csv",
         "data/l10n_br_fiscal.product.fiscal.type.csv",
         "data/l10n_br_fiscal.icms.origin.csv",
+        "data/l10n_br_fiscal.icms.deson.reason.csv",
         # views
         "views/ncm_views.xml",
         "views/ncm_genre_views.xml",
@@ -34,10 +35,12 @@
         "views/icms_origin_views.xml",
         "views/product_fiscal_type_views.xml",
         "views/product_template_views.xml",
-        "views/fiscal_views.xml",
+        "views/ibpt_views.xml",
+        "views/fiscal_views.xml",  # Menu structure - must be loaded first
         "views/res_company.xml",
         "views/res_partner.xml",
         "views/ipi_guideline.xml",
+        "views/icms_deson_reason.xml",
     ],
     "external_dependencies": {
         "python": ["erpbrasil.base"],

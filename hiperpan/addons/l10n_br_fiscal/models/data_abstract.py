@@ -64,6 +64,19 @@ class DataAbstract(models.AbstractModel):
         return model_view
 
     @api.model
+    def _unaccent(self, text):
+        """Remove accents from text for comparison."""
+        import unicodedata
+
+        if not text:
+            return text
+        return "".join(
+            c
+            for c in unicodedata.normalize("NFD", text)
+            if unicodedata.category(c) != "Mn"
+        )
+
+    @api.model
     def name_search(
         self,
         name,
@@ -74,6 +87,7 @@ class DataAbstract(models.AbstractModel):
         # if operator == "ilike" and not (name or "").strip():
         #     domain = []
         if operator in ("ilike", "like", "=", "=like", "=ilike"):
+            # First try standard domain search
             domain = expression.AND(
                 [
                     args or [],
@@ -87,6 +101,25 @@ class DataAbstract(models.AbstractModel):
                 ]
             )
             records = self.search_fetch(domain, ["display_name"], limit=limit)
+
+            # If no results and search term has no accents, try unaccent comparison
+            if not records and name:
+                all_records = self.search_fetch(
+                    args or [],
+                    ["display_name", "name", "code", "code_unmasked"],
+                    limit=None,
+                )
+                search_term = self._unaccent(name.lower())
+                matching_ids = []
+                for rec in all_records:
+                    rec_name = self._unaccent((rec.name or "").lower())
+                    if search_term in rec_name:
+                        matching_ids.append(rec.id)
+                        if len(matching_ids) >= limit:
+                            break
+                if matching_ids:
+                    records = self.browse(matching_ids)
+
             return [(record.id, record.display_name) for record in records.sudo()]
 
         return super().name_search(

@@ -25,5 +25,5 @@ class ResBank(models.Model):
 
     compe_member = fields.Boolean(
         string="COMPE Member",
-        default=False,  
-    ) 
+        default=False,
+    )

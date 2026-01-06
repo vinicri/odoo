@@ -1,10 +1,9 @@
 from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
 from .utils import is_valid_phone
 import random
 import pytz
-
-# from ..utils import nfe as nfe_utils
+from .constants import NFE_EMISSION_FINALITY
 import lxml.etree as etree
 
 
@@ -1387,15 +1386,6 @@ PRESENCE_INDICATOR = [
     ("9", "Operação não presencial, outros"),
 ]
 
-EMISSION_FINALITY = [
-    ("1", "NF-e normal"),
-    ("2", "NF-e complementar"),
-    ("3", "NF-e de ajuste"),
-    # obrigatorio referenciar a nota de entrada ou saida
-    # (se o proprio vendedor estiver emitindo a nota de entrada pra devolucao)
-    ("4", "Devolução de mercadoria"),
-]
-
 FINAL_CUSTOMER_OPERATION = [
     ("0", "Normal (irá revender a mercadoria ou utilizar como insumo)"),
     ("1", "Consumidor final"),
@@ -1685,7 +1675,10 @@ class NFeDocument(models.Model):
     # Informar a finalidade da emissão da NF-e. 1 = NF-e normal; 2 = NF-e complementar; 3 = NF-e de ajuste; 4 = Devolução de mercadoria
     # obrigatorio referenciar a nota de entrada ou saida para devolucao
     emission_finality = fields.Selection(
-        EMISSION_FINALITY, string="Finalidade da Emissão", required=True, default="1"
+        NFE_EMISSION_FINALITY,
+        string="Finalidade da Emissão",
+        required=True,
+        default="1",
     )
 
     final_customer_operation = fields.Selection(
@@ -2547,7 +2540,12 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    @api.depends(
+        "issuer_id",
+        "issuer_id.fiscal_framework",
+        "invoice_line_ids",
+        "invoice_line_ids.icms_bc_value",
+    )
     def _compute_total_icms_base(self):
         for record in self:
             total_icms_base = sum(record.invoice_line_ids.mapped("icms_bc_value"))
@@ -2572,7 +2570,12 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    @api.depends(
+        "issuer_id",
+        "issuer_id.fiscal_framework",
+        "invoice_line_ids",
+        "invoice_line_ids.icms_value",
+    )
     def _compute_total_icms(self):
         for record in self:
             total_icms = sum(record.invoice_line_ids.mapped("icms_value"))
@@ -2600,9 +2603,12 @@ class NFeDocument(models.Model):
         store=True,
     )
 
+    @api.depends("invoice_line_ids", "invoice_line_ids.icms_deson_value")
     def _compute_total_icms_deson(self):
         for record in self:
-            record.total_icms_deson = 0.00
+            record.total_icms_deson = sum(
+                record.invoice_line_ids.mapped("icms_deson_value")
+            )
 
     # Valor Total do ICMS desonerado.
 
@@ -2651,7 +2657,12 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    @api.depends(
+        "issuer_id",
+        "issuer_id.fiscal_framework",
+        "invoice_line_ids",
+        "invoice_line_ids.icms_fcp_value",
+    )
     def _compute_total_fcp(self):
         for record in self:
             total_fcp = sum(record.invoice_line_ids.mapped("icms_fcp_value"))
@@ -2677,7 +2688,7 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("invoice_line_ids")
+    @api.depends("invoice_line_ids", "invoice_line_ids.icms_st_bc_value")
     def _compute_total_icms_st_base(self):
         for record in self:
             record.total_icms_st_base = sum(
@@ -2692,7 +2703,7 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("invoice_line_ids")
+    @api.depends("invoice_line_ids", "invoice_line_ids.icms_st_value")
     def _compute_total_icms_st_value(self):
         for record in self:
             record.total_icms_st_value = sum(
@@ -2707,7 +2718,7 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("invoice_line_ids")
+    @api.depends("invoice_line_ids", "invoice_line_ids.icms_st_fcp_value")
     def _compute_total_icms_st_fcp(self):
         for record in self:
             record.total_icms_st_fcp = sum(
@@ -2722,7 +2733,7 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("invoice_line_ids")
+    @api.depends("invoice_line_ids", "invoice_line_ids.icms_st_fcp_retention_value")
     def _compute_total_icms_fcp_st_retention(self):
         for record in self:
             record.total_icms_fcp_st_retention = sum(
@@ -2737,23 +2748,10 @@ class NFeDocument(models.Model):
         compute="_compute_total_products",
     )
 
-    @api.depends("invoice_line_ids")
+    @api.depends("invoice_line_ids", "invoice_line_ids.total_value")
     def _compute_total_products(self):
         for record in self:
             record.total_products = sum(record.invoice_line_ids.mapped("total_value"))
-
-    # Valor Total do Frete.
-    total_freight = fields.Float(
-        string="Valor Total do Frete",
-        digits=(13, 2),
-        required=True,
-    )
-
-    @api.onchange("total_freight")
-    def _onchange_total_freight(self):
-        for record in self:
-            record.distribute_total_value(record.total_freight, "freight_value")
-        return
 
     def distribute_total_value(self, total_value_to_distribute, item_key):
         """Rateia o frete proporcionalmente entre os itens da nota fiscal."""
@@ -2794,6 +2792,17 @@ class NFeDocument(models.Model):
         # Último item recebe o resto para garantir que não haja diferença
         lines[-1][item_key] = round(total_value - accumulated, 2)
 
+    # Valor Total do Frete.
+    total_freight = fields.Float(
+        string="Valor Total do Frete",
+        digits=(13, 2),
+    )
+
+    @api.onchange("total_freight")
+    def _onchange_total_freight(self):
+        for record in self:
+            record.distribute_total_value(record.total_freight, "freight_value")
+
     # Valor Total do Seguro.
     total_insurance = fields.Float(
         string="Valor Total do Seguro",
@@ -2803,7 +2812,7 @@ class NFeDocument(models.Model):
         readonly=False,
     )
 
-    @api.depends("invoice_line_ids.insurance_value")
+    @api.depends("invoice_line_ids", "invoice_line_ids.insurance_value")
     def _compute_total_insurance(self):
         for record in self:
             record.total_insurance = sum(
@@ -2822,7 +2831,6 @@ class NFeDocument(models.Model):
                 return
 
             record.distribute_total_value(record.total_insurance, "insurance_value")
-        return
 
     # Valor Total do Desconto.
     total_discount = fields.Float(
@@ -2833,7 +2841,7 @@ class NFeDocument(models.Model):
         readonly=False,
     )
 
-    @api.depends("invoice_line_ids.discount_value")
+    @api.depends("invoice_line_ids", "invoice_line_ids.discount_value")
     def _compute_total_discount(self):
         for record in self:
             record.total_discount = sum(
@@ -2868,13 +2876,19 @@ class NFeDocument(models.Model):
                     }
                 )
 
+    # Valor Total do Imposto de Importação.
     total_ii = fields.Float(
         string="Valor Total do Imposto de Importação",
         digits=(13, 2),
-        default=0.00,
+        compute="_compute_total_ii",
+        store=True,
         readonly=True,
     )
-    # Valor Total do Imposto de Importação.
+
+    @api.depends("invoice_line_ids", "invoice_line_ids.ii_value")
+    def _compute_total_ii(self):
+        for record in self:
+            record.total_ii = 0.00
 
     total_ipi = fields.Float(
         string="Valor Total do IPI",
@@ -2884,28 +2898,75 @@ class NFeDocument(models.Model):
     )
     # Valor Total do IPI.
 
-    @api.depends("issuer_id", "issuer_id.fiscal_framework", "invoice_line_ids")
+    @api.depends(
+        "issuer_id",
+        "issuer_id.fiscal_framework",
+        "invoice_line_ids",
+        "invoice_line_ids.ipi_value",
+    )
     def _compute_total_ipi(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_ipi = 0.00
+            total_ipi = sum(record.invoice_line_ids.mapped("ipi_value"))
+
+            if (
+                record._is_issuer_simples_nacional()
+                and record.emission_finality in ["1", "2", "3"]
+                and not total_ipi == 0.00
+            ):
+                raise ValidationError(
+                    _(
+                        "A soma do valor do IPI deve ser zero para nota fiscal"
+                        " normal emitida por empresa do Simples Nacional."
+                    )
+                )
+            elif record.emission_finality == "4":
+                items_with_non_zero_ipi = []
+                for line in record.invoice_line_ids:
+                    if line.ipi_value > 0:
+                        items_with_non_zero_ipi.append(line)
+                raise ValidationError(
+                    _(
+                        "Para nota fiscal de devolução, o valor do IPI deve "
+                        "ser informado no campo 'Valor Total do IPI Devolvido'. "
+                        "Itens informados com IPI: "
+                        + ", ".join(item.name for item in items_with_non_zero_ipi)
+                    )
+                )
             else:
                 record.total_ipi = sum(record.invoice_line_ids.mapped("ipi_value"))
 
+    # Valor Total do IPI Devolvido.
     total_ipi_returned = fields.Float(
         string="Valor Total do IPI Devolvido",
         digits=(13, 2),
         compute="_compute_total_ipi_returned",
         store=True,
     )
-    # Valor Total do IPI Devolvido.
 
-    @api.depends("invoice_line_ids")
+    @api.depends("invoice_line_ids", "invoice_line_ids.total_ipi_returned")
     def _compute_total_ipi_returned(self):
         for record in self:
-            record.total_ipi_returned = sum(
+            total_ipi_returned = sum(
                 record.invoice_line_ids.mapped("total_ipi_returned")
             )
+
+            if total_ipi_returned > 0.00 and record.emission_finality != "4":
+                items_with_non_zero_ipi_returned = []
+                for line in record.invoice_line_ids:
+                    if line.total_ipi_returned > 0:
+                        items_with_non_zero_ipi_returned.append(line)
+                raise ValidationError(
+                    _(
+                        "O valor do IPI devolvido deve ser zero para nota fiscal"
+                        " normal emitida, exceto para nota fiscal de devolução."
+                        "Itens informados com IPI devolvido: "
+                        + ", ".join(
+                            item.name for item in items_with_non_zero_ipi_returned
+                        )
+                    )
+                )
+            else:
+                record.total_ipi_returned = total_ipi_returned
 
     total_pis = fields.Float(
         string="Valor Total do PIS",
@@ -2915,26 +2976,59 @@ class NFeDocument(models.Model):
     )
     # Valor Total do PIS.
 
-    @api.depends("invoice_line_ids")
+    @api.depends(
+        "issuer_id",
+        "issuer_id.fiscal_framework",
+        "invoice_line_ids",
+        "invoice_line_ids.pis_value",
+    )
     def _compute_total_pis(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_pis = 0.00
+            total_pis = sum(record.invoice_line_ids.mapped("pis_value"))
+            if (
+                record._is_issuer_simples_nacional()
+                and record.emission_finality == "1"
+                and not total_pis == 0.00
+            ):
+                raise ValidationError(
+                    _(
+                        "A soma do valor do PIS deve ser zero para nota fiscal"
+                        " normal emitida por empresa do Simples Nacional."
+                    )
+                )
             else:
-                record.total_pis = sum(record.invoice_line_ids.mapped("pis_value"))
+                record.total_pis = total_pis
 
-    total_cofins = fields.Float(string="Valor Total da COFINS", digits=(13, 2))
+    total_cofins = fields.Float(
+        string="Valor Total da COFINS",
+        digits=(13, 2),
+        compute="_compute_total_cofins",
+        store=True,
+    )
     # Valor Total da COFINS.
 
-    @api.depends("invoice_line_ids")
+    @api.depends(
+        "issuer_id",
+        "issuer_id.fiscal_framework",
+        "invoice_line_ids",
+        "invoice_line_ids.cofins_value",
+    )
     def _compute_total_cofins(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                record.total_cofins = 0.00
-            else:
-                record.total_cofins = sum(
-                    record.invoice_line_ids.mapped("cofins_value")
+            total_cofins = sum(record.invoice_line_ids.mapped("cofins_value"))
+            if (
+                record._is_issuer_simples_nacional()
+                and record.emission_finality == "1"
+                and not total_cofins == 0.00
+            ):
+                raise ValidationError(
+                    _(
+                        "A soma do valor da COFINS deve ser zero para nota fiscal"
+                        " normal emitida por empresa do Simples Nacional."
+                    )
                 )
+            else:
+                record.total_cofins = total_cofins
 
     # Outras Despesas acessórias.
     total_other_expenses = fields.Float(
@@ -2998,9 +3092,19 @@ class NFeDocument(models.Model):
             )
 
     total_approx_taxes = fields.Float(
-        string="Valor Aproximado dos Tributos", digits=(13, 2)
+        string="Valor Aproximado dos Tributos",
+        digits=(13, 2),
+        compute="_compute_total_approx_taxes",
+        store=True,
     )
     # Total do valor aproximado dos tributos. Opcional. [227, 228]
+
+    @api.depends("invoice_line_ids.approximate_tax_amount")
+    def _compute_total_approx_taxes(self):
+        for record in self:
+            record.total_approx_taxes = sum(
+                line.approximate_tax_amount for line in record.invoice_line_ids
+            )
 
     # == Grupo W02. Total da NF-e / Retenção de Tributos ==
     # Valor Total do PIS Retido.
@@ -3398,5 +3502,64 @@ class NFeDocument(models.Model):
         return dv
 
     def action_generate_nfe(self):
+        # Fetch IBPT taxes for all lines before generating NFe
+        self._fetch_all_ibpt_taxes()
+
         printNfeXml(self)
         print("action", self)
+
+    def _fetch_all_ibpt_taxes(self):
+        """
+        Internal method to fetch IBPT taxes for all lines.
+        Returns a list of errors (empty if all succeeded).
+        Does not raise exceptions - errors are collected and returned.
+        """
+        self.ensure_one()
+        errors = []
+
+        for line in self.invoice_line_ids:
+            try:
+                line._fetch_ibpt_taxes()
+            except UserError as e:
+                errors.append(
+                    f"{line.product_description or line.product_id.name}: {e.args[0]}"
+                )
+
+        return errors
+
+    def action_fetch_all_ibpt_taxes(self):
+        """
+        Fetch IBPT taxes for all lines in the document.
+        Shows warnings for lines that failed but doesn't block the operation.
+        """
+        errors = self._fetch_all_ibpt_taxes()
+
+        if errors:
+            # Show warning with list of failed lines
+            error_message = _(
+                "Os seguintes itens não puderam ter os tributos IBPT atualizados:\n\n"
+            )
+            error_message += "\n".join(f"• {err}" for err in errors)
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("IBPT - Avisos"),
+                    "message": error_message,
+                    "type": "warning",
+                    "sticky": True,
+                },
+            }
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("IBPT"),
+                "message": _(
+                    "Tributos aproximados atualizados com sucesso para todos os itens!"
+                ),
+                "type": "success",
+                "sticky": False,
+            },
+        }
