@@ -47,7 +47,7 @@ export class InsuranceWarningField extends ConfirmationField {
         const itemsList = itemsWithInsurance
             .map(
                 (item) =>
-                    `• ${item.name}\n  Seguro do item: R$ ${item.insuranceValue}`
+                    `• ${item.name} Seguro do item: R$ ${item.insuranceValue}`
             )
             .join("\n\n");
 

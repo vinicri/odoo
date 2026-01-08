@@ -16,3 +16,7 @@ def is_valid_phone(phone):
         return True
 
     return False
+
+
+def format_number(value):
+    return f"{value:0.2f}".replace(".", ",")

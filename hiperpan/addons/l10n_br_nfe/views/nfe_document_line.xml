@@ -239,6 +239,10 @@
         <field name="unit_discount_value" />
         <field name="discount_value" />
         <field name="total_value" />
+        <!-- Hidden fields needed for total calculations and JS widgets -->
+        <field name="insurance_value" column_invisible="1" />
+        <field name="freight_value" column_invisible="1" />
+        <field name="other_expenses_value" column_invisible="1" />
       </list>
     </field>
   </record>

@@ -8,6 +8,7 @@ export const getItemsWithNonZeroValue = (record, field) => {
       return [];
   }
 
+
   const recordsWithNonZeroValue = [];
   for (const line of invoiceLines.records) {
       const value = line.data[field] || 0;

@@ -1,6 +1,6 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError, UserError
-from .utils import is_valid_phone
+from .utils import is_valid_phone, format_number
 import random
 import pytz
 from .constants import NFE_EMISSION_FINALITY
@@ -2754,7 +2754,7 @@ class NFeDocument(models.Model):
             record.total_products = sum(record.invoice_line_ids.mapped("total_value"))
 
     def distribute_total_value(self, total_value_to_distribute, item_key):
-        """Rateia o frete proporcionalmente entre os itens da nota fiscal."""
+        """Rateia o valor proporcionalmente entre os itens da nota fiscal."""
         if not self.invoice_line_ids:
             return
 
@@ -2796,11 +2796,26 @@ class NFeDocument(models.Model):
     total_freight = fields.Float(
         string="Valor Total do Frete",
         digits=(13, 2),
+        compute="_compute_total_freight",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("invoice_line_ids", "invoice_line_ids.freight_value")
+    def _compute_total_freight(self):
+        for record in self:
+            record.total_freight = sum(record.invoice_line_ids.mapped("freight_value"))
 
     @api.onchange("total_freight")
     def _onchange_total_freight(self):
         for record in self:
+            items_freight_sum = sum(record.invoice_line_ids.mapped("freight_value"))
+            # Se o total_freight é igual à soma dos valores do frete dos itens,
+            # significa que a mudança veio de um item sendo editado, não do usuário
+            # editando diretamente o campo total_freight. Neste caso, não redistribuir.
+            if abs((record.total_freight or 0) - items_freight_sum) < 0.01:
+                return
+
             record.distribute_total_value(record.total_freight, "freight_value")
 
     # Valor Total do Seguro.
@@ -2888,13 +2903,14 @@ class NFeDocument(models.Model):
     @api.depends("invoice_line_ids", "invoice_line_ids.ii_value")
     def _compute_total_ii(self):
         for record in self:
-            record.total_ii = 0.00
+            record.total_ii = sum(record.invoice_line_ids.mapped("ii_value"))
 
     total_ipi = fields.Float(
         string="Valor Total do IPI",
         digits=(13, 2),
         compute="_compute_total_ipi",
         store=True,
+        readonly=True,
     )
     # Valor Total do IPI.
 
@@ -2941,6 +2957,7 @@ class NFeDocument(models.Model):
         digits=(13, 2),
         compute="_compute_total_ipi_returned",
         store=True,
+        readonly=True,
     )
 
     @api.depends("invoice_line_ids", "invoice_line_ids.total_ipi_returned")
@@ -2973,6 +2990,7 @@ class NFeDocument(models.Model):
         digits=(13, 2),
         compute="_compute_total_pis",
         store=True,
+        readonly=True,
     )
     # Valor Total do PIS.
 
@@ -3004,6 +3022,7 @@ class NFeDocument(models.Model):
         digits=(13, 2),
         compute="_compute_total_cofins",
         store=True,
+        readonly=True,
     )
     # Valor Total da COFINS.
 
@@ -3039,7 +3058,7 @@ class NFeDocument(models.Model):
         readonly=False,
     )
 
-    @api.depends("invoice_line_ids")
+    @api.depends("invoice_line_ids", "invoice_line_ids.other_expenses_value")
     def _compute_total_other_expenses(self):
         for record in self:
             record.total_other_expenses = sum(
@@ -3091,6 +3110,50 @@ class NFeDocument(models.Model):
                 + record.total_ipi_returned
             )
 
+    total_approx_taxes_federal = fields.Float(
+        string="Valor Aproximado dos Tributos Federais",
+        digits=(13, 2),
+        compute="_compute_total_approx_taxes_federal",
+        store=True,
+    )
+
+    @api.depends("invoice_line_ids", "invoice_line_ids.approximate_federal_tax_amount")
+    def _compute_total_approx_taxes_federal(self):
+        for record in self:
+            record.total_approx_taxes_federal = sum(
+                record.invoice_line_ids.mapped("approximate_federal_tax_amount")
+            )
+
+    total_approx_taxes_state = fields.Float(
+        string="Valor Aproximado dos Tributos Estaduais",
+        digits=(13, 2),
+        compute="_compute_total_approx_taxes_state",
+        store=True,
+    )
+
+    @api.depends("invoice_line_ids", "invoice_line_ids.approximate_state_tax_amount")
+    def _compute_total_approx_taxes_state(self):
+        for record in self:
+            record.total_approx_taxes_state = sum(
+                record.invoice_line_ids.mapped("approximate_state_tax_amount")
+            )
+
+    total_approx_taxes_municipal = fields.Float(
+        string="Valor Aproximado dos Tributos Municipais",
+        digits=(13, 2),
+        compute="_compute_total_approx_taxes_municipal",
+        store=True,
+    )
+
+    @api.depends(
+        "invoice_line_ids", "invoice_line_ids.approximate_municipal_tax_amount"
+    )
+    def _compute_total_approx_taxes_municipal(self):
+        for record in self:
+            record.total_approx_taxes_municipal = sum(
+                record.invoice_line_ids.mapped("approximate_municipal_tax_amount")
+            )
+
     total_approx_taxes = fields.Float(
         string="Valor Aproximado dos Tributos",
         digits=(13, 2),
@@ -3099,11 +3162,16 @@ class NFeDocument(models.Model):
     )
     # Total do valor aproximado dos tributos. Opcional. [227, 228]
 
-    @api.depends("invoice_line_ids.approximate_tax_amount")
+    @api.depends(
+        "invoice_line_ids",
+        "total_approx_taxes_federal",
+        "total_approx_taxes_state",
+        "total_approx_taxes_municipal",
+    )
     def _compute_total_approx_taxes(self):
         for record in self:
             record.total_approx_taxes = sum(
-                line.approximate_tax_amount for line in record.invoice_line_ids
+                record.invoice_line_ids.mapped("approximate_tax_amount")
             )
 
     # == Grupo W02. Total da NF-e / Retenção de Tributos ==
@@ -3280,10 +3348,6 @@ class NFeDocument(models.Model):
     @api.depends("issuer_id", "issuer_id.fiscal_framework")
     def _compute_mandatory_additional_information_ids(self):
         for record in self:
-            print("record.issuer_id", record.issuer_id)
-            print(
-                "record.issuer_id.fiscal_framework", record.issuer_id.fiscal_framework
-            )
             external_ids = []
             if record.issuer_id and record.issuer_id.fiscal_framework in (
                 "1",
@@ -3305,19 +3369,50 @@ class NFeDocument(models.Model):
                     "l10n_br_nfe.nfe.additional_information"
                 ]
 
+    ibpt_keys = fields.Text(
+        string="Chaves do IBPT",
+        compute="_compute_ibpt_keys",
+        store=True,
+    )
+
+    @api.depends("invoice_line_ids", "invoice_line_ids.ibpt_key")
+    def _compute_ibpt_keys(self):
+        for record in self:
+            ibpt_keys = set(record.invoice_line_ids.mapped("ibpt_key"))
+            record.ibpt_keys = ", ".join(key for key in ibpt_keys if key)
+
+    total_approx_taxes_information = fields.Text(
+        string="Informações sobre os Tributos Aproximados",
+        compute="_compute_total_approx_taxes_information",
+        store=True,
+    )
+
+    @api.depends(
+        "total_approx_taxes_federal",
+        "total_approx_taxes_state",
+        "total_approx_taxes_municipal",
+        "ibpt_keys",
+    )
+    def _compute_total_approx_taxes_information(self):
+        for record in self:
+            record.total_approx_taxes_information = f"Trib aprox R$ {format_number(record.total_approx_taxes_federal)} Fed, R$ {format_number(record.total_approx_taxes_state)} Est e R$ {format_number(record.total_approx_taxes_municipal)} Mun \nFonte: IBPT {record.ibpt_keys}"
+
     mandatory_additional_information = fields.Text(
         string="Informações Adicionais Obrigatórias",
         compute="_compute_mandatory_additional_information",
         store=True,
     )
 
-    @api.depends("mandatory_additional_information_ids")
+    @api.depends(
+        "mandatory_additional_information_ids", "total_approx_taxes_information"
+    )
     def _compute_mandatory_additional_information(self):
         for record in self:
             # Filter out empty/False values
             info_values = record.mandatory_additional_information_ids.mapped(
                 "additional_information"
             )
+            info_values.append(record.total_approx_taxes_information)
             # Join only non-empty strings
             record.mandatory_additional_information = "\n".join(
                 filter(None, info_values)
@@ -3561,5 +3656,6 @@ class NFeDocument(models.Model):
                 ),
                 "type": "success",
                 "sticky": False,
+                "next": {"type": "ir.actions.client", "tag": "reload"},
             },
         }

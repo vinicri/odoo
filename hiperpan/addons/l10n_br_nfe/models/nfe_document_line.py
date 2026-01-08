@@ -1872,16 +1872,19 @@ class NFeDocumentLine(models.Model):
     approximate_federal_tax_amount = fields.Float(
         string="Valor Aproximado do Imposto Federal",
         digits=(13, 2),
+        readonly=True,
     )
 
     approximate_state_tax_amount = fields.Float(
         string="Valor Aproximado do Imposto Estadual",
         digits=(13, 2),
+        readonly=True,
     )
 
     approximate_municipal_tax_amount = fields.Float(
         string="Valor Aproximado do Imposto Municipal",
         digits=(13, 2),
+        readonly=True,
     )
 
     approximate_tax_amount = fields.Float(
@@ -1889,6 +1892,11 @@ class NFeDocumentLine(models.Model):
         digits=(13, 2),
         compute="_compute_approximate_tax_amount",
         store=True,
+        readonly=True,
+    )
+
+    ibpt_key = fields.Char(
+        string="Chave do IBPT",
         readonly=True,
     )
 
@@ -1999,8 +2007,11 @@ class NFeDocumentLine(models.Model):
                     "approximate_federal_tax_amount": tax_amounts["federal"],
                     "approximate_state_tax_amount": tax_amounts["estadual"],
                     "approximate_municipal_tax_amount": tax_amounts["municipal"],
+                    "ibpt_key": tax_rates["chave"],
                 }
             )
+
+            # Explicitly trigger recomputation of parent's total_approx_taxes
 
             _logger.info(
                 f"IBPT taxes fetched for line {self.id}: "
