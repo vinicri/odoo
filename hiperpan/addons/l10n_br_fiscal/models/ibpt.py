@@ -12,6 +12,9 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 
+# TODO: possivelmente deve-se adicionar a empresa, dado que a tabela do IBPT é gerada para cada empresa.
+
+
 class Ibpt(models.Model):
     _name = "l10n_br_fiscal.ibpt"
     _description = "IBPT - Tax Estimates"
@@ -178,13 +181,30 @@ class Ibpt(models.Model):
         record = self.search(
             domain
             + [
-                "|",
                 ("validity_end", ">=", today),
-                ("validity_end", "=", False),
             ],
             order="validity_start desc",
             limit=1,
         )
+
+        # Fallback: if no record found, search for generic NCM 00000000 for the same state
+        if not record:
+            fallback_domain = [
+                ("code", "=", "00000000"),
+                ("state_id.code", "=", state_code.upper()),
+                ("active", "=", True),
+                "|",
+                ("ex_tipi", "=", False),
+                ("ex_tipi", "=", ""),
+            ]
+            record = self.search(
+                fallback_domain
+                + [
+                    ("validity_end", ">=", today),
+                ],
+                order="validity_start desc",
+                limit=1,
+            )
 
         if record:
             return {
