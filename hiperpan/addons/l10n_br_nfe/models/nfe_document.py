@@ -2524,6 +2524,13 @@ class NFeDocument(models.Model):
                     _("O número máximo de itens da nota fiscal é 990.")
                 )
 
+    @api.onchange("invoice_line_ids", "invoice_line_ids.total_value")
+    def _onchange_invoice_line_ids_redistribute_freight(self):
+        """Redistribui o frete quando os itens da nota fiscal mudam."""
+        for record in self:
+            if record.total_freight:
+                record.distribute_total_value(record.total_freight, "freight_value")
+
     # === Grupo W. Total da NF-e  ===
     # total - Totais da NF-e
 
@@ -3093,7 +3100,19 @@ class NFeDocument(models.Model):
         compute="_compute_total_nfe",
     )
 
-    @api.depends("invoice_line_ids")
+    @api.depends(
+        "invoice_line_ids",
+        "total_discount",
+        "total_icms_deson",
+        "total_icms_st_value",
+        "total_icms_st_fcp",
+        "total_freight",
+        "total_insurance",
+        "total_other_expenses",
+        "total_ii",
+        "total_ipi",
+        "total_ipi_returned",
+    )
     def _compute_total_nfe(self):
         for record in self:
             record.total_nfe = (

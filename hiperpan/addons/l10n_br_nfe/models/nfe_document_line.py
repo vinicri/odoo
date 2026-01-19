@@ -273,6 +273,22 @@ class NFeDocumentLine(models.Model):
                 record.unit_price * record.unit_discount_percent / 100
             )
 
+    @api.onchange("unit_discount_value")
+    def _check_unit_discount_value(self):
+        for record in self:
+            if record.unit_discount_value > record.unit_price:
+                # Set both values to break the circular dependency cycle
+                record.unit_discount_percent = 0
+                record.unit_discount_value = 0
+                return {
+                    "warning": {
+                        "title": _("Aviso"),
+                        "message": _(
+                            "O Valor de Desconto por Unidade deve ser menor ou igual ao Valor Unitário."
+                        ),
+                    }
+                }
+
     unit_discount_percent = fields.Float(
         string="Percentual de desconto por unidade",
         digits=(3, 4),
@@ -290,6 +306,22 @@ class NFeDocumentLine(models.Model):
                 record.unit_discount_percent = (
                     record.unit_discount_value / record.unit_price * 100
                 )
+
+    @api.onchange("unit_discount_percent")
+    def _onchange_unit_discount_percent(self):
+        for record in self:
+            if record.unit_discount_percent > 100:
+                # Set both values to break the circular dependency cycle
+                record.unit_discount_value = 0
+                record.unit_discount_percent = 0
+                return {
+                    "warning": {
+                        "title": _("Aviso"),
+                        "message": _(
+                            "O Percentual de Desconto por Unidade deve ser menor ou igual a 100%."
+                        ),
+                    }
+                }
 
     @api.onchange("product_id")
     def _onchange_product_id(self):
@@ -1943,21 +1975,9 @@ class NFeDocumentLine(models.Model):
         """
         self.ensure_one()
 
+        local_data = True
+
         company = self.nfe_id.company_id
-
-        # Get IBPT token from company
-        token = company.ibpt_token
-        if not token:
-            raise UserError(
-                _(
-                    "Token IBPT não configurado. Configure o token nas configurações da empresa."
-                )
-            )
-
-        # Get CNPJ from company
-        cnpj = company.partner_id.vat
-        if not cnpj:
-            raise UserError(_("CNPJ da empresa não configurado."))
 
         # Get NCM code
         ncm_code = self.product_id.ncm_id.code_unmasked
@@ -1975,53 +1995,75 @@ class NFeDocumentLine(models.Model):
 
         value_with_discount = self.unit_price - self.unit_discount_value
 
-        try:
-            # Fetch tax rates from IBPT
-            tax_rates = get_ibpt_product_taxes(
-                token=token,
-                cnpj=cnpj,
-                ncm_code=ncm_code,
-                ex_tipi=ex_tipi,
-                uf=uf,
-                description=self.product_description or self.product_id.name,
-                unit=self.unit,
-                value=value_with_discount,
-                gtin=self.gtin,
+        # Check if product is imported based on ICMS origin
+        # Origins 1, 2, 6, 7 are imported products
+        is_imported = self.icms_origin in ("1", "2", "6", "7")
+
+        if local_data:
+            tax_rates = self.env["l10n_br_fiscal.ibpt"].get_ibpt_values(
+                ncm_code=ncm_code, state_code=uf, ex_tipi=ex_tipi
             )
+        else:
+            # Get CNPJ from company
+            cnpj = company.partner_id.vat
+            if not cnpj:
+                raise UserError(_("CNPJ da empresa não configurado."))
 
-            # Check if product is imported based on ICMS origin
-            # Origins 1, 2, 6, 7 are imported products
-            is_imported = self.icms_origin in ("1", "2", "6", "7")
+            # o codigo seguinte faz a requisição, foi revisado e está funcionando em 12/01/2026.
+            # mas vamos fazer requisição na base de dados por enquanto.
 
-            # Calculate tax amounts
-            tax_amounts = calculate_approximate_taxes(
-                tax_rates=tax_rates,
-                value_with_discount=value_with_discount,
-                quantity=self.quantity,
-                is_imported=is_imported,
-            )
+            # Get IBPT token from company
+            token = company.ibpt_token
+            if not token:
+                raise UserError(
+                    _(
+                        "Token IBPT não configurado. Configure o token nas configurações da empresa."
+                    )
+                )
 
-            # Update record with calculated values
-            self.write(
-                {
-                    "approximate_federal_tax_amount": tax_amounts["federal"],
-                    "approximate_state_tax_amount": tax_amounts["estadual"],
-                    "approximate_municipal_tax_amount": tax_amounts["municipal"],
-                    "ibpt_key": tax_rates["chave"],
-                }
-            )
+            try:
+                # Fetch tax rates from IBPT
+                tax_rates = get_ibpt_product_taxes(
+                    token=token,
+                    cnpj=cnpj,
+                    ncm_code=ncm_code,
+                    ex_tipi=ex_tipi,
+                    uf=uf,
+                    description=self.product_description or self.product_id.name,
+                    unit=self.unit,
+                    value=value_with_discount,
+                    gtin=self.gtin,
+                )
 
-            # Explicitly trigger recomputation of parent's total_approx_taxes
+            except IBPTError as e:
+                raise UserError(str(e))
+            except Exception as e:
+                _logger.exception("Error fetching IBPT taxes")
+                raise UserError(_("Erro ao buscar tributos do IBPT: %s") % str(e))
 
-            _logger.info(
-                f"IBPT taxes fetched for line {self.id}: "
-                f"Federal={tax_amounts['federal']}, "
-                f"State={tax_amounts['estadual']}, "
-                f"Municipal={tax_amounts['municipal']}"
-            )
+        # Calculate tax amounts
+        tax_amounts = calculate_approximate_taxes(
+            tax_rates=tax_rates,
+            value_with_discount=value_with_discount,
+            quantity=self.quantity,
+            is_imported=is_imported,
+        )
 
-        except IBPTError as e:
-            raise UserError(str(e))
-        except Exception as e:
-            _logger.exception("Error fetching IBPT taxes")
-            raise UserError(_("Erro ao buscar tributos do IBPT: %s") % str(e))
+        # Update record with calculated values
+        self.write(
+            {
+                "approximate_federal_tax_amount": tax_amounts["federal"],
+                "approximate_state_tax_amount": tax_amounts["estadual"],
+                "approximate_municipal_tax_amount": tax_amounts["municipal"],
+                "ibpt_key": tax_rates["chave"],
+            }
+        )
+
+        # Explicitly trigger recomputation of parent's total_approx_taxes
+
+        _logger.info(
+            f"IBPT taxes fetched for line {self.id}: "
+            f"Federal={tax_amounts['federal']}, "
+            f"State={tax_amounts['estadual']}, "
+            f"Municipal={tax_amounts['municipal']}"
+        )
