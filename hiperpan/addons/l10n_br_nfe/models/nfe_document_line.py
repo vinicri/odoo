@@ -168,7 +168,13 @@ class NFeDocumentLine(models.Model):
         related="product_id.ncm_id.code",
         string="NCM",
         # required=True,
-        size=8,
+        store=True,
+        readonly=True,
+    )
+
+    ncm_unmasked = fields.Char(
+        related="product_id.ncm_id.code_unmasked",
+        string="NCM sem pontuação",
         store=True,
         readonly=True,
     )
@@ -1901,6 +1907,56 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    total_for_ibpt_calculation = fields.Float(
+        string="Valor Total para Cálculo do IBPT",
+        digits=(13, 2),
+        compute="_compute_total_for_ibpt_calculation",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends(
+        "total_value",
+        "discount_value",
+        "icms_deson_value",
+        "icms_st_value",
+        "icms_st_fcp_value",
+        "freight_value",
+        "insurance_value",
+        "other_expenses_value",
+        "ii_value",
+        "ipi_value",
+    )
+    def _compute_total_for_ibpt_calculation(self):
+        for record in self:
+            record.total_for_ibpt_calculation = (
+                record.total_value
+                - record.discount_value
+                - record.icms_deson_value
+                + record.icms_st_value
+                + record.icms_st_fcp_value
+                + record.freight_value
+                + record.insurance_value
+                + record.other_expenses_value
+                + record.ii_value
+                + record.ipi_value
+            )
+
+    unit_value_for_ibpt_calculation = fields.Float(
+        string="Valor Unitário para Cálculo do IBPT",
+        digits=(13, 2),
+        compute="_compute_unit_value_for_ibpt_calculation",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("total_for_ibpt_calculation", "quantity")
+    def _compute_unit_value_for_ibpt_calculation(self):
+        for record in self:
+            record.unit_value_for_ibpt_calculation = (
+                record.total_for_ibpt_calculation / record.quantity
+            )
+
     approximate_federal_tax_amount = fields.Float(
         string="Valor Aproximado do Imposto Federal",
         digits=(13, 2),
@@ -2031,7 +2087,7 @@ class NFeDocumentLine(models.Model):
                     uf=uf,
                     description=self.product_description or self.product_id.name,
                     unit=self.unit,
-                    value=value_with_discount,
+                    value=self.unit_value_for_ibpt_calculation,
                     gtin=self.gtin,
                 )
 
@@ -2044,7 +2100,7 @@ class NFeDocumentLine(models.Model):
         # Calculate tax amounts
         tax_amounts = calculate_approximate_taxes(
             tax_rates=tax_rates,
-            value_with_discount=value_with_discount,
+            value=self.unit_value_for_ibpt_calculation,
             quantity=self.quantity,
             is_imported=is_imported,
         )

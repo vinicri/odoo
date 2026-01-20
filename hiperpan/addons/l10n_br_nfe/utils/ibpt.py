@@ -234,15 +234,14 @@ def get_ibpt_service_taxes(
         raise IBPTError(f"Erro ao conectar com a API IBPT: {str(e)}")
 
 
-def calculate_approximate_taxes(
-    tax_rates, value_with_discount, quantity, is_imported=False
-):
+def calculate_approximate_taxes(tax_rates, value, quantity, is_imported=False):
     """
     Calculate the approximate tax amounts based on IBPT rates.
 
     Args:
         tax_rates: Dict with tax rates from IBPT API
-        total_value: Total value of the product/service
+        value: Value of the product/service
+        quantity: Quantity of the product/service
         is_imported: Whether the product is imported (to use "importado" rate)
 
     Returns:
@@ -256,7 +255,7 @@ def calculate_approximate_taxes(
     state_rate = tax_rates.get("estadual", 0.0)
     municipal_rate = tax_rates.get("municipal", 0.0)
 
-    total_value = value_with_discount * quantity
+    total_value = value * quantity
     federal_amount = round(total_value * (federal_rate / 100), 2)
     state_amount = round(total_value * (state_rate / 100), 2)
     municipal_amount = round(total_value * (municipal_rate / 100), 2)
