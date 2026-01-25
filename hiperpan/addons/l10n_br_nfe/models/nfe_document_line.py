@@ -183,7 +183,12 @@ class NFeDocumentLine(models.Model):
     def _check_ncm_code(self):
         for record in self:
             if not record.ncm_code:
-                raise ValidationError(_("O Código NCM é obrigatório."))
+                raise ValidationError(
+                    _(
+                        "Item %s: O Código NCM é obrigatório."
+                        % record.product_description
+                    )
+                )
 
     # Código CEST (Código Especificador da Substituição Tributária). Opcional.
     cest_code = fields.Char(

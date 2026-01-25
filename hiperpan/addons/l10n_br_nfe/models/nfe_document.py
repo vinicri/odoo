@@ -7,6 +7,66 @@ from .constants import NFE_EMISSION_FINALITY
 import lxml.etree as etree
 
 
+def format_partner_address(street, number, complement, max_length=60):
+    """
+    Formata endereço abreviando o tipo de logradouro e limitando ao tamanho máximo.
+
+    Args:
+        street: Nome da rua/logradouro
+        number: Número do endereço
+        complement: Complemento do endereço
+        max_length: Tamanho máximo da string (padrão 60)
+
+    Returns:
+        String formatada com no máximo max_length caracteres
+    """
+    if not street:
+        return ""
+
+    # Abreviações de tipos de logradouro brasileiro
+    abbreviations = {
+        "Avenida": "Av.",
+        "Alameda": "Al.",
+        "Beco": "Bc.",
+        "Estrada": "Est.",
+        "Largo": "Lg.",
+        "Praça": "Pç.",
+        "Quadra": "Qd.",
+        "Rodovia": "Rod.",
+        "Rua": "R.",
+        "Travessa": "Tv.",
+        "Via": "V.",
+        "Viela": "Vl.",
+    }
+
+    # Aplica abreviação se o logradouro começar com um tipo conhecido
+    abbreviated_street = street
+    for full, abbr in abbreviations.items():
+        if street.startswith(full + " "):
+            abbreviated_street = abbr + street[len(full) :]
+            break
+
+    # Monta sufixo com número e complemento
+    suffix_parts = []
+    if number:
+        suffix_parts.append(str(number))
+    if complement:
+        suffix_parts.append(str(complement))
+
+    suffix = ", " + ", ".join(suffix_parts) if suffix_parts else ""
+
+    # Calcula espaço disponível para o nome da rua
+    available_for_street = max_length - len(suffix)
+
+    # Trunca a rua se necessário
+    if len(abbreviated_street) > available_for_street:
+        abbreviated_street = (
+            abbreviated_street[: available_for_street - 1].rstrip() + "."
+        )
+
+    return (abbreviated_street + suffix)[:max_length]
+
+
 def convert_datetime_to_company_tz(dt_utc, company):
     """
     Converte um datetime UTC para o timezone da empresa.
@@ -3231,6 +3291,158 @@ class NFeDocument(models.Model):
         required=True,
         default="9",
     )
+
+    freight_info_enabled = fields.Boolean(
+        string="Informações de Frete Habilitado",
+        compute="_compute_freight_info_enabled",
+        store=False,
+    )
+
+    @api.depends("freight_modality")
+    def _compute_freight_info_enabled(self):
+        for record in self:
+            record.freight_info_enabled = record.freight_modality != "9"
+
+    freight_partner_id = fields.Many2one(
+        comodel_name="res.partner",
+        string="Transportadora",
+        domain="[('country_id.code', '=', 'BR'), ('is_freight_carrier', '=', True)]",
+        help="Transportadora responsável pelo frete.",
+    )
+
+    freight_carrier_cnpj = fields.Char(
+        compute="_compute_freight_carrier_cnpj",
+        string="CNPJ da Transportadora",
+        store=True,
+        size=14,
+        readonly=True,
+    )
+
+    @api.depends(
+        "freight_partner_id",
+        "freight_partner_id.vat",
+        "freight_partner_id.company_type",
+    )
+    def _compute_freight_carrier_cnpj(self):
+        for record in self:
+            if (
+                record.freight_partner_id
+                and record.freight_partner_id.company_type == "company"
+                and record.freight_partner_id.vat
+                and len(record.freight_partner_id.vat) == 14
+            ):
+                record.freight_carrier_cnpj = record.freight_partner_id.vat
+            else:
+                record.freight_carrier_cnpj = False
+
+    freight_carrier_cpf = fields.Char(
+        compute="_compute_freight_carrier_cpf",
+        string="CPF da Transportadora",
+        store=True,
+        size=11,
+        readonly=True,
+    )
+
+    @api.depends(
+        "freight_partner_id",
+        "freight_partner_id.vat",
+        "freight_partner_id.company_type",
+    )
+    def _compute_freight_carrier_cpf(self):
+        for record in self:
+            if (
+                record.freight_partner_id
+                and record.freight_partner_id.company_type == "person"
+                and record.freight_partner_id.vat
+                and len(record.freight_partner_id.vat) == 11
+            ):
+                record.freight_carrier_cpf = record.freight_partner_id.vat
+            else:
+                record.freight_carrier_cpf = False
+
+    @api.constrains("freight_carrier_cnpj", "freight_carrier_cpf")
+    def _check_freight_carrier_cnpj_cpf(self):
+        for record in self:
+            if record.freight_partner_id:
+                if (
+                    record.freight_partner_id.company_type == "company"
+                    and not record.freight_carrier_cnpj
+                ):
+                    raise ValidationError(_("O CNPJ da Transportadora é obrigatório."))
+                elif (
+                    record.freight_partner_id.company_type == "person"
+                    and not record.freight_carrier_cpf
+                ):
+                    raise ValidationError(_("O CPF da Transportadora é obrigatório."))
+
+    freight_carrier_legal_name = fields.Char(
+        related="freight_partner_id.legal_name",
+        string="Razão Social da Transportadora",
+        store=True,
+        size=60,
+        readonly=True,
+    )
+
+    freight_carrier_ie = fields.Char(
+        related="freight_partner_id.inscr_est",
+        string="Inscrição Estadual da Transportadora",
+        store=True,
+        size=14,
+        readonly=True,
+    )
+
+    freight_carrier_address = fields.Char(
+        compute="_compute_freight_carrier_address",
+        string="Endereço da Transportadora",
+        store=True,
+        size=60,
+        readonly=True,
+    )
+
+    @api.depends(
+        "freight_partner_id",
+        "freight_partner_id.street",
+        "freight_partner_id.street_number",
+        "freight_partner_id.street_complement",
+    )
+    def _compute_freight_carrier_address(self):
+        for record in self:
+            if record.freight_partner_id:
+                record.freight_carrier_address = format_partner_address(
+                    record.freight_partner_id.street,
+                    record.freight_partner_id.street_number,
+                    record.freight_partner_id.street_complement,
+                )
+            else:
+                record.freight_carrier_address = False
+
+    freight_carrier_city_name = fields.Char(
+        related="freight_partner_id.city_id.name",
+        string="Cidade",
+        store=True,
+        translate=True,
+        size=60,
+        readonly=True,
+    )
+
+    freight_carrier_state = fields.Char(
+        related="freight_partner_id.state_id.code",
+        string="UF",
+        store=True,
+        size=2,
+        readonly=True,
+    )
+
+    @api.constrains("freight_carrier_state", "freight_carrier_ie")
+    def _check_freight_carrier_state_ie(self):
+        for record in self:
+            if record.freight_partner_id:
+                if record.freight_carrier_ie and not record.freight_carrier_state:
+                    raise ValidationError(
+                        _(
+                            "A UF da Transportadora é obrigatória quando a Inscrição Estadual é informada."
+                        )
+                    )
 
     # === Grupo Y. Dados da Cobrança  ===
     #  Dados da Fatura

@@ -228,6 +228,23 @@
           </group>
 
           <group>
+            <separator string="Frete" />
+            <field name="freight_modality" />
+            <field name="freight_info_enabled" invisible="1" />
+
+            <group invisible="not freight_info_enabled">
+              <field name="freight_partner_id" />
+              <field name="freight_carrier_cnpj" />
+              <field name="freight_carrier_cpf" />
+              <field name="freight_carrier_legal_name" />
+              <field name="freight_carrier_address" />
+              <field name="freight_carrier_city_name" />
+              <field name="freight_carrier_state" />
+              <field name="freight_carrier_ie" />
+            </group>
+          </group>
+
+          <group>
             <field name="payment_detail_ids" context="{'default_payment_value': remaining_payment_value}" />
           </group>
 

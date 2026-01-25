@@ -16,6 +16,7 @@
       <menuitem id="fiscal_register_menu_product_fiscal_type" action="product_fiscal_type_action" sequence="11" />
       <menuitem id="fiscal_register_menu_ipi_guideline" action="ipi_guideline_action" sequence="12" />
       <menuitem id="fiscal_register_menu_ibpt" name="IBPT" action="ibpt_action" sequence="13" />
+      <menuitem id="fiscal_register_menu_freight_carrier_vehicle" action="freight_carrier_vehicle_action" sequence="14" />
     </menuitem>
 
   </menuitem>

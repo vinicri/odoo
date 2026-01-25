@@ -26,3 +26,5 @@
 "l10n_br_fiscal_ibpt_user","IBPT user entitlement","model_l10n_br_fiscal_ibpt","l10n_br_fiscal.group_user_fiscal",1,0,0,0
 "l10n_br_fiscal_ibpt_manager","IBPT manager entitlement","model_l10n_br_fiscal_ibpt","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
 "l10n_br_fiscal_ibpt_import_wizard_manager","IBPT import wizard manager entitlement","model_l10n_br_fiscal_ibpt_import_wizard","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_freight_carrier_vehicle_user","Freight carrier vehicle user entitlement","model_l10n_br_fiscal_freight_carrier_vehicle","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_freight_carrier_vehicle_manager","Freight carrier vehicle manager entitlement","model_l10n_br_fiscal_freight_carrier_vehicle","l10n_br_fiscal.group_fiscal_manager",1,1,1,1

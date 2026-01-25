@@ -14,6 +14,15 @@
           </group>
         </page>
       </xpath>
+      <xpath expr="//page[@name='fiscal_info']" position="after">
+        <page name="freight_info" string="Transportadora">
+          <group>
+            <field name="is_freight_carrier" string="É transportadora" />
+          </group>
+          <label for="freight_carrier_vehicle_ids" string="Veículos de transporte" invisible="not is_freight_carrier" />
+          <field name="freight_carrier_vehicle_ids" nolabel="1" invisible="not is_freight_carrier" context="{'partner_id_read_only': True}" />
+        </page>
+      </xpath>
     </field>
   </record>
 </odoo>

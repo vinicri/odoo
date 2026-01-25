@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="freight_carrier_vehicle_form_view" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.freight.carrier.vehicle.form</field>
+    <field name="model">l10n_br_fiscal.freight.carrier.vehicle</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group >
+            <field name="partner_id" string="Transportadora" readonly="context.get('partner_id_read_only', False)" />
+          </group>
+          <group>
+            <field name="license_plate" string="Placa" />
+            <field name="licence_plate_state_id" string="Estado da placa" />
+            <field name="rntrc" string="RNTRC" />
+            <field name="traction" string="Tração" help="Se for o veículo que faz a tração, como o próprio caminhão ou o caminhão que puxa o reboque ou o vagão." />
+            <field name="wagon_identification" string="Identificação do vagão" readonly="traction" />
+            <field name="barge_identification" string="Identificação da balsa" readonly="traction" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="freight_carrier_vehicle_list_view" model="ir.ui.view">
+    <field name="name">l10n_br_fiscal.freight.carrier.vehicle.list</field>
+    <field name="model">l10n_br_fiscal.freight.carrier.vehicle</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="partner_id" string="Transportadora" />
+        <field name="license_plate" string="Placa" />
+        <field name="licence_plate_state_id" string="Estado da placa" />
+        <field name="rntrc" string="RNTRC" />
+        <field name="traction" string="Tração" />
+        <field name="wagon_identification" string="Identificação do vagão" />
+        <field name="barge_identification" string="Identificação da balsa" />
+      </list>
+    </field>
+  </record>
+
+  <record id="freight_carrier_vehicle_action" model="ir.actions.act_window">
+    <field name="name">Veículos de transporte</field>
+    <field name="res_model">l10n_br_fiscal.freight.carrier.vehicle</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="freight_carrier_vehicle_list_view" />
+  </record>
+</odoo>

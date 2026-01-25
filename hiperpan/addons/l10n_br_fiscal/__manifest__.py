@@ -36,7 +36,8 @@
         "views/product_fiscal_type_views.xml",
         "views/product_template_views.xml",
         "views/ibpt_views.xml",
-        "views/fiscal_views.xml",  # Menu structure - must be loaded first
+        "views/freight_carrier_vehicle.xml",
+        "views/fiscal_views.xml",
         "views/res_company.xml",
         "views/res_partner.xml",
         "views/ipi_guideline.xml",
