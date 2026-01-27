@@ -3444,6 +3444,40 @@ class NFeDocument(models.Model):
                         )
                     )
 
+    freight_carrier_vehicle_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.freight.carrier.vehicle",
+        string="Veículo de transporte",
+        domain="[('partner_id', '=', freight_partner_id ), ('traction', '=', True)]",
+        help="Veículo de transporte responsável pelo frete.",
+    )
+
+    freight_carrier_vehicle_license_plate = fields.Char(
+        related="freight_carrier_vehicle_id.license_plate",
+        string="Placa do veículo de transporte",
+        store=True,
+        readonly=True,
+    )
+
+    freight_carrier_vehicle_licence_plate_state_code = fields.Char(
+        related="freight_carrier_vehicle_id.licence_plate_state_id.code",
+        string="Estado da placa do veículo de transporte",
+        store=True,
+        readonly=True,
+    )
+
+    freight_carrier_vehicle_rntrc = fields.Char(
+        related="freight_carrier_vehicle_id.rntrc",
+        string="RNTRC do veículo de transporte",
+        store=True,
+        readonly=True,
+    )
+
+    freight_carrier_trailers_ids = fields.One2many(
+        comodel_name="l10n_br_nfe.nfe.document.vehicle.traillers",
+        inverse_name="nfe_document_id",
+        string="Reboques do veículo de transporte",
+    )
+
     # === Grupo Y. Dados da Cobrança  ===
     #  Dados da Fatura
 

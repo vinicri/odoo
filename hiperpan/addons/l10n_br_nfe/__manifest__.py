@@ -21,6 +21,7 @@
         "views/nfe_document_line.xml",
         "views/nfe_document_payment.xml",
         "views/nfe_additional_information.xml",
+        "views/nfe_document_vehicle_traillers.xml",
         "views/uom_views.xml",
         "views/nfe_uom_category_views.xml",
         "views/res_company.xml",

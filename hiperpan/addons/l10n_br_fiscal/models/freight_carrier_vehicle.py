@@ -9,6 +9,7 @@ class FreightCarrierVehicle(models.Model):
     partner_id = fields.Many2one(
         comodel_name="res.partner",
         string="Transportadora",
+        domain="[('country_id.code', '=', 'BR'), ('is_freight_carrier', '=', True)]",
     )
 
     description = fields.Char(
@@ -30,6 +31,7 @@ class FreightCarrierVehicle(models.Model):
     traction = fields.Boolean(
         string="Tração",
         required=True,
+        default=True,
     )
 
     # identificação do vagão

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="nfe_document_vehicle_traillers_form_view" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe.document.vehicle.traillers.form</field>
+    <field name="model">l10n_br_nfe.nfe.document.vehicle.traillers</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group>
+            <field name="nfe_document_id" string="NF-e" invisible="1" />
+            <field name="freight_carrier_id" string="Transportadora" invisible="1" />
+            <field name="freight_carrier_vehicle_id" string="Veículo de transporte" />
+            <field name="freight_carrier_vehicle_license_plate" string="Placa do veículo de transporte" />
+            <field name="freight_carrier_vehicle_licence_plate_state_code" string="Estado da placa do veículo de transporte" />
+            <field name="freight_carrier_vehicle_rntrc" string="RNTRC do veículo de transporte" />
+            <field name="freight_carrier_vehicle_wagon_identification" string="Identificação do vagão" />
+            <field name="freight_carrier_vehicle_barge_identification" string="Identificação da balsa" />
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="nfe_document_vehicle_traillers_list_view" model="ir.ui.view">
+    <field name="name">l10n_br_nfe.nfe.document.vehicle.traillers.list</field>
+    <field name="model">l10n_br_nfe.nfe.document.vehicle.traillers</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="freight_carrier_vehicle_id" string="Veículo de transporte" />
+        <field name="freight_carrier_vehicle_license_plate" string="Placa do veículo de transporte" />
+        <field name="freight_carrier_vehicle_licence_plate_state_code" string="Estado da placa do veículo de transporte" />
+        <field name="freight_carrier_vehicle_rntrc" string="RNTRC do veículo de transporte" />
+        <field name="freight_carrier_vehicle_wagon_identification" string="Identificação do vagão" />
+        <field name="freight_carrier_vehicle_barge_identification" string="Identificação da balsa" />
+      </list>
+    </field>
+  </record>
+
+  <record id="nfe_document_vehicle_traillers_action" model="ir.actions.act_window">
+    <field name="name">Reboques do veículo de transporte</field>
+    <field name="res_model">l10n_br_nfe.nfe.document.vehicle.traillers</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="nfe_document_vehicle_traillers_list_view" />
+  </record>
+</odoo>
+
