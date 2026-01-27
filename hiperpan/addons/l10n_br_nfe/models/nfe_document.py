@@ -3525,16 +3525,6 @@ class NFeDocument(models.Model):
         string="Parcelas da Fatura",
     )
 
-    # Grupo YB. Informações do Intermediador da Transação
-    # marketplace_cnpj = fields.Many2one(
-    #     'res.partner',
-    #     string="Marketplace",
-    #     #domain is marketplace
-    # )
-
-    # Nome do usuário ou identificação do perfil do vendedor no site do intermediador (agenciador, plataforma de delivery, marketplace e similar) de serviços e de negócios.
-    # marketplace_username = fields.Char(string="Identificação do Vendedor no Marketplace", size=60)
-
     # === Grupo YA. Informações de Pagamento  ===
     # pag - Grupo de Informações de Pagamento. Obrigatório.
 
@@ -3565,12 +3555,65 @@ class NFeDocument(models.Model):
                 raise ValidationError(_("Deve ter pelo menos um detalhe de pagamento."))
             if record.total_nfe != sum(
                 record.payment_detail_ids.mapped("payment_value")
-            ):
+            ) - sum(record.payment_detail_ids.mapped("change_value")):
                 raise ValidationError(
                     _(
-                        "O valor total da NF-e deve ser igual ao valor total dos pagamentos."
+                        "O valor total da NF-e deve ser igual ao valor total dos pagamentos menos o valor do troco."
                     )
                 )
+
+    # === Grupo YB. Informações do Intermediador da Transação ===
+
+    is_marketplace_transaction = fields.Boolean(
+        string="É transação com Marketplace",
+        compute="_compute_is_marketplace_transaction",
+        store=True,
+    )
+
+    @api.depends("intermediator_indicator")
+    def _compute_is_marketplace_transaction(self):
+        for record in self:
+            record.is_marketplace_transaction = (
+                True if record.intermediator_indicator == "1" else False
+            )
+
+    @api.onchange("intermediator_indicator")
+    def _onchange_intermediator_indicator(self):
+        for record in self:
+            if record.intermediator_indicator != "1":
+                record.marketplace_id = False
+
+    marketplace_id = fields.Many2one(
+        comodel_name="l10n_br_nfe.company.marketplace",
+        string="Marketplace",
+        domain="[('company_id', '=', company_id)]",
+    )
+
+    marketplace_username = fields.Char(
+        related="marketplace_id.marketplace_username",
+        string="Usuário do Marketplace",
+        store=True,
+        readonly=True,
+    )
+
+    marketplace_cnpj = fields.Char(
+        related="marketplace_id.provider_id.vat",
+        string="CNPJ do Marketplace",
+        store=True,
+        readonly=True,
+    )
+
+    @api.constrains("marketplace_id")
+    def _check_marketplace_id(self):
+        for record in self:
+            if record.marketplace_id:
+                if (
+                    not record.marketplace_id.provider_id.vat
+                    or len(record.marketplace_id.provider_id.vat) != 14
+                ):
+                    raise ValidationError(
+                        "O CNPJ do Marketplace é obrigatório e deve ter 14 caracteres."
+                    )
 
     # Grupo Z. Informações Adicionais da NF-e
     # Deverá informar a base legal do benefício fiscal utilizado nos dados

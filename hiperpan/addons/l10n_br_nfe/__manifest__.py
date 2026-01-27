@@ -25,6 +25,8 @@
         "views/uom_views.xml",
         "views/nfe_uom_category_views.xml",
         "views/res_company.xml",
+        "views/res_partner.xml",
+        "views/company_marketplace.xml",
         "views/nfe_menus.xml",
     ],
     "assets": {

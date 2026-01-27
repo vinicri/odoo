@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="res_partner_form_view" model="ir.ui.view">
+    <field name="name">res.partner.form</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="priority" eval="102"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[last()]" position="after">
+        <page name="integrations_info" string="Integrações" invisible="not company_type == 'company'">
+          <group>
+            <field name="is_card_processor" string="É processador de cartão" />
+            <field name="is_marketplace_provider" string="É provedor de marketplace" />
+          </group>
+        </page>
+      </xpath>
+    </field>
+  </record>
+</odoo>

@@ -6,9 +6,19 @@
       <form>
         <sheet>
           <group>
-            <field name="type" />
-            <field name="payment_method" />
-            <field name="payment_value" />
+            <group>
+              <field name="type" />
+              <field name="payment_method" />
+              <field name="payment_value" />
+              <field name="change_value" />
+            </group>
+            <group invisible="not is_card_payment">
+              <field name="card_integration_type" />
+              <field name="card_processor_id" />
+              <field name="card_processor_cnpj" />
+              <field name="card_brand" />
+              <field name="card_authorization_number" />
+            </group>
           </group>
         </sheet>
       </form>

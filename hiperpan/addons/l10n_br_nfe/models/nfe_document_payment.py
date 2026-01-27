@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 
 PAYMENT_TYPE = [
     ("0", "À vista"),
@@ -84,6 +85,27 @@ class NFeDocumentPayment(models.Model):
         digits=(13, 2),
         required=True,
     )
+
+    # opcional.
+    change_value = fields.Float(string="Valor do Troco", digits=(13, 2))
+
+    @api.constrains("change_value")
+    def _check_change_value(self):
+        for record in self:
+            if record.change_value and record.change_value > record.payment_value:
+                raise ValidationError(
+                    "O Valor do Troco não pode ser maior que o Valor do Pagamento."
+                )
+
+    is_card_payment = fields.Boolean(
+        string="É pagamento com cartão", compute="_compute_is_card_payment"
+    )
+
+    @api.depends("payment_method")
+    def _compute_is_card_payment(self):
+        for record in self:
+            record.is_card_payment = record.payment_method in ["03", "04"]
+
     # Valor do Pagamento.
 
     # @api.depends("nfe_id")
@@ -107,8 +129,26 @@ class NFeDocumentPayment(models.Model):
         selection=CARD_INTEGRATION_TYPE,
     )
 
-    card_processor_cnpj = fields.Char(string="CNPJ do Processador de Cartão", size=14)
+    card_processor_id = fields.Many2one(
+        comodel_name="res.partner",
+        string="Processador de Cartão",
+        domain="[('is_company', '=', True), ('is_card_processor', '=', True)]",
+    )
+
     # CNPJ do Processador de Cartão. opcional
+    card_processor_cnpj = fields.Char(
+        related="card_processor_id.vat",
+        string="CNPJ do Processador de Cartão",
+        store=True,
+        size=14,
+        readonly=True,
+    )
+
+    @api.constrains("card_processor_id")
+    def _check_card_processor_id(self):
+        for record in self:
+            if record.card_processor_id and not record.card_processor_cnpj:
+                raise ValidationError("O CNPJ do Processador de Cartão é obrigatório.")
 
     # opcional
     card_brand = fields.Selection(
@@ -122,5 +162,11 @@ class NFeDocumentPayment(models.Model):
     )
     # Número de Autorização da Transação
 
-    # opcional.
-    change_value = fields.Float(string="Valor do Troco", digits=(13, 2))
+    @api.constrains("is_card_payment", "card_integration_type")
+    def _check_is_card_payment(self):
+        for record in self:
+            if record.is_card_payment:
+                if not record.card_integration_type:
+                    raise ValidationError(
+                        "O Tipo de Integração do Cartão é obrigatório."
+                    )

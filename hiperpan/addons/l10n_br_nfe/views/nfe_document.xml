@@ -257,6 +257,12 @@
             </group>
           </group>
 
+          <group invisible="not is_marketplace_transaction">
+            <field name="marketplace_id" />
+            <field name="marketplace_cnpj" />
+            <field name="marketplace_username" />
+          </group>
+
           <group>
             <field name="payment_detail_ids" context="{'default_payment_value': remaining_payment_value}" />
           </group>

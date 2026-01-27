@@ -11,3 +11,4 @@ from . import nfe_document
 from . import uom_uom
 from . import nfe_additional_information
 from . import nfe_document_vehicle_traillers
+from . import company_marketplace
