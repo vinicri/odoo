@@ -25,8 +25,9 @@
             <field name="issue_datetime" />
             <field name="departure_arrival_datetime" />
             <field name="destination_id" />
+            <field name="city_code_fg" />
             <field name="danfe_print_format" />
-            <field name="emission_type" />
+            <field name="emission_type" readonly="1" />
             <field name="env_emission" />
             <field name="emission_finality" />
             <field name="final_customer_operation" />
@@ -274,6 +275,10 @@
             <group>
               <field name="mandatory_additional_information" />
             </group>
+          </group>
+
+          <group>
+            <field name="issuer_additional_information" />
           </group>
 
         </sheet>

@@ -9,6 +9,8 @@
         <sheet>
           <group>
             <field name="name" />
+            <field name="cnpj" invisible="1" />
+            <field name="formatted_cnpj" />
             <field name="email" />
             <field name="phone" />
             <field name="csrt_identifier" />
@@ -25,6 +27,7 @@
     <field name="arch" type="xml">
       <list>
         <field name="name" />
+        <field name="formatted_cnpj" />
         <field name="email" />
         <field name="phone" />
         <field name="csrt_identifier" />

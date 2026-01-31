@@ -1,3 +1,7 @@
+import re
+from odoo.exceptions import ValidationError
+
+
 def is_valid_phone(phone):
     if not phone:
         return False
@@ -16,6 +20,19 @@ def is_valid_phone(phone):
         return True
 
     return False
+
+
+def format_br_phone(phone):
+    if not is_valid_phone(phone):
+        raise ValidationError("Telefone inválido")
+    if phone:
+        val = re.sub("[^0-9]", "", phone)
+        if len(val) == 10:
+            return "%s %s-%s" % (val[0:2], val[2:6], val[6:10])
+        elif len(val) == 11:
+            return "%s %s-%s" % (val[0:2], val[2:7], val[7:11])
+        else:
+            return False
 
 
 def format_number(value):

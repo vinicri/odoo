@@ -29,6 +29,9 @@
         "views/company_marketplace.xml",
         "views/nfe_menus.xml",
     ],
+    "external_dependencies": {
+        "python": ["erpbrasil.base"],
+    },
     "assets": {
         "web.assets_backend": [
             "l10n_br_nfe/static/src/scss/nfe_form.scss",
