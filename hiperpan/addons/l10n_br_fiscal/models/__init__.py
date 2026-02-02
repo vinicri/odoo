@@ -19,3 +19,4 @@ from . import party_mixin
 from . import res_partner
 from . import res_company
 from . import icms_deson_reason
+from . import res_country

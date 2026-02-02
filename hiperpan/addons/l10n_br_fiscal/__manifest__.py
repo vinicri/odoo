@@ -23,6 +23,7 @@
         "data/l10n_br_fiscal.product.fiscal.type.csv",
         "data/l10n_br_fiscal.icms.origin.csv",
         "data/l10n_br_fiscal.icms.deson.reason.csv",
+        "data/res_country_data.xml",
         # views
         "views/ncm_views.xml",
         "views/ncm_genre_views.xml",
@@ -42,6 +43,7 @@
         "views/res_partner.xml",
         "views/ipi_guideline.xml",
         "views/icms_deson_reason.xml",
+        "views/res_country.xml",
     ],
     "external_dependencies": {
         "python": ["erpbrasil.base"],
