@@ -188,6 +188,27 @@
               </div>
             </div>
           </div>
+          <group>
+            <field name="is_retrieval_location_different_from_issuer_address" />
+          </group>
+          <separator string="Local de Retirada" invisible="not is_retrieval_location_different_from_issuer_address" />
+          <group invisible="not is_retrieval_location_different_from_issuer_address">
+            <field name="retrieval_partner_id" />
+            <field name="retrieval_cnpj" />
+            <field name="retrieval_cpf" />
+            <field name="retrieval_legal_name" />
+            <field name="retrieval_street" />
+            <field name="retrieval_street_number" />
+            <field name="retrieval_street_complement" />
+            <field name="retrieval_district" />
+            <field name="retrieval_city_name" />
+            <field name="retrieval_state" />
+            <field name="retrieval_zip" />
+            <field name="retrieval_country_name" />
+            <field name="retrieval_formatted_phone" />
+            <field name="retrieval_email" />
+            <field name="retrieval_ie" />
+          </group>
 
           <group>
             <field name="invoice_line_ids" context="{'default_issuer_id': issuer_id, 'default_emission_finality': emission_finality}"/>

@@ -313,11 +313,25 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
             dCEP = etree.SubElement(dEnderDest, "CEP")
             dCEP.text = nfe_document.recipient_zip
 
-        # dCPais = etree.SubElement(dEnderDest, "cPais")
-        # dCPais.text = nfe_document.recipient_country_code
+        if nfe_document.recipient_id.is_foreign:
+            if not nfe_document.recipient_id.country_id:
+                raise ValidationError(
+                    _(
+                        "Erro ao gerar XML: O País do Destinatário é obrigatório para operações com exterior. Acesse o cadastro do destinatário e configure o país."
+                    )
+                )
+            if not nfe_document.recipient_country_code:
+                raise ValidationError(
+                    _(
+                        "Erro ao gerar XML: O Código do País do Destinatário é obrigatório para operações com exterior. Acesse o cadastro do destinatário e configure o país."
+                    )
+                )
 
-        # dXpais = etree.SubElement(dEnderDest, "xPais")
-        # dXpais.text = nfe_document.recipient_country_name
+            dCPais = etree.SubElement(dEnderDest, "cPais")
+            dCPais.text = nfe_document.recipient_country_code
+
+            dXpais = etree.SubElement(dEnderDest, "xPais")
+            dXpais.text = nfe_document.recipient_country_name
 
         if nfe_document.recipient_phone:
             dFone = etree.SubElement(dEnderDest, "fone")
@@ -343,6 +357,70 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         if nfe_document.recipient_email:
             dEmail = etree.SubElement(dest, "email")
             dEmail.text = nfe_document.recipient_email
+
+    if nfe_document.is_retrieval_location_different_from_issuer_address:
+        if not nfe_document.retrieval_partner_id:
+            raise ValidationError(
+                _(
+                    "Erro ao gerar XML: O Local de Retirada é obrigatório quando o local de retirada é diferente do endereço do emitente."
+                )
+            )
+        retirada = etree.SubElement(root, "retirada")
+
+        if nfe_document.retrieval_partner_id.company_type == "company":
+            rCNPJ = etree.SubElement(retirada, "CNPJ")
+            rCNPJ.text = nfe_document.retrieval_cnpj
+        else:
+            rCPF = etree.SubElement(retirada, "CPF")
+            rCPF.text = nfe_document.retrieval_cpf
+
+        rXNome = etree.SubElement(retirada, "xNome")
+        rXNome.text = nfe_document.retrieval_legal_name
+
+        rXLgr = etree.SubElement(retirada, "xLgr")
+        rXLgr.text = nfe_document.retrieval_street
+
+        rNro = etree.SubElement(retirada, "nro")
+        rNro.text = nfe_document.retrieval_street_number
+
+        if nfe_document.retrieval_street_complement:
+            rXCpl = etree.SubElement(retirada, "xCpl")
+            rXCpl.text = nfe_document.retrieval_street_complement
+
+        rXBairro = etree.SubElement(retirada, "xBairro")
+        rXBairro.text = nfe_document.retrieval_district
+
+        rCMun = etree.SubElement(retirada, "cMun")
+        rCMun.text = nfe_document.retrieval_city_code
+
+        rXMun = etree.SubElement(retirada, "xMun")
+        rXMun.text = nfe_document.retrieval_city_name
+
+        rUF = etree.SubElement(retirada, "UF")
+        rUF.text = nfe_document.retrieval_state
+
+        if nfe_document.retrieval_zip:
+            rCEP = etree.SubElement(retirada, "CEP")
+            rCEP.text = nfe_document.retrieval_zip
+
+        if nfe_document.retrieval_country_code and nfe_document.retrieval_country_name:
+            rCPais = etree.SubElement(retirada, "cPais")
+            rCPais.text = nfe_document.retrieval_country_code
+
+            rXpais = etree.SubElement(retirada, "xPais")
+            rXpais.text = nfe_document.retrieval_country_name
+
+        if nfe_document.retrieval_phone:
+            rFone = etree.SubElement(retirada, "fone")
+            rFone.text = nfe_document.retrieval_phone
+
+        if nfe_document.retrieval_email:
+            rEmail = etree.SubElement(retirada, "email")
+            rEmail.text = nfe_document.retrieval_email
+
+        if nfe_document.retrieval_ie:
+            rIE = etree.SubElement(retirada, "IE")
+            rIE.text = nfe_document.retrieval_ie
 
     if nfe_document.authorized_xml_access_ids:
         autXML = etree.SubElement(root, "autXML")
@@ -2086,11 +2164,10 @@ class NFeDocument(models.Model):
 
     # Código do País do emitente. 1058=Brasil. Opcional.
     issuer_country_code = fields.Integer(
+        related="issuer_id.country_id.bacen_code",
         string="Código País",
         store=True,
-        default=1058,
         readonly=True,
-        size=4,
     )
 
     @api.constrains("issuer_country_code")
@@ -2105,6 +2182,7 @@ class NFeDocument(models.Model):
         store=True,
         size=60,
         compute="_compute_issuer_country_name",
+        readonly=True,
     )
 
     @api.depends("issuer_id", "issuer_id.country_id")
@@ -2493,11 +2571,10 @@ class NFeDocument(models.Model):
 
     # Código do País do destinatário. Usar Tabela BACEN. Opcional.
     recipient_country_code = fields.Integer(
+        related="recipient_id.country_id.bacen_code",
         string="Código País Destinatário",
         store=True,
-        default=1058,
         readonly=True,
-        size=4,
     )
 
     @api.constrains("recipient_country_code")
@@ -2516,6 +2593,7 @@ class NFeDocument(models.Model):
         store=True,
         size=60,
         compute="_compute_recipient_country_name",
+        readonly=True,
     )
 
     @api.depends("recipient_id.country_id")
@@ -2659,6 +2737,317 @@ class NFeDocument(models.Model):
         string="Email Destinatário",
         store=True,
         size=60,
+    )
+
+    # Grupo F - local de retirada (quando o local de retirada é diferente do endereço do emitente)
+
+    is_retrieval_location_different_from_issuer_address = fields.Boolean(
+        string="Local de Retirada Diferente do Endereço do Emitente",
+        default=False,
+    )
+
+    retrieval_partner_id = fields.Many2one(
+        comodel_name="res.partner",
+        string="Local de Retirada",
+        domain="[('country_id.code', '=', 'BR')]",
+    )
+
+    @api.constrains("retrieval_partner_id")
+    def _check_retrieval_partner_id(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and not record.retrieval_partner_id
+            ):
+                raise ValidationError(
+                    _(
+                        "O Local de Retirada é obrigatório quando o local de retirada é diferente do endereço do emitente."
+                    )
+                )
+
+    retrieval_cnpj = fields.Char(
+        compute="_compute_retrieval_cnpj",
+        string="CNPJ do Local de Retirada",
+        store=True,
+        size=14,
+        readonly=True,
+    )
+
+    @api.depends("retrieval_partner_id")
+    def _compute_retrieval_cnpj(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and record.retrieval_partner_id.company_type == "company"
+                and record.retrieval_partner_id.vat
+                and len(record.retrieval_partner_id.vat) == 14
+            ):
+                record.retrieval_cnpj = record.retrieval_partner_id.vat
+            else:
+                record.retrieval_cnpj = False
+
+    @api.constrains("retrieval_cnpj")
+    def _check_retrieval_cnpj(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and record.retrieval_partner_id.company_type == "company"
+            ):
+                if not record.retrieval_cnpj:
+                    raise ValidationError(
+                        _("O CNPJ do Local de Retirada é obrigatório.")
+                    )
+                elif not (len(record.retrieval_cnpj) == 14):
+                    raise ValidationError(
+                        _("O CNPJ do Local de Retirada deve ter 14 caracteres.")
+                    )
+
+    retrieval_cpf = fields.Char(
+        compute="_compute_retrieval_cpf",
+        string="CPF do Local de Retirada",
+        store=True,
+        size=11,
+        readonly=True,
+    )
+
+    @api.depends("retrieval_partner_id")
+    def _compute_retrieval_cpf(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and record.retrieval_partner_id.company_type == "person"
+                and record.retrieval_partner_id.vat
+                and len(record.retrieval_partner_id.vat) == 11
+            ):
+                record.retrieval_cpf = record.retrieval_partner_id.vat
+            else:
+                record.retrieval_cpf = False
+
+    @api.constrains("retrieval_cpf")
+    def _check_retrieval_cpf(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and record.retrieval_partner_id.company_type == "person"
+            ):
+                if not record.retrieval_cpf:
+                    raise ValidationError(
+                        _("O CPF do Local de Retirada é obrigatório.")
+                    )
+                elif not (len(record.retrieval_cpf) == 11):
+                    raise ValidationError(
+                        _("O CPF do Local de Retirada deve ter 11 caracteres.")
+                    )
+
+    retrieval_legal_name = fields.Char(
+        related="retrieval_partner_id.legal_name",
+        string="Razão Social/Nome do Local de Retirada",
+        store=True,
+        size=60,
+    )
+
+    retrieval_street = fields.Char(
+        related="retrieval_partner_id.street",
+        string="Logradouro do Local de Retirada",
+        store=True,
+        size=60,
+    )
+
+    @api.constrains("retrieval_street")
+    def _check_retrieval_street(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and not record.retrieval_street
+            ):
+                raise ValidationError(
+                    _("O Logradouro do Local de Retirada é obrigatório.")
+                )
+
+    retrieval_street_number = fields.Char(
+        related="retrieval_partner_id.street_number",
+        string="Número do Local de Retirada",
+        store=True,
+        size=60,
+    )
+
+    @api.constrains("retrieval_street_number")
+    def _check_retrieval_street_number(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and not record.retrieval_street_number
+            ):
+                raise ValidationError(_("O Número do Local de Retirada é obrigatório."))
+
+    retrieval_street_complement = fields.Char(
+        related="retrieval_partner_id.street_complement",
+        string="Complemento do Local de Retirada",
+        store=True,
+        size=60,
+    )
+
+    retrieval_district = fields.Char(
+        related="retrieval_partner_id.district",
+        string="Bairro do Local de Retirada",
+        store=True,
+        size=60,
+    )
+
+    @api.constrains("retrieval_district")
+    def _check_retrieval_district(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and not record.retrieval_district
+            ):
+                raise ValidationError(_("O Bairro do Local de Retirada é obrigatório."))
+
+    retrieval_city_code = fields.Char(
+        related="retrieval_partner_id.city_id.ibge_code",
+        string="Código do Município do Local de Retirada",
+        store=True,
+        size=7,
+    )
+
+    @api.constrains("retrieval_city_code")
+    def _check_retrieval_city_code(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and not record.retrieval_city_code
+            ):
+                raise ValidationError(
+                    _("O Código do Município do Local de Retirada é obrigatório.")
+                )
+
+    retrieval_city_name = fields.Char(
+        compute="_compute_retrieval_city_name",
+        string="Nome do Município do Local de Retirada",
+        store=True,
+        size=60,
+    )
+
+    @api.depends("retrieval_partner_id", "retrieval_partner_id.city_id")
+    def _compute_retrieval_city_name(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and record.retrieval_partner_id.city_id
+            ):
+                record.retrieval_city_name = (
+                    record.retrieval_partner_id.city_id.with_context(lang="pt_BR").name
+                )
+            else:
+                record.retrieval_city_name = False
+
+    @api.constrains("retrieval_city_name")
+    def _check_retrieval_city_name(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and not record.retrieval_city_name
+            ):
+                raise ValidationError(
+                    _("O Nome do Município do Local de Retirada é obrigatório.")
+                )
+
+    retrieval_state = fields.Char(
+        related="retrieval_partner_id.state_id.code",
+        string="UF do Local de Retirada",
+        store=True,
+        size=2,
+    )
+
+    @api.constrains("retrieval_state")
+    def _check_retrieval_state(self):
+        for record in self:
+            if (
+                record.is_retrieval_location_different_from_issuer_address
+                and record.retrieval_partner_id
+                and not record.retrieval_state
+            ):
+                raise ValidationError(_("A UF do Local de Retirada é obrigatória."))
+
+    retrieval_zip = fields.Char(
+        related="retrieval_partner_id.unformatted_zip",
+        string="CEP do Local de Retirada",
+        store=True,
+        size=8,
+    )
+
+    retrieval_country_code = fields.Integer(
+        related="retrieval_partner_id.country_id.bacen_code",
+        string="Código do País do Local de Retirada",
+        store=True,
+        readonly=True,
+    )
+
+    retrieval_country_name = fields.Char(
+        string="Nome do País do Local de Retirada",
+        store=True,
+        size=60,
+        compute="_compute_retrieval_country_name",
+        readonly=True,
+    )
+
+    @api.depends("retrieval_partner_id", "retrieval_partner_id.country_id")
+    def _compute_retrieval_country_name(self):
+        for record in self:
+            if record.retrieval_partner_id.country_id:
+                record.retrieval_country_name = (
+                    record.retrieval_partner_id.country_id.with_context(
+                        lang="pt_BR"
+                    ).name
+                )
+            else:
+                record.retrieval_country_name = False
+
+    retrieval_formatted_phone = fields.Char(
+        related="retrieval_partner_id.phone",
+        string="Telefone do Local de Retirada",
+        store=True,
+    )
+
+    retrieval_phone = fields.Char(
+        compute="_compute_retrieval_phone",
+        string="Telefone do Local de Retirada",
+        store=True,
+    )
+
+    @api.depends("retrieval_formatted_phone")
+    def _compute_retrieval_phone(self):
+        for record in self:
+            if record.retrieval_formatted_phone:
+                record.retrieval_phone = "".join(
+                    filter(str.isdigit, record.retrieval_formatted_phone)
+                )
+            else:
+                record.retrieval_phone = False
+
+    retrieval_email = fields.Char(
+        related="retrieval_partner_id.nfe_document_email",
+        string="Email do Local de Retirada",
+        store=True,
+        size=60,
+    )
+
+    retrieval_ie = fields.Char(
+        related="retrieval_partner_id.inscr_est",
+        string="Inscrição Estadual do Local de Retirada",
+        store=True,
+        size=14,
+        readonly=True,
     )
 
     # === Grupo GA. Autorização para obter XML  ===
