@@ -489,19 +489,31 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     if nfe_document.authorized_xml_access_ids:
         autXML = etree.SubElement(root, "autXML")
         for authorized_xml_access_id in nfe_document.authorized_xml_access_ids:
-            if (
-                authorized_xml_access_id.company_type == "company"
-                and len(authorized_xml_access_id.vat) == 14
-            ):
-                idEstrangeiro = etree.SubElement(autXML, "CNPJ")
-                idEstrangeiro.text = authorized_xml_access_id.vat
-            elif (
-                authorized_xml_access_id.company_type == "person"
-                and len(authorized_xml_access_id.vat) == 11
-                and authorized_xml_access_id.vat.isdigit()
-            ):
-                idEstrangeiro = etree.SubElement(autXML, "CPF")
-                idEstrangeiro.text = authorized_xml_access_id.vat
+            if authorized_xml_access_id.company_type == "company":
+                if (
+                    not authorized_xml_access_id.vat
+                    or len(authorized_xml_access_id.vat) != 14
+                ):
+                    raise ValidationError(
+                        _(
+                            f"Geração de XML: As empresas autorizadas a acessar o XML da NF-e devem ter um CNPJ válido. Verifique o CNPJ da empresa: {authorized_xml_access_id.name}."
+                        )
+                    )
+                autXMLCNPJ = etree.SubElement(autXML, "CNPJ")
+                autXMLCNPJ.text = authorized_xml_access_id.vat
+            elif authorized_xml_access_id.company_type == "person":
+                if (
+                    not authorized_xml_access_id.vat
+                    or len(authorized_xml_access_id.vat) != 11
+                    or not authorized_xml_access_id.vat.isdigit()
+                ):
+                    raise ValidationError(
+                        _(
+                            f"Geração de XML: As pessoas autorizadas a acessar o XML da NF-e devem ter um CPF válido. Verifique o CPF da pessoa: {authorized_xml_access_id.name}."
+                        )
+                    )
+                autXMLCPF = etree.SubElement(autXML, "CPF")
+                autXMLCPF.text = authorized_xml_access_id.vat
 
     for item in nfe_document.invoice_line_ids:
         det = etree.SubElement(root, "det")
@@ -3585,32 +3597,46 @@ class NFeDocument(models.Model):
         string="Pessoas Autorizadas a Acessar XML",
     )
 
+    def validate_authorized_xml_access_ids(self, record):
+        if len(record.authorized_xml_access_ids) > 10:
+            raise ValidationError(
+                _(
+                    "O número máximo de pessoas autorizadas a acessar o XML da NF-e é 10."
+                )
+            )
+        if record.authorized_xml_access_ids:
+            for authorized_xml_access_id in record.authorized_xml_access_ids:
+                if authorized_xml_access_id.company_type == "person" and (
+                    not authorized_xml_access_id.vat
+                    or (
+                        not authorized_xml_access_id.vat.isdigit()
+                        and len(authorized_xml_access_id.vat) != 11
+                    )
+                ):
+                    raise ValidationError(
+                        _(
+                            f"As pessoas autorizadas a acessar o XML da NF-e devem ter um CPF válido. Verifique o CPF da pessoa: {authorized_xml_access_id.name}."
+                        )
+                    )
+                if authorized_xml_access_id.company_type == "company" and (
+                    not authorized_xml_access_id.vat
+                    or len(authorized_xml_access_id.vat) != 14
+                ):
+                    raise ValidationError(
+                        _(
+                            f"As empresas autorizadas a acessar  o XML da NF-e devem ter um CNPJ válido. Verifique o CNPJ da empresa: {authorized_xml_access_id.name}."
+                        )
+                    )
+
+    # @api.onchange("authorized_xml_access_ids")
+    # def _onchange_authorized_xml_access_ids(self):
+    #     for record in self:
+    #         record.validate_authorized_xml_access_ids(record)
+
     @api.constrains("authorized_xml_access_ids")
     def _check_authorized_xml_access_ids(self):
         for record in self:
-            if record.authorized_xml_access_ids:
-                for authorized_xml_access_id in record.authorized_xml_access_ids:
-                    if authorized_xml_access_id.company_type == "person" and (
-                        not authorized_xml_access_id.vat
-                        or (
-                            not authorized_xml_access_id.vat.isdigit()
-                            and len(authorized_xml_access_id.vat) != 11
-                        )
-                    ):
-                        raise ValidationError(
-                            _(
-                                f"As pessoas autorizadas a acessar o XML da NF-e devem ter um CPF válido. Verifique o CPF da pessoa: {authorized_xml_access_id.name}."
-                            )
-                        )
-                    if authorized_xml_access_id.company_type == "company" and (
-                        not authorized_xml_access_id.vat
-                        or len(authorized_xml_access_id.vat) != 14
-                    ):
-                        raise ValidationError(
-                            _(
-                                f"As empresas autorizadas a acessar  o XML da NF-e devem ter um CNPJ válido. Verifique o CNPJ da empresa: {authorized_xml_access_id.name}."
-                            )
-                        )
+            record.validate_authorized_xml_access_ids(record)
 
     # === Grupo H. Detalhamento de Produtos e Serviços da NF-e  ===
     # det - Detalhamento de Produtos e Serviços. Múltiplas ocorrências (máximo = 990).

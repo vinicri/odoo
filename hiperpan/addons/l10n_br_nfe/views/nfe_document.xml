@@ -210,6 +210,29 @@
             <field name="retrieval_ie" />
           </group>
 
+
+          <group>
+            <field name="is_delivery_location_different_from_recipient_address" />
+          </group>
+          <separator string="Local de Entrega" invisible="not is_delivery_location_different_from_recipient_address" />
+          <group invisible="not is_delivery_location_different_from_recipient_address">
+            <field name="delivery_partner_id" />
+            <field name="delivery_cnpj" />
+            <field name="delivery_cpf" />
+            <field name="delivery_legal_name" />
+            <field name="delivery_street" />
+            <field name="delivery_street_number" />
+            <field name="delivery_street_complement" />
+            <field name="delivery_district" />
+            <field name="delivery_city_name" />
+            <field name="delivery_state" />
+            <field name="delivery_zip" />
+            <field name="delivery_country_name" />
+            <field name="delivery_formatted_phone" />
+            <field name="delivery_email" />
+            <field name="delivery_ie" />
+          </group>
+
           <group>
             <field name="invoice_line_ids" context="{'default_issuer_id': issuer_id, 'default_emission_finality': emission_finality}"/>
           </group>
