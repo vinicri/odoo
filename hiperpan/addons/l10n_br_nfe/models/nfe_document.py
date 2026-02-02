@@ -422,6 +422,70 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
             rIE = etree.SubElement(retirada, "IE")
             rIE.text = nfe_document.retrieval_ie
 
+    if nfe_document.is_delivery_location_different_from_recipient_address:
+        if not nfe_document.delivery_partner_id:
+            raise ValidationError(
+                _(
+                    "Erro ao gerar XML: O Local de Entrega é obrigatório quando o local de entrega é diferente do endereço do destinatário."
+                )
+            )
+        entrega = etree.SubElement(root, "entrega")
+
+        if nfe_document.delivery_partner_id.company_type == "company":
+            dCNPJ = etree.SubElement(entrega, "CNPJ")
+            dCNPJ.text = nfe_document.delivery_cnpj
+        else:
+            dCPF = etree.SubElement(entrega, "CPF")
+            dCPF.text = nfe_document.delivery_cpf
+
+        dXNome = etree.SubElement(entrega, "xNome")
+        dXNome.text = nfe_document.delivery_legal_name
+
+        dXLgr = etree.SubElement(entrega, "xLgr")
+        dXLgr.text = nfe_document.delivery_street
+
+        dNro = etree.SubElement(entrega, "nro")
+        dNro.text = nfe_document.delivery_street_number
+
+        if nfe_document.delivery_street_complement:
+            dXCpl = etree.SubElement(entrega, "xCpl")
+            dXCpl.text = nfe_document.delivery_street_complement
+
+        dXBairro = etree.SubElement(entrega, "xBairro")
+        dXBairro.text = nfe_document.delivery_district
+
+        dCMun = etree.SubElement(entrega, "cMun")
+        dCMun.text = nfe_document.delivery_city_code
+
+        dXMun = etree.SubElement(entrega, "xMun")
+        dXMun.text = nfe_document.delivery_city_name
+
+        dUF = etree.SubElement(entrega, "UF")
+        dUF.text = nfe_document.delivery_state
+
+        if nfe_document.delivery_zip:
+            dCEP = etree.SubElement(entrega, "CEP")
+            dCEP.text = nfe_document.delivery_zip
+
+        if nfe_document.delivery_country_code and nfe_document.delivery_country_name:
+            dCPais = etree.SubElement(entrega, "cPais")
+            dCPais.text = nfe_document.delivery_country_code
+
+            dXpais = etree.SubElement(entrega, "xPais")
+            dXpais.text = nfe_document.delivery_country_name
+
+        if nfe_document.delivery_phone:
+            dFone = etree.SubElement(entrega, "fone")
+            dFone.text = nfe_document.delivery_phone
+
+        if nfe_document.delivery_email:
+            dEmail = etree.SubElement(entrega, "email")
+            dEmail.text = nfe_document.delivery_email
+
+        if nfe_document.delivery_ie:
+            dIE = etree.SubElement(entrega, "IE")
+            dIE.text = nfe_document.delivery_ie
+
     if nfe_document.authorized_xml_access_ids:
         autXML = etree.SubElement(root, "autXML")
         for authorized_xml_access_id in nfe_document.authorized_xml_access_ids:
@@ -2150,11 +2214,20 @@ class NFeDocument(models.Model):
 
     # Código do CEP do emitente. Informar zeros não significativos.
     issuer_zip = fields.Char(
-        related="issuer_id.unformatted_zip",
+        compute="_compute_issuer_zip",
         string="CEP",
+        readonly=True,
         store=True,
         size=8,
     )
+
+    @api.depends("issuer_id", "issuer_id.unformatted_zip")
+    def _compute_issuer_zip(self):
+        for record in self:
+            if record.issuer_id and record.issuer_id.unformatted_zip:
+                record.issuer_zip = record.issuer_id.unformatted_zip.zfill(8)
+            else:
+                record.issuer_zip = False
 
     @api.constrains("issuer_zip")
     def _check_issuer_zip(self):
@@ -2477,11 +2550,26 @@ class NFeDocument(models.Model):
 
     # Código do município do destinatário. Usar Tabela IBGE.
     recipient_city_code = fields.Char(
-        related="recipient_id.city_id.ibge_code",
+        compute="_compute_recipient_city_code",
         string="Código Município Destinatário",
+        readonly=True,
         store=True,
         size=7,
     )
+
+    @api.depends(
+        "recipient_id",
+        "recipient_id.city_id",
+        "recipient_id.is_foreign",
+    )
+    def _compute_recipient_city_code(self):
+        for record in self:
+            if record.recipient_id and record.recipient_id.is_foreign:
+                record.recipient_city_code = "9999999"
+            elif record.recipient_id and record.recipient_id.city_id:
+                record.recipient_city_code = record.recipient_id.city_id.ibge_code
+            else:
+                record.recipient_city_code = False
 
     @api.constrains("recipient_city_code")
     def _check_recipient_city_code(self):
@@ -2503,12 +2591,12 @@ class NFeDocument(models.Model):
     def _compute_recipient_city_name(self):
         for record in self:
             if record.recipient_id:
-                if record.recipient_id.city_id:
+                if record.recipient_id.is_foreign:
+                    record.recipient_city_name = "EXTERIOR"
+                elif record.recipient_id.city_id:
                     record.recipient_city_name = (
                         record.recipient_id.city_id.with_context(lang="pt_BR").name
                     )
-                elif record.recipient_id.is_foreign:
-                    record.recipient_city_name = "EXTERIOR"
                 else:
                     record.recipient_city_name = False
 
@@ -2546,11 +2634,11 @@ class NFeDocument(models.Model):
 
     # Código do CEP do destinatário. Informar zeros não significativos. Opcional.
     recipient_zip = fields.Char(
-        related="recipient_id.unformatted_zip",
         string="CEP Destinatário",
         store=True,
         size=8,
         compute="_compute_recipient_zip",
+        readonly=True,
     )
 
     @api.depends("recipient_id", "recipient_id.unformatted_zip")
@@ -2752,7 +2840,10 @@ class NFeDocument(models.Model):
         domain="[('country_id.code', '=', 'BR')]",
     )
 
-    @api.constrains("retrieval_partner_id")
+    @api.constrains(
+        "retrieval_partner_id",
+        "is_retrieval_location_different_from_issuer_address",
+    )
     def _check_retrieval_partner_id(self):
         for record in self:
             if (
@@ -2773,7 +2864,12 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.depends("retrieval_partner_id")
+    @api.depends(
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+        "retrieval_partner_id.company_type",
+        "retrieval_partner_id.vat",
+    )
     def _compute_retrieval_cnpj(self):
         for record in self:
             if (
@@ -2812,7 +2908,12 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.depends("retrieval_partner_id")
+    @api.depends(
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+        "retrieval_partner_id.company_type",
+        "retrieval_partner_id.vat",
+    )
     def _compute_retrieval_cpf(self):
         for record in self:
             if (
@@ -2826,7 +2927,11 @@ class NFeDocument(models.Model):
             else:
                 record.retrieval_cpf = False
 
-    @api.constrains("retrieval_cpf")
+    @api.constrains(
+        "retrieval_cpf",
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+    )
     def _check_retrieval_cpf(self):
         for record in self:
             if (
@@ -2857,7 +2962,11 @@ class NFeDocument(models.Model):
         size=60,
     )
 
-    @api.constrains("retrieval_street")
+    @api.constrains(
+        "retrieval_street",
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+    )
     def _check_retrieval_street(self):
         for record in self:
             if (
@@ -2876,7 +2985,11 @@ class NFeDocument(models.Model):
         size=60,
     )
 
-    @api.constrains("retrieval_street_number")
+    @api.constrains(
+        "retrieval_street_number",
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+    )
     def _check_retrieval_street_number(self):
         for record in self:
             if (
@@ -2900,7 +3013,11 @@ class NFeDocument(models.Model):
         size=60,
     )
 
-    @api.constrains("retrieval_district")
+    @api.constrains(
+        "retrieval_district",
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+    )
     def _check_retrieval_district(self):
         for record in self:
             if (
@@ -2917,7 +3034,11 @@ class NFeDocument(models.Model):
         size=7,
     )
 
-    @api.constrains("retrieval_city_code")
+    @api.constrains(
+        "retrieval_city_code",
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+    )
     def _check_retrieval_city_code(self):
         for record in self:
             if (
@@ -2986,6 +3107,19 @@ class NFeDocument(models.Model):
         size=8,
     )
 
+    @api.depends("retrieval_partner_id", "retrieval_partner_id.unformatted_zip")
+    def _compute_retrieval_zip(self):
+        for record in self:
+            if (
+                record.retrieval_partner_id
+                and record.retrieval_partner_id.unformatted_zip
+            ):
+                record.retrieval_zip = (
+                    record.retrieval_partner_id.unformatted_zip.zfill(8)
+                )
+            else:
+                record.retrieval_zip = False
+
     retrieval_country_code = fields.Integer(
         related="retrieval_partner_id.country_id.bacen_code",
         string="Código do País do Local de Retirada",
@@ -3045,6 +3179,400 @@ class NFeDocument(models.Model):
     retrieval_ie = fields.Char(
         related="retrieval_partner_id.inscr_est",
         string="Inscrição Estadual do Local de Retirada",
+        store=True,
+        size=14,
+        readonly=True,
+    )
+
+    # === Grupo G Identificação do Local de Entrega ===
+
+    is_delivery_location_different_from_recipient_address = fields.Boolean(
+        string="Local de Entrega Diferente do Endereço do Destinatário",
+        default=False,
+    )
+
+    # entrega - Local de Entrega. Ocorrência múltipla (máximo = 1).
+    delivery_partner_id = fields.Many2one(
+        comodel_name="res.partner",
+        string="Local de Entrega",
+        domain="[('country_id.code', '=', 'BR')]",
+    )
+
+    @api.constrains("delivery_partner_id")
+    def _check_delivery_partner_id(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and not record.delivery_partner_id
+            ):
+                raise ValidationError(
+                    _(
+                        "O Local de Entrega é obrigatório quando o local de entrega é diferente do endereço do destinatário."
+                    )
+                )
+
+    delivery_cnpj = fields.Char(
+        compute="_compute_delivery_cnpj",
+        string="CNPJ do Local de Entrega",
+        store=True,
+        size=14,
+    )
+
+    @api.depends(
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+        "delivery_partner_id.vat",
+        "delivery_partner_id.company_type",
+    )
+    def _compute_delivery_cnpj(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and record.delivery_partner_id.company_type == "company"
+                and record.delivery_partner_id.vat
+                and len(record.delivery_partner_id.vat) == 14
+                and not record.delivery_partner_id.is_foreign
+            ):
+                record.delivery_cnpj = record.delivery_partner_id.vat
+            else:
+                record.delivery_cnpj = False
+
+    @api.constrains("delivery_cnpj")
+    def _check_delivery_cnpj(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and record.delivery_partner_id.company_type == "company"
+                and not record.delivery_partner_id.is_foreign
+            ):
+                if not record.delivery_cnpj:
+                    raise ValidationError(
+                        _("O CNPJ do Local de Entrega é obrigatório.")
+                    )
+                elif not (len(record.delivery_cnpj) == 14):
+                    raise ValidationError(
+                        _("O CNPJ do Local de Entrega deve ter 14 caracteres.")
+                    )
+
+    delivery_cpf = fields.Char(
+        compute="_compute_delivery_cpf",
+        string="CPF do Local de Entrega",
+        store=True,
+        size=11,
+    )
+
+    @api.depends(
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+        "delivery_partner_id.company_type",
+        "delivery_partner_id.vat",
+        "delivery_partner_id.is_foreign",
+    )
+    def _compute_delivery_cpf(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and record.delivery_partner_id.company_type == "person"
+                and record.delivery_partner_id.vat
+                and len(record.delivery_partner_id.vat) == 11
+                and not record.delivery_partner_id.is_foreign
+            ):
+                record.delivery_cpf = record.delivery_partner_id.vat
+            else:
+                record.delivery_cpf = False
+
+    @api.constrains("delivery_cpf")
+    def _check_delivery_cpf(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and record.delivery_partner_id.company_type == "person"
+                and not record.delivery_partner_id.is_foreign
+            ):
+                if not record.delivery_cpf:
+                    raise ValidationError(_("O CPF do Local de Entrega é obrigatório."))
+                elif not (len(record.delivery_cpf) == 11):
+                    raise ValidationError(
+                        _("O CPF do Local de Entrega deve ter 11 caracteres.")
+                    )
+
+    delivery_legal_name = fields.Char(
+        related="delivery_partner_id.legal_name",
+        string="Razão Social/Nome do Local de Entrega",
+        store=True,
+        size=60,
+    )
+
+    delivery_street = fields.Char(
+        related="delivery_partner_id.street",
+        string="Logradouro do Local de Entrega",
+        store=True,
+        size=60,
+    )
+
+    @api.constrains(
+        "delivery_street",
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+    )
+    def _check_delivery_street(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and not record.delivery_street
+            ):
+                raise ValidationError(
+                    _("O Logradouro do Local de Entrega é obrigatório.")
+                )
+
+    delivery_street_number = fields.Char(
+        related="delivery_partner_id.street_number",
+        string="Número do Logradouro do Local de Entrega",
+        store=True,
+        size=10,
+    )
+
+    @api.constrains(
+        "delivery_street_number",
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+    )
+    def _check_delivery_street_number(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and not record.delivery_street_number
+            ):
+                raise ValidationError(
+                    _("O Número do Logradouro do Local de Entrega é obrigatório.")
+                )
+
+    delivery_street_complement = fields.Char(
+        related="delivery_partner_id.street_complement",
+        string="Complemento do Logradouro do Local de Entrega",
+        store=True,
+        size=60,
+    )
+
+    delivery_district = fields.Char(
+        related="delivery_partner_id.district",
+        string="Bairro do Local de Entrega",
+        store=True,
+        size=60,
+    )
+
+    @api.constrains(
+        "delivery_district",
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+    )
+    def _check_delivery_district(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and not record.delivery_district
+            ):
+                raise ValidationError(_("O Bairro do Local de Entrega é obrigatório."))
+
+    delivery_city_code = fields.Char(
+        compute="_compute_delivery_city_code",
+        string="Código do Município do Local de Entrega",
+        store=True,
+        readonly=True,
+        size=7,
+    )
+
+    @api.depends(
+        "delivery_partner_id",
+        "delivery_partner_id.city_id",
+        "delivery_partner_id.is_foreign",
+    )
+    def _compute_delivery_city_code(self):
+        for record in self:
+            if record.delivery_partner_id and record.delivery_partner_id.is_foreign:
+                record.delivery_city_code = "9999999"
+            elif record.delivery_partner_id and record.delivery_partner_id.city_id:
+                record.delivery_city_code = record.delivery_partner_id.city_id.ibge_code
+            else:
+                record.delivery_city_code = False
+
+    @api.constrains(
+        "delivery_city_code",
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+    )
+    def _check_delivery_city_code(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and not record.delivery_city_code
+            ):
+                raise ValidationError(
+                    _("O Código do Município do Local de Entrega é obrigatório.")
+                )
+
+    delivery_city_name = fields.Char(
+        compute="_compute_delivery_city_name",
+        string="Nome do Município do Local de Entrega",
+        store=True,
+        size=60,
+    )
+
+    @api.depends(
+        "delivery_partner_id",
+        "delivery_partner_id.city_id",
+        "delivery_partner_id.is_foreign",
+    )
+    def _compute_delivery_city_name(self):
+        for record in self:
+            if record.delivery_partner_id and record.delivery_partner_id.is_foreign:
+                record.delivery_city_name = "EXTERIOR"
+            elif record.delivery_partner_id and record.delivery_partner_id.city_id:
+                record.delivery_city_name = (
+                    record.delivery_partner_id.city_id.with_context(lang="pt_BR").name
+                )
+            else:
+                record.delivery_city_name = False
+
+    @api.constrains(
+        "delivery_city_name",
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+    )
+    def _check_delivery_city_name(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and not record.delivery_city_name
+            ):
+                raise ValidationError(
+                    _("O Nome do Município do Local de Entrega é obrigatório.")
+                )
+
+    delivery_state = fields.Char(
+        compute="_compute_delivery_state",
+        string="UF do Local de Entrega",
+        store=True,
+        size=2,
+    )
+
+    @api.depends(
+        "delivery_partner_id",
+        "delivery_partner_id.state_id",
+        "delivery_partner_id.is_foreign",
+    )
+    def _compute_delivery_state(self):
+        for record in self:
+            if record.delivery_partner_id and record.delivery_partner_id.is_foreign:
+                record.delivery_state = "EX"
+            elif record.delivery_partner_id and record.delivery_partner_id.state_id:
+                record.delivery_state = record.delivery_partner_id.state_id.code
+            else:
+                record.delivery_state = False
+
+    @api.constrains(
+        "delivery_state",
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+    )
+    def _check_delivery_state(self):
+        for record in self:
+            if (
+                record.is_delivery_location_different_from_recipient_address
+                and record.delivery_partner_id
+                and not record.delivery_state
+            ):
+                raise ValidationError(_("A UF do Local de Entrega é obrigatória."))
+
+    delivery_zip = fields.Char(
+        compute="_compute_delivery_zip",
+        string="CEP do Local de Entrega",
+        store=True,
+        readonly=True,
+        size=8,
+    )
+
+    @api.depends("delivery_partner_id", "delivery_partner_id.unformatted_zip")
+    def _compute_delivery_zip(self):
+        for record in self:
+            if (
+                record.delivery_partner_id
+                and record.delivery_partner_id.unformatted_zip
+            ):
+                record.delivery_zip = record.delivery_partner_id.unformatted_zip.zfill(
+                    8
+                )
+            else:
+                record.delivery_zip = False
+
+    delivery_country_code = fields.Integer(
+        related="delivery_partner_id.country_id.bacen_code",
+        string="Código do País do Local de Entrega",
+        store=True,
+        readonly=True,
+    )
+
+    delivery_country_name = fields.Char(
+        string="Nome do País do Local de Entrega",
+        store=True,
+        size=60,
+        compute="_compute_delivery_country_name",
+        readonly=True,
+    )
+
+    @api.depends("delivery_partner_id", "delivery_partner_id.country_id")
+    def _compute_delivery_country_name(self):
+        for record in self:
+            if record.delivery_partner_id and record.delivery_partner_id.country_id:
+                record.delivery_country_name = (
+                    record.delivery_partner_id.country_id.with_context(
+                        lang="pt_BR"
+                    ).name
+                )
+            else:
+                record.delivery_country_name = False
+
+    delivery_formatted_phone = fields.Char(
+        related="delivery_partner_id.phone",
+        string="Telefone do Local de Entrega",
+        store=True,
+    )
+
+    delivery_phone = fields.Char(
+        compute="_compute_delivery_phone",
+        string="Telefone do Local de Entrega",
+        store=True,
+    )
+
+    @api.depends("delivery_formatted_phone")
+    def _compute_delivery_phone(self):
+        for record in self:
+            if record.delivery_formatted_phone:
+                record.delivery_phone = "".join(
+                    filter(str.isdigit, record.delivery_formatted_phone)
+                )
+            else:
+                record.delivery_phone = False
+
+    delivery_email = fields.Char(
+        related="delivery_partner_id.nfe_document_email",
+        string="Email do Local de Entrega",
+        store=True,
+        size=60,
+    )
+
+    delivery_ie = fields.Char(
+        related="delivery_partner_id.inscr_est",
+        string="Inscrição Estadual do Local de Entrega",
         store=True,
         size=14,
         readonly=True,
