@@ -3,7 +3,7 @@ from odoo.exceptions import ValidationError, UserError
 from .utils import is_valid_phone, format_number
 import random
 import pytz
-from .constants import NFE_EMISSION_FINALITY
+from .constants import DESTINATION_ID, NFE_EMISSION_FINALITY
 import lxml.etree as etree
 
 
@@ -1575,12 +1575,6 @@ def printNfeXml(nfe_document):
 
 OPERATION_TYPE = [("0", "Entrada"), ("1", "Saída")]
 
-DESTINATION_ID = [
-    ("1", "Operação interna"),
-    ("2", "Operação interestadual"),
-    ("3", "Operação com exterior"),
-]
-
 DANFE_PRINT_FORMAT = [
     ("0", "Sem geração de DANFE"),
     ("1", "DANFE normal, Retrato"),
@@ -1856,7 +1850,7 @@ class NFeDocument(models.Model):
                 if record.danfe_print_format not in ["0", "4", "5"]:
                     record.danfe_print_format = "4"
 
-    @api.constrains("danfe_print_format")
+    @api.constrains("danfe_print_format", "document_model")
     def _check_danfe_print_format(self):
         for record in self:
             if record.document_model == "55" and record.danfe_print_format not in [
@@ -2053,7 +2047,7 @@ class NFeDocument(models.Model):
             else:
                 record.issuer_cnpj = False
 
-    @api.constrains("issuer_cnpj")
+    @api.constrains("issuer_cnpj", "issuer_id", "issuer_id.company_type")
     def _check_issuer_cnpj(self):
         for record in self:
             if record.issuer_id.company_type == "company" and not record.issuer_cnpj:
@@ -2082,7 +2076,7 @@ class NFeDocument(models.Model):
             else:
                 record.issuer_cpf = False
 
-    @api.constrains("issuer_cpf")
+    @api.constrains("issuer_cpf", "issuer_id", "issuer_id.company_type")
     def _check_issuer_cpf(self):
         for record in self:
             if record.issuer_id.company_type == "person" and not record.issuer_cpf:
@@ -2375,7 +2369,7 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.constrains("recipient_id")
+    @api.constrains("recipient_id", "document_model")
     def _check_recipient_id(self):
         for record in self:
             if record.document_model == "55" and not record.recipient_id:
@@ -2412,7 +2406,12 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_cnpj = False
 
-    @api.constrains("recipient_cnpj")
+    @api.constrains(
+        "recipient_cnpj",
+        "recipient_id",
+        "recipient_id.company_type",
+        "recipient_id.is_foreign",
+    )
     def _check_recipient_cnpj(self):
         for record in self:
             if (
@@ -2455,7 +2454,12 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_cpf = False
 
-    @api.constrains("recipient_cpf")
+    @api.constrains(
+        "recipient_cpf",
+        "recipient_id",
+        "recipient_id.company_type",
+        "recipient_id.is_foreign",
+    )
     def _check_recipient_cpf(self):
         for record in self:
             if (
@@ -2486,7 +2490,7 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_foreign_id = False
 
-    @api.constrains("recipient_foreign_id")
+    @api.constrains("recipient_foreign_id", "recipient_id", "recipient_id.is_foreign")
     def _check_recipient_foreign_id(self):
         for record in self:
             if record.recipient_id and record.recipient_id.is_foreign:
@@ -2502,7 +2506,7 @@ class NFeDocument(models.Model):
         size=60,
     )
 
-    @api.constrains("recipient_legal_name")
+    @api.constrains("recipient_legal_name", "recipient_id")
     def _check_recipient_legal_name(self):
         for record in self:
             if record.recipient_id and not record.recipient_legal_name:
@@ -2518,7 +2522,7 @@ class NFeDocument(models.Model):
         size=60,
     )
 
-    @api.constrains("recipient_street")
+    @api.constrains("recipient_street", "recipient_id")
     def _check_recipient_street(self):
         for record in self:
             if record.recipient_id and not record.recipient_street:
@@ -2532,7 +2536,7 @@ class NFeDocument(models.Model):
         size=60,
     )
 
-    @api.constrains("recipient_street_number")
+    @api.constrains("recipient_street_number", "recipient_id")
     def _check_recipient_street_number(self):
         for record in self:
             if record.recipient_id and not record.recipient_street_number:
@@ -2554,7 +2558,7 @@ class NFeDocument(models.Model):
         size=60,
     )
 
-    @api.constrains("recipient_district")
+    @api.constrains("recipient_district", "recipient_id")
     def _check_recipient_district(self):
         for record in self:
             if record.recipient_id and not record.recipient_district:
@@ -2583,7 +2587,7 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_city_code = False
 
-    @api.constrains("recipient_city_code")
+    @api.constrains("recipient_city_code", "recipient_id")
     def _check_recipient_city_code(self):
         for record in self:
             if record.recipient_id and not record.recipient_city_code:
@@ -2612,7 +2616,7 @@ class NFeDocument(models.Model):
                 else:
                     record.recipient_city_name = False
 
-    @api.constrains("recipient_city_name")
+    @api.constrains("recipient_city_name", "recipient_id")
     def _check_recipient_city_name(self):
         for record in self:
             if record.recipient_id and not record.recipient_city_name:
@@ -2638,7 +2642,7 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_state = False
 
-    @api.constrains("recipient_state")
+    @api.constrains("recipient_state", "recipient_id")
     def _check_recipient_state(self):
         for record in self:
             if record.recipient_id and not record.recipient_state:
@@ -2663,7 +2667,7 @@ class NFeDocument(models.Model):
                 else:
                     record.recipient_zip = False
 
-    @api.constrains("recipient_zip")
+    @api.constrains("recipient_zip", "recipient_id", "recipient_id.is_foreign")
     def _check_recipient_zip(self):
         for record in self:
             if record.recipient_id and not record.recipient_id.is_foreign:
@@ -2677,7 +2681,7 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.constrains("recipient_country_code")
+    @api.constrains("recipient_country_code", "recipient_id", "recipient_id.is_foreign")
     def _check_recipient_country_code(self):
         for record in self:
             if record.recipient_id and record.recipient_id.is_foreign:
@@ -2706,7 +2710,7 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_country_name = False
 
-    @api.constrains("recipient_country_name")
+    @api.constrains("recipient_country_name", "recipient_id", "recipient_id.is_foreign")
     def _check_recipient_country_name(self):
         for record in self:
             if (
@@ -2732,7 +2736,7 @@ class NFeDocument(models.Model):
         store=True,
     )
 
-    @api.depends("recipient_formatted_phone")
+    @api.depends("recipient_formatted_phone", "recipient_id")
     def _compute_recipient_phone(self):
         for record in self:
             if record.recipient_id and record.recipient_formatted_phone:
@@ -2778,7 +2782,7 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_ie_indicator = False
 
-    @api.constrains("recipient_ie_indicator")
+    @api.constrains("recipient_ie_indicator", "recipient_id")
     def _check_recipient_ie_indicator(self):
         for record in self:
             if record.recipient_id and not record.recipient_ie_indicator:
@@ -2793,6 +2797,7 @@ class NFeDocument(models.Model):
         # related="recipient_id.inscr_est",
         store=True,
         size=14,
+        readonly=True,
     )
 
     @api.depends("recipient_ie_indicator", "recipient_id", "recipient_id.inscr_est")
@@ -2803,7 +2808,7 @@ class NFeDocument(models.Model):
             else:
                 record.recipient_ie = False
 
-    @api.constrains("recipient_ie")
+    @api.constrains("recipient_ie", "recipient_id", "recipient_ie_indicator")
     def _check_recipient_ie(self):
         for record in self:
             if (
@@ -2895,7 +2900,12 @@ class NFeDocument(models.Model):
             else:
                 record.retrieval_cnpj = False
 
-    @api.constrains("retrieval_cnpj")
+    @api.constrains(
+        "retrieval_cnpj",
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+        "retrieval_partner_id.company_type",
+    )
     def _check_retrieval_cnpj(self):
         for record in self:
             if (
@@ -2943,6 +2953,7 @@ class NFeDocument(models.Model):
         "retrieval_cpf",
         "is_retrieval_location_different_from_issuer_address",
         "retrieval_partner_id",
+        "retrieval_partner_id.company_type",
     )
     def _check_retrieval_cpf(self):
         for record in self:
@@ -3069,7 +3080,11 @@ class NFeDocument(models.Model):
         size=60,
     )
 
-    @api.depends("retrieval_partner_id", "retrieval_partner_id.city_id")
+    @api.depends(
+        "retrieval_partner_id",
+        "retrieval_partner_id.city_id",
+        "is_retrieval_location_different_from_issuer_address",
+    )
     def _compute_retrieval_city_name(self):
         for record in self:
             if (
@@ -3083,7 +3098,11 @@ class NFeDocument(models.Model):
             else:
                 record.retrieval_city_name = False
 
-    @api.constrains("retrieval_city_name")
+    @api.constrains(
+        "retrieval_city_name",
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+    )
     def _check_retrieval_city_name(self):
         for record in self:
             if (
@@ -3102,7 +3121,11 @@ class NFeDocument(models.Model):
         size=2,
     )
 
-    @api.constrains("retrieval_state")
+    @api.constrains(
+        "retrieval_state",
+        "is_retrieval_location_different_from_issuer_address",
+        "retrieval_partner_id",
+    )
     def _check_retrieval_state(self):
         for record in self:
             if (
@@ -3210,7 +3233,10 @@ class NFeDocument(models.Model):
         domain="[('country_id.code', '=', 'BR')]",
     )
 
-    @api.constrains("delivery_partner_id")
+    @api.constrains(
+        "delivery_partner_id",
+        "is_delivery_location_different_from_recipient_address",
+    )
     def _check_delivery_partner_id(self):
         for record in self:
             if (
@@ -3235,6 +3261,7 @@ class NFeDocument(models.Model):
         "delivery_partner_id",
         "delivery_partner_id.vat",
         "delivery_partner_id.company_type",
+        "delivery_partner_id.is_foreign",
     )
     def _compute_delivery_cnpj(self):
         for record in self:
@@ -3250,7 +3277,13 @@ class NFeDocument(models.Model):
             else:
                 record.delivery_cnpj = False
 
-    @api.constrains("delivery_cnpj")
+    @api.constrains(
+        "delivery_cnpj",
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+        "delivery_partner_id.company_type",
+        "delivery_partner_id.is_foreign",
+    )
     def _check_delivery_cnpj(self):
         for record in self:
             if (
@@ -3296,7 +3329,13 @@ class NFeDocument(models.Model):
             else:
                 record.delivery_cpf = False
 
-    @api.constrains("delivery_cpf")
+    @api.constrains(
+        "delivery_cpf",
+        "is_delivery_location_different_from_recipient_address",
+        "delivery_partner_id",
+        "delivery_partner_id.company_type",
+        "delivery_partner_id.is_foreign",
+    )
     def _check_delivery_cpf(self):
         for record in self:
             if (

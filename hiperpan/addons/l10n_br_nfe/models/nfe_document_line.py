@@ -5,7 +5,14 @@ from odoo.exceptions import ValidationError, UserError
 
 # from odoo.addons.queue_job.job import job
 
-from .constants import NFE_EMISSION_FINALITY
+from .constants import (
+    DESTINATION_ID,
+    NFE_DOCUMENT_MODEL,
+    NFE_EMISSION_FINALITY,
+    NFCE_VALID_CFOPS,
+)
+
+CFOP_IN_OUT = [("in", _("In")), ("out", _("Out"))]
 
 from ..utils.ibpt import (
     get_ibpt_product_taxes,
@@ -35,7 +42,6 @@ class NFeDocumentLine(models.Model):
         comodel_name="l10n_br_nfe.nfe.document",
         string="NF-e",
         required=True,
-        ondelete="cascade",
     )
 
     product_id = fields.Many2one("product.product", string="Produto", required=True)
@@ -87,7 +93,6 @@ class NFeDocumentLine(models.Model):
     # relacionados com mercadorias/produtos e que o contribuinte não
     # possua codificação própria. Formato: “CFOP9999”.
     product_code = fields.Char(
-        # related="product_id.default_code",
         string="Código do Produto",
         readonly=True,
         # required=True,
@@ -97,11 +102,16 @@ class NFeDocumentLine(models.Model):
         compute="_compute_product_code",
     )
 
-    @api.depends("product_id")
+    @api.depends("product_id", "product_id.default_code")
     def _compute_product_code(self):
         for record in self:
             if record.product_id:
-                record.product_code = record.product_id.default_code  # or "CFOP9999"
+                if record.product_id.default_code:
+                    record.product_code = record.product_id.default_code
+                else:
+                    record.product_code = "CFOP9999"
+            else:
+                record.product_code = False
 
     @api.constrains("product_code")
     def _check_product_code(self):
@@ -112,26 +122,45 @@ class NFeDocumentLine(models.Model):
     # Preencher com o código GTIN-8, GTIN-12, GTIN-13 ou GTIN-14 (antigos códigos EAN, UPC e DUN-14)
     # Para produtos que não possuem código de barras com GTIN, deve ser informado o literal “SEM GTIN”
     gtin = fields.Char(
-        related="product_id.barcode",
+        compute="_compute_gtin",
         string="Código de Barras",
         store=True,
         size=14,
         readonly=True,
     )
 
-    @api.constrains("gtin")
+    @api.depends("product_id.barcode", "product_id.no_barcode")
+    def _compute_gtin(self):
+        for record in self:
+            if record.product_id.no_barcode:
+                record.gtin = "SEM GTIN"
+            elif record.product_id.barcode:
+                record.gtin = record.product_id.barcode
+            else:
+                record.gtin = False
+
+    @api.constrains("gtin", "product_id.no_barcode")
     def _check_gtin(self):
         for record in self:
             if not record.product_id.no_barcode and not record.gtin:
                 raise ValidationError(
                     _(
-                        "Verifique o cadastro do produto %s. O produto não está marcado como 'Não possui código de barras' mas o código de barras não foi informado."
+                        "Item %s. O produto não está marcado como 'Não possui código de barras' mas o código de barras não foi informado."
+                        % record.product_description
                     )
                 )
             if record.product_id.no_barcode and record.gtin:
                 raise ValidationError(
                     _(
-                        "Verifique o cadastro do produto %s. O produto está marcado como 'Não possui código de barras' mas o código de barras foi informado."
+                        "Item %s. O produto está marcado como 'Não possui código de barras' mas o código de barras foi informado."
+                        % record.product_description
+                    )
+                )
+            if record.gtin and len(record.gtin) not in (8, 12, 13, 14):
+                raise ValidationError(
+                    _(
+                        "Item %s. O Código de Barras deve ter 8, 12, 13 ou 14 caracteres."
+                        % record.product_description
                     )
                 )
 
@@ -190,6 +219,17 @@ class NFeDocumentLine(models.Model):
                     )
                 )
 
+    @api.constrains("ncm_unmasked")
+    def _check_ncm_unmasked(self):
+        for record in self:
+            if record.ncm_unmasked and len(record.ncm_unmasked) != 8:
+                raise ValidationError(
+                    _(
+                        "Item %s: O Código NCM deve ter 8 dígitos."
+                        % record.product_description
+                    )
+                )
+
     # Código CEST (Código Especificador da Substituição Tributária). Opcional.
     cest_code = fields.Char(
         related="product_id.cest_id.code",
@@ -202,10 +242,104 @@ class NFeDocumentLine(models.Model):
     # Código Fiscal de Operações e Prestações. Usar Tabela de CFOP.
     # NFC-e (mod=65) aceita unicamente CFOPs específicos de venda a consumidor final.
     # CFOP de Entrada para NF-e de Saída é facultativo (pode ser rejeitado).
+    cfop_type_in_out = fields.Char(
+        string="Tipo Entrada/Saída CFOP",
+        compute="_compute_cfop_type_in_out",
+        readonly=True,
+    )
+
+    @api.depends("operation_nature_id")
+    def _compute_cfop_type_in_out(self):
+        """Map operation type to CFOP type_in_out:
+        - Operation type '0' (Entrada) -> 'in'
+        - Operation type '1' (Saída) -> 'out'
+        """
+        for record in self:
+            print("operation_nature_id", record.operation_nature_id)
+            print("operation_nature_id.type", record.operation_nature_id.type)
+            print(
+                "operation_nature_id.type == '0'",
+                record.operation_nature_id.type == "0",
+            )
+            print(
+                "operation_nature_id.type == '1'",
+                record.operation_nature_id.type == "1",
+            )
+            print("record.cfop_type_in_out", record.cfop_type_in_out)
+            if record.operation_nature_id:
+                if record.operation_nature_id.type == "0":
+                    record.cfop_type_in_out = "in"
+                elif record.operation_nature_id.type == "1":
+                    record.cfop_type_in_out = "out"
+                else:
+                    record.cfop_type_in_out = False
+            else:
+                record.cfop_type_in_out = False
+
+    cfop_code_like = fields.Char(
+        string="CFOP Like",
+        compute="_compute_cfop_code_like",
+        readonly=True,
+    )
+
+    @api.depends("destination_id", "operation_nature_id")
+    def _compute_cfop_code_like(self):
+        for record in self:
+            if record.destination_id:
+                if record.operation_nature_id.type == "0":
+                    if record.destination_id == "1":
+                        record.cfop_code_like = "1%"
+                    elif record.destination_id == "2":
+                        record.cfop_code_like = "2%"
+                    elif record.destination_id == "3":
+                        record.cfop_code_like = "3%"
+                elif record.operation_nature_id.type == "1":
+                    if record.destination_id == "1":
+                        record.cfop_code_like = "5%"
+                    elif record.destination_id == "2":
+                        record.cfop_code_like = "6%"
+                    elif record.destination_id == "3":
+                        record.cfop_code_like = "7%"
+                else:
+                    record.cfop_code_like = False
+            else:
+                record.cfop_code_like = False
+
+    allowed_cfop_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.cfop",
+        string="Allowed CFOPs",
+        compute="_compute_allowed_cfop_ids",
+    )
+
+    @api.depends("document_model", "cfop_type_in_out", "cfop_code_like")
+    def _compute_allowed_cfop_ids(self):
+        Cfop = self.env["l10n_br_fiscal.cfop"]
+        for record in self:
+            base_domain = [
+                ("ind_nfe", "=", "1"),
+                ("type_in_out", "=", record.cfop_type_in_out),
+            ]
+            if record.cfop_code_like:
+                base_domain.append(("code", "=like", record.cfop_code_like))
+
+            if record.document_model == "65":
+                base_domain.append(("code", "in", NFCE_VALID_CFOPS))
+
+            if record.emission_finality == "4":
+                base_domain.append("|")
+                base_domain.append(("ind_devol", "=", "1"))
+                base_domain.append(("code", "in", ["1949", "2949"]))
+
+            if record.emission_finality in ("1", "3"):
+                base_domain.append(("ind_devol", "=", "0"))
+
+            record.allowed_cfop_ids = Cfop.search(base_domain)
+
     cfop_code_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.cfop",
         string="CFOP",
         required=True,
+        domain="[('id', 'in', allowed_cfop_ids)]",
     )
 
     cfop_code = fields.Char(
@@ -213,6 +347,37 @@ class NFeDocumentLine(models.Model):
         string="Código CFOP",
         store=True,
     )
+
+    @api.constrains("cfop_code", "document_model")
+    def _check_cfop_code(self):
+        for record in self:
+            if not record.cfop_code:
+                raise ValidationError(
+                    _(
+                        "Item %s: O Código CFOP é obrigatório."
+                        % record.product_description
+                    )
+                )
+            if len(record.cfop_code) != 4:
+                raise ValidationError(
+                    _(
+                        "Item %s: O Código CFOP deve ter 4 dígitos."
+                        % record.product_description
+                    )
+                )
+            # Rejeição 794: NFC-e (modelo 65) com CFOP inválido
+            if (
+                record.document_model == "65"
+                and record.cfop_code not in NFCE_VALID_CFOPS
+            ):
+                raise ValidationError(
+                    _("Item %s: CFOP %s inválido para NFC-e. " "CFOPs válidos: %s")
+                    % (
+                        record.product_description,
+                        record.cfop_code,
+                        ", ".join(NFCE_VALID_CFOPS),
+                    )
+                )
 
     # Unidade Comercial. Informar a unidade de comercialização do produto.
     # NFC-e com unidade de comercialização inválida é rejeitada.
@@ -456,7 +621,7 @@ class NFeDocumentLine(models.Model):
         compute="_compute_discount_value",
     )
 
-    @api.depends("unit_discount_value", "unit_discount_percent")
+    @api.depends("unit_discount_value", "unit_discount_percent", "quantity")
     def _compute_discount_value(self):
         for record in self:
             record.discount_value = record.unit_discount_value * record.quantity
@@ -481,6 +646,24 @@ class NFeDocumentLine(models.Model):
     issuer_id = fields.Many2one(
         comodel_name="res.partner",
         string="Emitente",
+        readonly=True,
+    )
+
+    operation_nature_id = fields.Many2one(
+        comodel_name="l10n_br_nfe.nfe.operation_nature",
+        string="Natureza da Operação",
+        readonly=True,
+    )
+
+    destination_id = fields.Selection(
+        DESTINATION_ID,
+        string="Identificador de Local de Destino",
+        readonly=True,
+    )
+
+    document_model = fields.Selection(
+        NFE_DOCUMENT_MODEL,
+        string="Modelo do Documento Fiscal",
         readonly=True,
     )
 

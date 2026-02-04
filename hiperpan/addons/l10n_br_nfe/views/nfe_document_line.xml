@@ -10,6 +10,10 @@
           <group>
             <field name="issuer_id" />
             <field name="product_id" />
+            <!-- Campo auxiliar para filtrar CFOP pelo tipo de operação -->
+            <field name="operation_nature_id" invisible="1" />
+            <field name="cfop_type_in_out" invisible="1" />
+            <field name="document_model" invisible="1" />
             <field name="cfop_code_id" />
           </group>
           <div>
@@ -231,6 +235,7 @@
         <field name="product_id" />
         <field name="product_description" />
         <field name="ncm_code" />
+        <field name="ncm_unmasked" invisible="1"/>
         <field name="cest_code" />
         <field name="cfop_code" />
         <field name="unit" />

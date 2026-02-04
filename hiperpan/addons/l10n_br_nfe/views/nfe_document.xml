@@ -233,8 +233,11 @@
             <field name="delivery_ie" />
           </group>
 
+          <div class="alert alert-warning" role="alert" invisible="issuer_id and recipient_id">
+            <strong>Atenção:</strong> Preencha o <b>Emitente</b>, o <b>Destinatário</b>, a <b>Natureza da Operação</b> e a <b>Finalidade da Emissão</b> antes de adicionar produtos.
+          </div>
           <group>
-            <field name="invoice_line_ids" context="{'default_issuer_id': issuer_id, 'default_emission_finality': emission_finality}"/>
+            <field name="invoice_line_ids" readonly="not issuer_id or not recipient_id or not operation_nature_id or not emission_finality" context="{'default_issuer_id': issuer_id, 'default_emission_finality': emission_finality, 'default_destination_id': destination_id, 'default_operation_nature_id': operation_nature_id, 'default_document_model': document_model}"/>
           </group>
 
           <notebook>
