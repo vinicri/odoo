@@ -10,6 +10,7 @@
           <group>
             <field name="code" />
             <field name="name" />
+            <field name="category" />
             <field name="ipi_cst_in" />
             <field name="ipi_cst_out" />
             <field name="active" />
@@ -26,6 +27,7 @@
       <list>
         <field name="code" />
         <field name="name" />
+        <field name="category" />
         <field name="ipi_cst_in" />
         <field name="ipi_cst_out" />
         <field name="active" />

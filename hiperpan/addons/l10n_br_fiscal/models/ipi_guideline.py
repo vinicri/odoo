@@ -20,6 +20,17 @@ class IpiGuideline(models.Model):
             ("cst_type", "=", "in"),
         ]
 
+    category = fields.Selection(
+        string="Categoria",
+        selection=[
+            ("Imunidade", "Imunidade"),
+            ("Suspensão", "Suspensão"),
+            ("Isenção", "Isenção"),
+            ("Redução", "Redução"),
+            ("Outros", "Outros"),
+        ],
+    )
+
     ipi_cst_in = fields.Many2one(
         comodel_name="l10n_br_fiscal.cst",
         string="CST IPI In",
@@ -48,8 +59,4 @@ class IpiGuideline(models.Model):
             "unique (code)",
             "O código de enquadramento do IPI deve ser único",
         )
-    ]
-
-    _sql_constraints = [
-        ("name_uniq", "unique (name)", "O nome do enquadramento do IPI deve ser único")
     ]

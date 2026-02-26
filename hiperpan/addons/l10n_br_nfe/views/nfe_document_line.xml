@@ -114,16 +114,35 @@
                 </group>
               </group>
             </page>
-            <page string="IPI">
-              <group>
+            <page string="IPI" invisible="not product_has_ipi">
+              <div>
                 <group>
+                  <field name="ipi_guideline_id" />
+                  <field name="ipi_guideline_code" />
+                  <field name="allowed_ipi_tax_ids" invisible="1" />
                   <field name="ipi_tax_id" readonly="forced_ipi_tax_id"/>
                   <field name="ipi_cst_id" />
+                </group>
+
+
+                <field name="is_ipi_qtt" invisible="1" />
+
+                <group invisible="not is_ipi_with_percentage or is_ipi_qtt">
                   <field name="ipi_tax_percent"/>
                   <field name="ipi_bc_value" />
+                </group>
+
+                <group invisible="not is_ipi_qtt">
+                  <separator string="Tributado por Unidade"/>
+                  <field name="ipi_unit_value" />
+                  <field name="ipi_unit_quantity" />
+                </group>
+
+                <group>
                   <field name="ipi_value" />
                 </group>
-              </group>
+
+              </div>
             </page>
             <page string="PIS">
               <group>
@@ -162,7 +181,8 @@
                 </group>
               </group>
             </page>
-            <page string="Imposto de Importação">
+            <field name="is_ii_allowed" invisible="1" />
+            <page string="Imposto de Importação" invisible="not is_ii_allowed">
               <group>
                 <group>
                   <field name="ii_tax_id" />

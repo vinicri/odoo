@@ -111,6 +111,7 @@
 "tax_inss_wh_11","INSS RET 11%","","percent","","11","","","tax_group_inss_wh"
 "tax_inss_wh_nt","INSS RET NT","","percent","","0","","","tax_group_inss_wh"
 "tax_ipi_0","IPI 0%","","percent","2022-07-29","0","cst_ipi_51","cst_ipi_01","tax_group_ipi"
+"tax_ipi_qtt","IPI Tributado por Unidade","","quantity","2022-07-29","0","cst_ipi_50","cst_ipi_00","tax_group_ipi"
 "tax_ipi_3_25","IPI 3,25%","","percent","2022-07-29","3.25","cst_ipi_50","cst_ipi_00","tax_group_ipi"
 "tax_ipi_8","IPI 8%","","percent","2022-07-29","8","cst_ipi_50","cst_ipi_00","tax_group_ipi"
 "tax_ipi_2_6","IPI 2,6%","","percent","2022-07-29","2.6","cst_ipi_50","cst_ipi_00","tax_group_ipi"

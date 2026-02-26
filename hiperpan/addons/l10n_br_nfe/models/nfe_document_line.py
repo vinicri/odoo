@@ -451,7 +451,7 @@ class NFeDocumentLine(models.Model):
     def _compute_is_production_fiscal_type(self):
         for record in self:
             record.is_production_fiscal_type = (
-                record.product_id.fiscal_type_id.code in ("03", "04")
+                record.product_id.fiscal_type_id.code == "04"
             )
 
     @api.onchange("product_id")
@@ -761,6 +761,17 @@ class NFeDocumentLine(models.Model):
         compute="_compute_is_simples_nacional",
         readonly=True,
     )
+
+    issuer_contributes_to_ipi = fields.Boolean(
+        string="Contribui com IPI",
+        compute="_compute_issuer_contributes_to_ipi",
+        readonly=True,
+    )
+
+    @api.depends("issuer_id", "issuer_id.ipi_contributes")
+    def _compute_issuer_contributes_to_ipi(self):
+        for record in self:
+            record.issuer_contributes_to_ipi = record.issuer_id.ipi_contributes
 
     @api.depends("issuer_id", "issuer_id.fiscal_framework")
     def _compute_is_simples_nacional(self):
@@ -2128,22 +2139,88 @@ class NFeDocumentLine(models.Model):
 
     # ===  ipi ===
 
-    # utilizando o padrao, depois implementar conforme seção 8.9 do MOC – Visão Geral (Tabela do Código de Enquadramento do IPI)
-    # default 999 para outros produtos
-    # Informar apenas quando o item for sujeito ao IPI
-    ipi_guideline_code = fields.Char(string="Código de Enquadramento", size=3)
+    product_has_ipi = fields.Boolean(
+        string="Produto tem IPI",
+        compute="_compute_product_has_ipi",
+        readonly=True,
+    )
+
+    @api.depends("product_id")
+    def _compute_product_has_ipi(self):
+        for record in self:
+            record.product_has_ipi = record.product_id.fiscal_type_id.code == "04"
+
+    ipi_guideline_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.ipi.guideline",
+        string="Código de Enquadramento",
+        compute="_compute_ipi_guideline_id",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("is_simples_nacional")
+    def _compute_ipi_guideline_id(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.ipi_guideline_id = self.env.ref(
+                    "l10n_br_fiscal.ipi_guideline_999"
+                )
+
+    @api.constrains("ipi_guideline_id")
+    def _check_ipi_guideline_id(self):
+        for record in self:
+            if not record.product_has_ipi and not record.ipi_guideline_id:
+                raise ValidationError(_("O Código de Enquadramento é obrigatório."))
+
+    ipi_guideline_code = fields.Char(
+        string="Código de Enquadramento", size=3, related="ipi_guideline_id.code"
+    )
+
+    allowed_ipi_tax_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.tax",
+        string="Allowed CSTs",
+        compute="_compute_allowed_ipi_tax_ids",
+    )
+
+    @api.depends(
+        "ipi_guideline_id",
+        "ipi_guideline_id.ipi_cst_in",
+        "ipi_guideline_id.ipi_cst_out",
+        "operation_type",
+    )
+    def _compute_allowed_ipi_tax_ids(self):
+        ipi_group = self.env.ref("l10n_br_fiscal.tax_group_ipi")
+        for record in self:
+            selected_cst = False
+            if record.operation_type == "0":
+                if record.ipi_guideline_id.ipi_cst_in:
+                    record.allowed_ipi_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                        [
+                            ("tax_group_id", "=", ipi_group.id),
+                            ("cst_in_id", "=", selected_cst.id),
+                        ]
+                    )
+                else:
+                    record.allowed_ipi_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                        [("tax_group_id", "=", ipi_group.id)]
+                    )
+            elif record.operation_type == "1":
+                if record.ipi_guideline_id.ipi_cst_out:
+                    record.allowed_ipi_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                        [
+                            ("tax_group_id", "=", ipi_group.id),
+                            ("cst_out_id", "=", record.ipi_guideline_id.ipi_cst_out.id),
+                        ]
+                    )
+                else:
+                    record.allowed_ipi_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                        [("tax_group_id", "=", ipi_group.id)]
+                    )
 
     # empresa do simples utilizar ipi de saida 99 com valor zero quando for contruibinte do ipi - 99 outras saidas
     # simples NAO contribuinte do ipi e empresa no regime normal que nao tributa ipi (comercio) utilizar ipi de saida 53 - saida nao tributada
     # devolucao de mercadoria utilizar 53
     # industria utilizar os outros CST apropriados
-    # def _domain_ipi_tax_id(self):
-    #     if not self._issuer_contributes_to_ipi():
-    #         return [("cst_out_id", "=", "cst_ipi_53")]
-    #     if self._is_issuer_simples_nacional():
-    #         return [("cst_out_id", "=", "cst_ipi_99")]
-    #     else:
-    #         return [("tax_group_id", "=", "tax_group_ipi")]
 
     forced_ipi_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
@@ -2151,11 +2228,14 @@ class NFeDocumentLine(models.Model):
         compute="_compute_forced_ipi_tax_id",
     )
 
-    @api.depends("issuer_id", "issuer_id.fiscal_framework", "issuer_id.ipi_contributes")
+    @api.depends(
+        "is_simples_nacional",
+        "issuer_contributes_to_ipi",
+    )
     def _compute_forced_ipi_tax_id(self):
         for record in self:
-            if record._is_issuer_simples_nacional():
-                if record._issuer_contributes_to_ipi():
+            if record.is_simples_nacional:
+                if record.issuer_contributes_to_ipi:
                     record.forced_ipi_tax_id = record.env.ref(
                         "l10n_br_fiscal.tax_ipi_outros"
                     ).id
@@ -2166,45 +2246,90 @@ class NFeDocumentLine(models.Model):
             else:
                 record.forced_ipi_tax_id = False
 
-    def _default_ipi_tax_id(self):
-        if self._is_issuer_simples_nacional():
-            if self._issuer_contributes_to_ipi():
-                return self.env.ref("l10n_br_fiscal.tax_ipi_outros")
-            else:
-                return self.env.ref("l10n_br_fiscal.tax_ipi_nt")
-        else:
-            return False
-
-    def _domain_ipi_tax_id(self):
-        return [("tax_group_id", "=", self.env.ref("l10n_br_fiscal.tax_group_ipi").id)]
-
     ipi_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="IPI",
         compute="_compute_ipi_tax_id",
-        domain=_domain_ipi_tax_id,
+        domain="[('id', 'in', allowed_ipi_tax_ids)]",
         store=True,
     )
 
     @api.depends("forced_ipi_tax_id")
     def _compute_ipi_tax_id(self):
         for record in self:
-            record.ipi_tax_id = record.forced_ipi_tax_id
+            if record.forced_ipi_tax_id:
+                record.ipi_tax_id = record.forced_ipi_tax_id
+
+    @api.constrains("ipi_tax_id")
+    def _check_ipi_tax_id(self):
+        for record in self:
+            if record.product_has_ipi and not record.ipi_tax_id:
+                raise ValidationError(_("O IPI é obrigatório."))
+
+    is_ipi_qtt = fields.Boolean(
+        string="IPI Tributado por Unidade",
+        compute="_compute_is_ipi_qtt",
+        readonly=True,
+    )
+
+    @api.depends("ipi_tax_id")
+    def _compute_is_ipi_qtt(self):
+        for record in self:
+            record.is_ipi_qtt = record.ipi_tax_id == self.env.ref(
+                "l10n_br_fiscal.tax_ipi_qtt"
+            )
 
     # empresa do simples utilizar ipi de saida 99 com valor zero quando for contruibinte do ipi
     # simples NAO contribuinte do ipi e empresa no regime normal que nao tributa ipi (comercio) utilizar ipi de saida 53
-    # devolucao de mercadoria utilizar 53
+    # TODO:devolucao de mercadoria utilizar 53
     # industria utilizar os outros CST apropriados
     ipi_cst_id = fields.Many2one(
         related="ipi_tax_id.cst_out_id",
         string="CST IPI",
         readonly=True,
-        # required=True,
+        store=True,
     )
+
+    @api.constrains("ipi_cst_id")
+    def _check_ipi_cst_id(self):
+        for record in self:
+            if record.product_has_ipi and not record.ipi_cst_id:
+                raise ValidationError(_("O CST IPI é obrigatório."))
 
     ipi_cst = fields.Char(
         related="ipi_cst_id.code", string="CST IPI", size=2, store=True, readonly=True
     )
+
+    @api.constrains("ipi_cst")
+    def _check_ipi_cst(self):
+        for record in self:
+            if record.product_has_ipi and not record.ipi_cst:
+                raise ValidationError(_("O CST IPI é obrigatório."))
+
+    is_ipi_with_percentage = fields.Boolean(
+        string="É CST com Aliquota em Percentual",
+        compute="_compute_is_ipi_with_percentage",
+    )
+
+    @api.depends("ipi_cst_id")
+    def _compute_is_ipi_with_percentage(self):
+        for record in self:
+            record.is_ipi_with_percentage = record.ipi_cst_id.code in (
+                "00",
+                "50",
+                "49",
+                "99",
+            )
+
+    is_relugar_ipi = fields.Boolean(
+        string="É CST com Regulamento do IPI",
+        compute="_compute_is_relugar_ipi",
+    )
+
+    @api.depends("ipi_cst_id")
+    def _compute_is_relugar_ipi(self):
+        for record in self:
+            record.is_relugar_ipi = record.ipi_cst_id.code in ("00", "50")
 
     ipi_tax_percent = fields.Float(
         related="ipi_tax_id.percent_amount",
@@ -2214,6 +2339,20 @@ class NFeDocumentLine(models.Model):
         store=True,
     )
 
+    @api.constrains("ipi_tax_percent")
+    def _check_ipi_tax_percent(self):
+        for record in self:
+            if (
+                record.is_relugar_ipi
+                and not record.is_ipi_qtt
+                and record.ipi_tax_percent <= 0
+            ):
+                raise ValidationError(
+                    _(
+                        "A Aliquota do IPI é obrigatória e deve ser maior que 0 para o CST {record.ipi_cst}."
+                    )
+                )
+
     ipi_bc_value = fields.Float(
         string="Valor da Base de Calculo do IPI",
         digits=(13, 2),
@@ -2221,31 +2360,108 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
-    @api.depends("issuer_id.fiscal_framework")
+    # Decisão do STF (Tema 84): Definiu que frete, seguro e descontos incondicionais não compõem a base de cálculo.
+    @api.depends("issuer_id.fiscal_framework", "is_ipi_qtt")
     def _compute_ipi_bc_value(self):
         for record in self:
             if record._is_issuer_simples_nacional():
                 record.ipi_bc_value = 0.00
-            else:
+            elif record.is_ipi_qtt:
                 record.ipi_bc_value = False
+            elif not record.is_ipi_with_percentage:
+                record.ipi_bc_value = 0.00
+            else:
+                record.ipi_bc_value = (
+                    record.total_value
+                    + record.other_expenses_value
+                    - record.discount_value
+                )
+
+    @api.constrains("ipi_bc_value")
+    def _check_ipi_bc_value(self):
+        for record in self:
+            if (
+                record.is_relugar_ipi
+                and not record.is_ipi_qtt
+                and record.ipi_bc_value <= 0
+            ):
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do IPI é obrigatório e deve ser maior que 0 para o CST {record.ipi_cst}."
+                    )
+                )
+
+    ipi_unit_value = fields.Float(
+        string="Valor na Unidade Tributavel",
+        digits=(13, 2),
+        compute="_compute_ipi_unit_value",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("is_ipi_qtt")
+    def _compute_ipi_unit_value(self):
+        for record in self:
+            if not record.is_ipi_qtt:
+                record.ipi_unit_value = False
+
+    @api.constrains("ipi_unit_value")
+    def _check_ipi_unit_value(self):
+        for record in self:
+            if record.is_ipi_qtt and not record.ipi_unit_value:
+                raise ValidationError(_("O Valor na Unidade Tributável é obrigatório."))
+            elif record.is_ipi_qtt and record.ipi_unit_value <= 0:
+                raise ValidationError(
+                    _("O Valor na Unidade Tributável deve ser maior que 0.")
+                )
+
+    ipi_unit_quantity = fields.Float(
+        string="Quantidade na Unidade Tributavel",
+        digits=(13, 4),
+        compute="_compute_ipi_unit_quantity",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("is_ipi_qtt")
+    def _compute_ipi_unit_quantity(self):
+        for record in self:
+            if not record.is_ipi_qtt:
+                record.ipi_unit_quantity = False
+
+    @api.constrains("ipi_unit_quantity")
+    def _check_ipi_unit_quantity(self):
+        for record in self:
+            if record.is_ipi_qtt and not record.ipi_unit_quantity:
+                raise ValidationError(
+                    _("A Quantidade na Unidade Tributável é obrigatória.")
+                )
+            elif record.is_ipi_qtt and record.ipi_unit_quantity <= 0:
+                raise ValidationError(
+                    _("A Quantidade na Unidade Tributável deve ser maior que 0.")
+                )
 
     ipi_value = fields.Float(
         string="Valor do IPI",
         digits=(13, 2),
         readonly=True,
         compute="_compute_ipi_value",
+        store=True,
     )
 
-    @api.depends("ipi_bc_value", "ipi_tax_percent")
+    @api.depends(
+        "ipi_bc_value",
+        "ipi_tax_percent",
+        "is_ipi_qtt",
+        "ipi_unit_value",
+        "ipi_unit_quantity",
+    )
     def _compute_ipi_value(self):
         for record in self:
-            record.ipi_value = record.ipi_bc_value * record.ipi_tax_percent / 100
-
-    ipi_unit_value = fields.Float(string="Valor na Unidade Tributavel", digits=(13, 2))
-
-    ipi_unit_quantity = fields.Float(
-        string="Quantidade na Unidade Tributavel", digits=(13, 4)
-    )
+            if record.is_ipi_qtt:
+                record.ipi_value = record.ipi_unit_value * record.ipi_unit_quantity
+            else:
+                record.ipi_value = record.ipi_bc_value * record.ipi_tax_percent / 100
 
     # codigo de enquadramento
     # cst
@@ -2606,21 +2822,64 @@ class NFeDocumentLine(models.Model):
 
     # === Grupo P Imposto de Importação ===
 
+    is_ii_allowed = fields.Boolean(
+        string="Permite Imposto de Importação",
+        compute="_compute_is_ii_allowed",
+    )
+
+    @api.depends("cfop_code_id")
+    def _compute_is_ii_allowed(self):
+        for record in self:
+            if (
+                record.cfop_code_id.type_in_out == "in"
+                and record.cfop_code_id.destination == "3"
+            ):
+                record.is_ii_allowed = True
+            else:
+                record.is_ii_allowed = False
+
     ii_bc_value = fields.Float(
         string="Valor da Base de Calculo do Imposto de Importação",
         digits=(13, 2),
+        compute="_compute_ii_bc_value",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("is_ii_allowed")
+    def _compute_ii_bc_value(self):
+        for record in self:
+            if not record.is_ii_allowed:
+                record.ii_bc_value = False
 
     ii_custom_expenses_value = fields.Float(
         string="Valor das Despesas Aduanas e Alfandegárias",
         digits=(13, 2),
+        compute="_compute_ii_custom_expenses_value",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("is_ii_allowed")
+    def _compute_ii_custom_expenses_value(self):
+        for record in self:
+            if not record.is_ii_allowed:
+                record.ii_custom_expenses_value = False
 
     ii_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="Imposto de Importação",
         domain=[("tax_domain", "=", "ii")],
+        compute="_compute_ii_tax_id",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("is_ii_allowed")
+    def _compute_ii_tax_id(self):
+        for record in self:
+            if not record.is_ii_allowed:
+                record.ii_tax_id = False
 
     ii_tax_percent = fields.Float(
         related="ii_tax_id.percent_amount",
@@ -2641,7 +2900,10 @@ class NFeDocumentLine(models.Model):
     @api.depends("ii_bc_value", "ii_tax_percent")
     def _compute_ii_value(self):
         for record in self:
-            record.ii_value = record.ii_bc_value * record.ii_tax_percent / 100
+            if not record.is_ii_allowed:
+                record.ii_value = False
+            else:
+                record.ii_value = record.ii_bc_value * record.ii_tax_percent / 100
 
     @api.constrains("ii_tax_id", "ii_bc_value")
     def _check_ii_bc_value(self):
