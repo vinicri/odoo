@@ -3,8 +3,7 @@
   <record id="l10n_br_fiscal_product_template_form_view" model="ir.ui.view">
     <field name="name">l10n_br_fiscal.product.template.form</field>
     <field name="model">product.template</field>
-    <field name="mode">primary</field>
-    <field name="priority" eval="6" />
+    <field name="priority" eval="4" />
     <field name="inherit_id" ref="product.product_template_only_form_view"/>
     <field name="arch" type="xml">
       <xpath expr="//page[@name='sales']" position="before">
@@ -19,11 +18,46 @@
             <field name="fiscal_additional_information" />
           </group>
         </page>
+        <page name="manufacture" string="Manufacture">
+          <field name="bom_ids">
+            <list>
+              <field name="is_default_bom_for_product"/>
+              <field name="code"/>
+              <field name="type"/>
+              <field name="product_qty"/>
+              <field name="product_uom_id" groups="uom.group_uom"/>
+            </list>
+            <form>
+              <group>
+                <group>
+                  <field name="is_default_bom_for_product"/>
+                  <field name="code"/>
+                  <field name="type"/>
+                </group>
+                <group>
+                  <field name="product_qty"/>
+                  <field name="product_uom_id" groups="uom.group_uom"/>
+                </group>
+              </group>
+              <field name="bom_line_ids">
+                <list editable="bottom">
+                  <field name="sequence" widget="handle"/>
+                  <field name="product_id"/>
+                  <field name="product_qty"/>
+                  <field name="product_uom_id" groups="uom.group_uom"/>
+                </list>
+              </field>
+            </form>
+          </field>
+        </page>
       </xpath>
-      <xpath expr="//field[@name='barcode']" position="after">
-        <field name="no_barcode" />
+      <xpath expr="//field[@name='ncm_id']" position="after">
+        <xpath expr="//field[@name='barcode']" position="after">
+          <field name="no_barcode" />
+        </xpath>
       </xpath>
     </field>
+
   </record>
 
 </odoo>

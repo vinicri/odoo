@@ -1,4 +1,5 @@
 import logging
+from tkinter import EW
 
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError, UserError
@@ -10,6 +11,7 @@ from .constants import (
     NFE_DOCUMENT_MODEL,
     NFE_EMISSION_FINALITY,
     NFCE_VALID_CFOPS,
+    NFE_OPERATION_TYPE,
 )
 
 CFOP_IN_OUT = [("in", _("In")), ("out", _("Out"))]
@@ -42,7 +44,10 @@ class NFeDocumentLine(models.Model):
         comodel_name="l10n_br_nfe.nfe.document",
         string="NF-e",
         required=True,
+        ondelete="cascade",
     )
+
+    is_debug_mode = fields.Boolean(string="Debug mode", default=True, store=False)
 
     product_id = fields.Many2one("product.product", string="Produto", required=True)
 
@@ -149,7 +154,9 @@ class NFeDocumentLine(models.Model):
                         % record.product_description
                     )
                 )
-            if record.product_id.no_barcode and record.gtin:
+            if record.product_id.no_barcode and (
+                record.product_id.barcode or record.gtin != "SEM GTIN"
+            ):
                 raise ValidationError(
                     _(
                         "Item %s. O produto está marcado como 'Não possui código de barras' mas o código de barras foi informado."
@@ -174,7 +181,7 @@ class NFeDocumentLine(models.Model):
         compute="_compute_product_description",
     )
 
-    @api.depends("product_id", "product_id.name")
+    @api.depends("product_id.name")
     def _compute_product_description(self):
         for record in self:
             if record.product_id:
@@ -208,6 +215,8 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    # TODO o codigo nem sempre é obrigatório
+    # Em caso de item de serviço ou item que não tenham produto (ex. transferência de crédito, crédito do ativo imobilizado, etc.), informar o valor 00 (dois zeros). (NT 2014/004)
     @api.constrains("ncm_code")
     def _check_ncm_code(self):
         for record in self:
@@ -231,6 +240,7 @@ class NFeDocumentLine(models.Model):
                 )
 
     # Código CEST (Código Especificador da Substituição Tributária). Opcional.
+    # cest é obrigatório para os CST/CSONS com substituição tributária, mas essa validação está a cargo da SEFAZ no momento
     cest_code = fields.Char(
         related="product_id.cest_id.code",
         string="CEST",
@@ -255,17 +265,6 @@ class NFeDocumentLine(models.Model):
         - Operation type '1' (Saída) -> 'out'
         """
         for record in self:
-            print("operation_nature_id", record.operation_nature_id)
-            print("operation_nature_id.type", record.operation_nature_id.type)
-            print(
-                "operation_nature_id.type == '0'",
-                record.operation_nature_id.type == "0",
-            )
-            print(
-                "operation_nature_id.type == '1'",
-                record.operation_nature_id.type == "1",
-            )
-            print("record.cfop_type_in_out", record.cfop_type_in_out)
             if record.operation_nature_id:
                 if record.operation_nature_id.type == "0":
                     record.cfop_type_in_out = "in"
@@ -414,6 +413,17 @@ class NFeDocumentLine(models.Model):
                     _("A Quantidade de Venda deve ser maior ou igual a 0.")
                 )
 
+    @api.onchange("quantity")
+    def _onchange_quantity(self):
+        if self.quantity < 0:
+            self.quantity = 0
+            return {
+                "warning": {
+                    "title": "Valor inválido",
+                    "message": "A quantidade deve ser maior que zero.",
+                }
+            }
+
     # Valor Unitário de Comercialização do produto, informativo (0-10 decimais). [48, 49]
     unit_price = fields.Float(
         string="Valor Unitário",
@@ -431,6 +441,40 @@ class NFeDocumentLine(models.Model):
                 raise ValidationError(
                     _("O Valor Unitário deve ser maior ou igual a 0.")
                 )
+
+    is_production_fiscal_type = fields.Boolean(
+        compute="_compute_is_production_fiscal_type",
+        store=False,
+    )
+
+    @api.depends("product_id", "product_id.fiscal_type_id")
+    def _compute_is_production_fiscal_type(self):
+        for record in self:
+            record.is_production_fiscal_type = (
+                record.product_id.fiscal_type_id.code in ("03", "04")
+            )
+
+    @api.onchange("product_id")
+    def _onchange_product_id(self):
+        for record in self:
+            if record.product_id:
+                price_dict = record.product_id._price_compute("list_price")
+                record.unit_price = price_dict.get(record.product_id.id)
+            else:
+                record.unit_price = False
+            record.include_ipi_in_icms_bc = False
+
+    @api.onchange("unit_price")
+    def _onchange_unit_price(self):
+        for record in self:
+            if record.unit_price and record.unit_price < 0:
+                record.unit_price = 0
+                return {
+                    "warning": {
+                        "title": _("Aviso"),
+                        "message": _("O Valor Unitário deve ser maior ou igual a 0."),
+                    }
+                }
 
     unit_discount_value = fields.Float(
         string="Valor de desconto por unidade",
@@ -464,6 +508,20 @@ class NFeDocumentLine(models.Model):
                         ),
                     }
                 }
+
+    @api.constrains("unit_discount_value")
+    def _check_unit_discount_value(self):
+        for record in self:
+            if record.unit_discount_value > record.unit_price:
+                raise ValidationError(
+                    _(
+                        "O Valor de Desconto por Unidade deve ser menor ou igual ao Valor Unitário."
+                    )
+                )
+            elif record.unit_discount_value < 0:
+                raise ValidationError(
+                    _("O Valor de Desconto por Unidade deve ser maior ou igual a 0.")
+                )
 
     unit_discount_percent = fields.Float(
         string="Percentual de desconto por unidade",
@@ -499,14 +557,21 @@ class NFeDocumentLine(models.Model):
                     }
                 }
 
-    @api.onchange("product_id")
-    def _onchange_product_id(self):
+    @api.constrains("unit_discount_percent")
+    def _check_unit_discount_percent(self):
         for record in self:
-            if record.product_id:
-                price_dict = record.product_id._price_compute("list_price")
-                record.unit_price = price_dict.get(record.product_id.id)
-            else:
-                record.unit_price = False
+            if record.unit_discount_percent > 100:
+                raise ValidationError(
+                    _(
+                        "O Percentual de Desconto por Unidade deve ser menor ou igual a 100%."
+                    )
+                )
+            elif record.unit_discount_percent < 0:
+                raise ValidationError(
+                    _(
+                        "O Percentual de Desconto por Unidade deve ser maior ou igual a 0%."
+                    )
+                )
 
     # Valor Total Bruto do Produto/Serviço.
     # Somente o valor do produto vezes a quantidade. Não inclui o valor do desconto, do frete, do seguro, etc.
@@ -542,12 +607,17 @@ class NFeDocumentLine(models.Model):
     # Para produtos que não possuem código de barras com GTIN, deve ser informado o literal "SEM GTIN”
     # Obrigatório.
     gtin_trib = fields.Char(
-        related="product_id.barcode",
+        compute="_compute_gtin_trib",
         string="GTIN da Unidade Tributável",
         store=True,
         size=14,
         readonly=True,
     )
+
+    @api.depends("gtin")
+    def _compute_gtin_trib(self):
+        for record in self:
+            record.gtin_trib = record.gtin
 
     @api.constrains("gtin_trib")
     def _check_gtin_trib(self):
@@ -621,7 +691,7 @@ class NFeDocumentLine(models.Model):
         compute="_compute_discount_value",
     )
 
-    @api.depends("unit_discount_value", "unit_discount_percent", "quantity")
+    @api.depends("unit_discount_value", "quantity")
     def _compute_discount_value(self):
         for record in self:
             record.discount_value = record.unit_discount_value * record.quantity
@@ -655,6 +725,12 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    operation_type = fields.Selection(
+        NFE_OPERATION_TYPE,
+        string="Tipo de Operação",
+        readonly=True,
+    )
+
     destination_id = fields.Selection(
         DESTINATION_ID,
         string="Identificador de Local de Destino",
@@ -671,9 +747,25 @@ class NFeDocumentLine(models.Model):
     emission_finality = fields.Selection(
         NFE_EMISSION_FINALITY,
         string="Finalidade da Emissão",
-        required=True,
         readonly=True,
     )
+
+    def _is_issuer_simples_nacional(self):
+        return self.issuer_id.fiscal_framework in ("1", "2")
+
+    def _issuer_contributes_to_ipi(self):
+        return self.issuer_id.ipi_contributes
+
+    is_simples_nacional = fields.Boolean(
+        string="Simples Nacional",
+        compute="_compute_is_simples_nacional",
+        readonly=True,
+    )
+
+    @api.depends("issuer_id", "issuer_id.fiscal_framework")
+    def _compute_is_simples_nacional(self):
+        for record in self:
+            record.is_simples_nacional = record._is_issuer_simples_nacional()
 
     # ===  impostos ===
 
@@ -691,14 +783,12 @@ class NFeDocumentLine(models.Model):
         tax_group_icmssn = self.env.ref("l10n_br_fiscal.tax_group_icmssn")
         tax_group_icms = self.env.ref("l10n_br_fiscal.tax_group_icms")
         for record in self:
-            print(record.emission_finality)
-            print(record.issuer_id.fiscal_framework)
             if record.emission_finality == "4":
                 # Devolução: permite tanto ICMSSN quanto ICMS
                 record.icms_allowed_tax_group_ids = tax_group_icms | tax_group_icmssn
             elif not record.issuer_id or not record.issuer_id.fiscal_framework:
                 record.icms_allowed_tax_group_ids = False  # empty recordset
-            elif record.issuer_id.fiscal_framework in ("1", "2"):
+            elif record.is_simples_nacional:
                 record.icms_allowed_tax_group_ids = tax_group_icmssn
             else:
                 record.icms_allowed_tax_group_ids = tax_group_icms
@@ -709,7 +799,6 @@ class NFeDocumentLine(models.Model):
         related="product_id.icms_origin_id.code",
         string="Origem da Mercadoria",
         size=1,
-        # required=True,
         store=True,
         readonly=True,
     )
@@ -765,7 +854,7 @@ class NFeDocumentLine(models.Model):
         related="icms_tax_id.cst_out_id",
         string="CST ICMS",
         readonly=True,
-        # required=True,
+        store=True,
     )
 
     @api.constrains("icms_cst_id")
@@ -828,7 +917,25 @@ class NFeDocumentLine(models.Model):
                     )
                 )
 
-    # todo colocar na definicao do imposto tax
+    has_icms_own_operation = fields.Boolean(
+        string="Modalidade da Base de Calculo Permitida",
+        compute="_compute_has_icms_own_operation",
+    )
+
+    @api.depends("icms_cst_code")
+    def _compute_has_icms_own_operation(self):
+        for record in self:
+            record.has_icms_own_operation = record.icms_cst_code in (
+                "00",
+                "10",
+                "20",
+                "51",
+                "70",
+                "90",
+                "900",
+            )
+
+    # todo colocar na definicao do imposto tax (talvez nao)
     icms_bc_modality = fields.Selection(
         string="Modalidade da Base de Calculo",
         selection=[
@@ -837,15 +944,53 @@ class NFeDocumentLine(models.Model):
             ("2", "Preço Tabelado Máximo (valor)"),
             ("3", "Valor da Operação"),
         ],
+        compute="_compute_icms_bc_modality",
+        readonly=False,
+        store=True,
     )
 
-    # TODO checar se obrigatorio para esses CSTs: 00, 10, 20
+    @api.depends("icms_cst_code")
+    def _compute_icms_bc_modality(self):
+        for record in self:
+            if record.icms_cst_code in (
+                "101",
+                "102",
+                "103",
+                "201",
+                "202",
+                "203",
+                "300",
+                "400",
+                "500",
+                "900",
+            ):
+                record.icms_bc_modality = False
+            # 30 - isenta ou nao tributada com cobrança de ICMS por ST
+            # 40 - isenta
+            # 41 - nao tributada
+            # 50 - suspensao
+            # 60 - tributada anteriormente por ST
+            elif record.icms_cst_code in ("30", "40", "41", "50", "51", "60", "90"):
+                record.icms_bc_modality = False
+            elif record.icms_cst_code in ("00", "10", "20", "70"):
+                record.icms_bc_modality = "0"
+
     @api.constrains("icms_bc_modality")
     def _check_icms_bc_modality(self):
         for record in self:
             if (
                 record.icms_cst_code
-                in ("101", "102", "103", "201", "202", "203", "300", "400", "500")
+                in (
+                    "101",
+                    "102",
+                    "103",
+                    "201",
+                    "202",
+                    "203",
+                    "300",
+                    "400",
+                    "500",
+                )
                 and record.icms_bc_modality
             ):
                 raise ValidationError(
@@ -858,18 +1003,72 @@ class NFeDocumentLine(models.Model):
                 "00",
                 "10",
                 "20",
+                "70",
             ):
                 raise ValidationError(
                     _(
-                        f"A modalidade da base de calculo do ICMS é invalido para o item da nota fiscal: {record.product_description}."
+                        f"A modalidade da base de calculo do ICMS deve ser informada para o item da nota fiscal quando o CST for {record.icms_cst_code}: {record.product_description}."
                     )
                 )
 
-    # no simples é utilizado para devolucao de mercadoria
+    include_ipi_in_icms_bc = fields.Boolean(
+        string="Incluir IPI na BC do ICMS",
+        default=False,
+    )
+
+    is_icms_cst_90_900 = fields.Boolean(
+        string="É CST 90 ou 900",
+        compute="_compute_is_icms_cst_90_900",
+    )
+
+    @api.depends("icms_cst_code")
+    def _compute_is_icms_cst_90_900(self):
+        for record in self:
+            record.is_icms_cst_90_900 = record.icms_cst_code in ("90", "900")
+
     icms_bc_value = fields.Float(
         string="Valor da Base de Calculo",
         digits=(13, 2),
+        required=True,
+        compute="_compute_icms_bc_value",
+        store=True,
     )
+
+    # ainda não cobre a base de calculo da importação
+    @api.depends(
+        "has_icms_own_operation",
+        "icms_cst_code",
+        "icms_bc_reduction_percent",
+        "total_value",
+        "freight_value",
+        "insurance_value",
+        "other_expenses_value",
+        "discount_value",
+        "ipi_value",
+        "include_ipi_in_icms_bc",
+    )
+    def _compute_icms_bc_value(self):
+        for record in self:
+            if not record.has_icms_own_operation:
+                record.icms_bc_value = 0
+            else:
+                ipi_value = record.ipi_value if record.include_ipi_in_icms_bc else 0
+                standard_base = (
+                    record.total_value
+                    + record.freight_value
+                    + record.insurance_value
+                    + record.other_expenses_value
+                    - record.discount_value
+                    + ipi_value
+                )
+                if record.icms_cst_code in ("00", "10"):
+                    record.icms_bc_value = standard_base
+                elif record.icms_cst_code in ("20", "70", "51", "90", "900"):
+                    record.icms_bc_value = (
+                        standard_base * (1 - record.icms_bc_reduction_percent / 100)
+                        if record.icms_bc_reduction_percent
+                        else standard_base
+                    )
 
     @api.constrains("icms_bc_value")
     def _check_icms_bc_value(self):
@@ -884,7 +1083,21 @@ class NFeDocumentLine(models.Model):
                         f"O CSOSN {record.icms_cst_code} não admite informar o valor da base de calculo do ICMS para o item da nota fiscal: {record.product_description}."
                     )
                 )
-            if record.icms_bc_value and record.icms_bc_value <= 0:
+            # 30 - isenta ou nao tributada com cobrança de ICMS por ST
+            # 40 - isenta
+            # 41 - nao tributada
+            # 50 - suspensao
+            # 60 - tributada anteriormente por ST
+            elif (
+                record.icms_cst_code in ("30", "40", "41", "50", "60")
+                and record.icms_bc_modality
+            ):
+                raise ValidationError(
+                    _(
+                        f"O ICMS CST {record.icms_cst_code} não admite informar a modalidade da base de calculo do ICMS para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+            if record.icms_bc_value < 0:
                 raise ValidationError(
                     _(
                         f"O valor da base de calculo do ICMS é invalido para o item da nota fiscal: {record.product_description}."
@@ -909,24 +1122,60 @@ class NFeDocumentLine(models.Model):
     #             - record.discount_value
     #         )
 
-    icms_bc_reduction_percent = fields.Float(
-        string="Percentual de Redução da Base de Calculo", digits=(3, 4)
+    is_icms_base_reduction_allowed = fields.Boolean(
+        string="Permitido redução da base de calculo do ICMS",
+        compute="_compute_is_icms_cst_20_70",
     )
 
-    @api.constrains("icms_bc_reduction_percent")
+    @api.depends("icms_cst_code")
+    def _compute_is_icms_cst_20_70(self):
+        for record in self:
+            record.is_icms_base_reduction_allowed = record.icms_cst_code in (
+                "20",
+                "70",
+                "51",
+                "90",
+                "900",
+            )
+
+    icms_bc_reduction_percent = fields.Float(
+        string="Percentual de Redução da Base de Calculo",
+        digits=(3, 4),
+        compute="_compute_icms_bc_reduction_percent",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("is_icms_base_reduction_allowed")
+    def _compute_icms_bc_reduction_percent(self):
+        for record in self:
+            if not record.is_icms_base_reduction_allowed:
+                record.icms_bc_reduction_percent = False
+
+    @api.constrains("is_icms_base_reduction_allowed")
     def _check_icms_bc_reduction_percent(self):
         for record in self:
             if (
-                record.icms_cst_code
-                in ("101", "102", "103", "201", "202", "203", "300", "400", "500")
-                and record.icms_bc_reduction_percent
+                record.icms_bc_reduction_percent
+                and not record.is_icms_base_reduction_allowed
             ):
                 raise ValidationError(
                     _(
-                        f"O CSOSN {record.icms_cst_code} não admite informar o percentual de redução da base de calculo do ICMS para o item da nota fiscal: {record.product_description}."
+                        f"O ICMS CST {record.icms_cst_code} não admite informar o percentual de redução da base de calculo do ICMS para o item da nota fiscal: {record.product_description}."
                     )
                 )
-            if (
+            # 20 - Com redução de base de cálculo
+            # 70 - Com redução de BC e cobrança de ICMS por ST
+            elif (
+                record.icms_cst_code in ("20", "70")
+                and not record.icms_bc_reduction_percent
+            ):
+                raise ValidationError(
+                    _(
+                        f"Para o ICMS CST {record.icms_cst_code} é obrigatório informar o percentual de redução da base de calculo do ICMS para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+            elif (
                 record.icms_bc_reduction_percent
                 and record.icms_bc_reduction_percent <= 0
             ):
@@ -940,11 +1189,11 @@ class NFeDocumentLine(models.Model):
         related="icms_tax_id.percent_amount",
         string="Aliquota",
         digits=(3, 4),
-        readonly=False,
+        readonly=True,
         store=True,
     )
 
-    @api.constrains("icms_tax_percent")
+    @api.constrains("icms_tax_percent", "icms_cst_code")
     def _check_icms_tax_percent(self):
         for record in self:
             if (
@@ -957,52 +1206,150 @@ class NFeDocumentLine(models.Model):
                         f"O CSOSN {record.icms_cst_code} não admite informar a aliquota do ICMS para o item da nota fiscal: {record.product_description}."
                     )
                 )
-            if record.icms_tax_percent and record.icms_tax_percent <= 0:
+            # 30 - isenta ou nao tributada com cobrança de ICMS por ST
+            # 40 - isenta
+            # 41 - nao tributada
+            # 50 - suspensao
+            # 60 - tributada anteriormente por ST
+            elif (
+                record.icms_cst_code in ("30", "40", "41", "50", "60")
+                and record.icms_tax_percent
+            ):
+                raise ValidationError(
+                    _(
+                        f"O ICMS CST {record.icms_cst_code} não admite informar a aliquota do ICMS para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+            # 00 - Tributada integralmente
+            # 10 - Tributada e com cobrança do ICMS por substituição tributária
+            # 20 - Com redução de base de cálculo
+            # 70 - Com redução de BC e cobrança de ICMS por ST
+            elif (
+                record.icms_cst_code in ("00", "10", "20", "70")
+                and not record.icms_tax_percent
+            ):
+                raise ValidationError(
+                    _(
+                        f"Para o ICMS CST {record.icms_cst_code} falta a aliquota do ICMS para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+            elif record.icms_tax_percent and record.icms_tax_percent <= 0:
                 raise ValidationError(
                     _(
                         f"A aliquota do ICMS é invalido para o item da nota fiscal: {record.product_description}."
                     )
                 )
 
+    is_deferment_cst = fields.Boolean(
+        string="É CST com Diferimento",
+        compute="_compute_is_deferment_cst",
+    )
+
+    @api.depends("icms_cst_code")
+    def _compute_is_deferment_cst(self):
+        for record in self:
+            record.is_deferment_cst = record.icms_cst_code == "51"
+
     icms_deferment_percent = fields.Float(
         string="Percentual de Diferimento", digits=(3, 4)
     )
 
+    @api.onchange("icms_cst_code", "icms_deferment_percent")
+    def _onchange_icms_deferment_percent(self):
+        for record in self:
+            if record.icms_cst_code != "51":
+                record.icms_deferment_percent = False
+
+    # 51 tributação com diferimento
     @api.constrains("icms_deferment_percent")
     def _check_icms_deferment_percent(self):
         for record in self:
-            if (
-                record.icms_cst_code
-                in ("101", "102", "103", "201", "202", "203", "300", "400", "500")
-                and record.icms_deferment_percent
-            ):
+            if record.icms_cst_code != "51" and record.icms_deferment_percent:
                 raise ValidationError(
                     _(
                         f"O CSOSN {record.icms_cst_code} não admite informar o percentual de diferimento do ICMS para o item da nota fiscal: {record.product_description}."
                     )
                 )
 
-    icms_deferment_value = fields.Float(string="Valor do Diferimento", digits=(13, 2))
+            elif record.icms_deferment_percent and (
+                record.icms_deferment_percent <= 0
+                or record.icms_deferment_percent > 100
+            ):
+                raise ValidationError(
+                    _(
+                        f"O percentual de diferimento do ICMS é invalido para o item da nota fiscal: {record.product_description}."
+                    )
+                )
 
-    @api.constrains("icms_deferment_value")
+    icms_deferment_value = fields.Float(
+        string="Valor do Diferimento",
+        digits=(13, 2),
+        compute="_compute_icms_deferment_value",
+        readonly=False,
+        store=True,
+    )
+
+    @api.depends("icms_cst_code", "icms_deferment_value")
+    def _compute_icms_deferment_value(self):
+        for record in self:
+            if record.icms_cst_code == "51":
+                record.icms_deferment_value = (
+                    record.icms_value * record.icms_deferment_percent / 100
+                )
+            else:
+                record.icms_deferment_value = False
+
+    @api.constrains("icms_deferment_value", "icms_cst_code")
     def _check_icms_deferment_value(self):
         for record in self:
-            if (
-                record.icms_cst_code
-                in ("101", "102", "103", "201", "202", "203", "300", "400", "500")
-                and record.icms_deferment_value
-            ):
+            if record.icms_cst_code == "51" and record.icms_deferment_value:
                 raise ValidationError(
                     _(
                         f"O CSOSN {record.icms_cst_code} não admite informar o valor do diferimento do ICMS para o item da nota fiscal: {record.product_description}."
                     )
                 )
+            elif record.icms_deferment_value and record.icms_deferment_value <= 0:
+                raise ValidationError(
+                    _(
+                        f"O valor do diferimento do ICMS é invalido para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+
+    icms_deferment_payable = fields.Float(
+        string="Valor do ICMS Diferido",
+        digits=(13, 2),
+        compute="_compute_icms_deferment_payable",
+        readonly=False,
+        store=True,
+    )
+
+    @api.depends("icms_value", "icms_deferment_value")
+    def _compute_icms_deferment_payable(self):
+        for record in self:
+            record.icms_deferment_payable = (
+                record.icms_value - record.icms_deferment_value
+            )
 
     icms_value = fields.Float(
         string="Valor do ICMS",
         digits=(13, 2),
-        # compute="_compute_icms_value",
+        compute="_compute_icms_value",
+        readonly=False,
+        store=True,
     )
+
+    @api.depends("icms_bc_value", "icms_tax_percent")
+    def _compute_icms_value(self):
+        for record in self:
+            # 00 - Tributada integralmente
+            # 10 - Tributada e com cobrança do ICMS por substituição tributária
+            # 20 - Com redução de base de cálculo
+            # 70 - Com redução de BC e cobrança de ICMS por ST
+            # 51 - tributação com diferimento (esse valor vai corresponder vICMSOp no XML (valor do ICMS como se nao tivesse diferimento), ao invés do vICMS)
+            if record.icms_cst_code in ("00", "10", "20", "70", "51", "90", "900"):
+                record.icms_value = record.icms_bc_value * record.icms_tax_percent / 100
+            else:
+                record.icms_value = False
 
     @api.constrains("icms_value")
     def _check_icms_value(self):
@@ -1017,6 +1364,15 @@ class NFeDocumentLine(models.Model):
                         f"O CSOSN {record.icms_cst_code} não admite informar o valor do ICMS para o item da nota fiscal: {record.product_description}."
                     )
                 )
+            elif (
+                record.icms_cst_code in ("30", "40", "41", "50", "60")
+                and record.icms_value
+            ):
+                raise ValidationError(
+                    _(
+                        f"O ICMS CST {record.icms_cst_code} não admite informar o valor do ICMS para o item da nota fiscal: {record.product_description}."
+                    )
+                )
             if record.icms_value and record.icms_value <= 0:
                 raise ValidationError(
                     _(
@@ -1024,387 +1380,14 @@ class NFeDocumentLine(models.Model):
                     )
                 )
 
-    @api.constrains(
-        "icms_bc_modality", "icms_bc_value", "icms_tax_percent", "icms_value"
-    )
-    def _check_icms_value_required(self):
-        for record in self:
-            if record.icms_cst_code != "900":
-                continue
-
-            icms_fields = [
-                record.icms_bc_modality,
-                record.icms_bc_value,
-                record.icms_tax_percent,
-                record.icms_value,
-            ]
-
-            # If any ICMS field is set, all fields must be set
-            if any(icms_fields) and not all(icms_fields):
-                raise ValidationError(
-                    _(
-                        f"Para o CSOSN 900 se o grupo do ICMS for informado, é obrigatório "
-                        f"informar a modalidade da base de calculo, valor da base de calculo, "
-                        f"aliquota do ICMS e valor do ICMS. Validação referente ao item da nota "
-                        f"fiscal: {record.product_description}."
-                    )
-                )
-
-    # def _compute_icms_value(self):
-    #     for record in self:
-    #         record.icms_value = False
-    # icms_group = self.env.ref("l10n_br_fiscal.tax_group_icms")
-    # icms_st_group = self.env.ref("l10n_br_fiscal.tax_group_icmsst")
-    # for record in self:
-    #     if (
-    #         record.icms_tax_id.tax_group_id == icms_group
-    #         or record.icms_tax_id.tax_group_id == icms_st_group
-    #     ) and self.icms_bc_modality == "3":
-    #         record.icms_value = (
-    #             record.icms_tax_id.percent_amount * record.icms_bc_value / 100
-    #         )
-    #     else:
-    #         record.icms_value = False
-
-    def _domain_icms_fcp_tax_id(self):
-        return [
-            ("tax_group_id", "=", self.env.ref("l10n_br_fiscal.tax_group_icmsfcp").id)
-        ]
-
-    icms_fcp_tax_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.tax",
-        string="FCP",
-        domain=_domain_icms_fcp_tax_id,
-        # compute="_compute_icms_fcp_tax_id",
-    )
-
-    # @api.depends("icms_tax_id")
-    # def _compute_icms_fcp_tax_id(self):
-    #     icms_sn_group = self.env.ref("l10n_br_fiscal.tax_group_icmssn")
-    #     for record in self:
-    #         if record.icms_tax_id and record.icms_tax_id.tax_group_id == icms_sn_group:
-    #             record.icms_fcp_tax_id = False
-
-    icms_fcp_tax_percent = fields.Float(
-        related="icms_fcp_tax_id.percent_amount",
-        string="Aliquota do FCP",
-        digits=(3, 4),
-        store=True,
-        readonly=True,
-    )
-
-    icms_fcp_bc_value = fields.Float(string="BC FCP`", digits=(13, 2))
-
-    icms_fcp_value = fields.Float(
-        string="Valor do FCP", digits=(13, 2), compute="_compute_icms_fcp_value"
-    )
-
-    @api.depends("icms_fcp_tax_id", "icms_fcp_bc_value")
-    def _compute_icms_fcp_value(self):
-        for record in self:
-            record.icms_fcp_value = False
-
-    icms_sn_credit_percent = fields.Float(
-        string="Aliquota de Crédito do ICMS SN",
-        digits=(13, 2),
-    )
-
-    @api.constrains("icms_sn_credit_percent")
-    def _check_icms_sn_credit_percent(self):
-        for record in self:
-            if not record.icms_cst_code in ("101", "201"):
-                raise ValidationError(
-                    _(
-                        f"O CSOSN {record.icms_cst_code} não admite informar a aliquota"
-                        f" do crédito do ICMS SN ou o valor do crédito do ICMS SN. "
-                        f"Validação referente ao item da nota fiscal: {record.product_description}."
-                    )
-                )
-
-    icms_sn_credit_value = fields.Float(
-        string="Valor do Crédito",
-        digits=(13, 2),
-    )
-
-    @api.constrains("icms_sn_credit_value")
-    def _check_icms_sn_credit_value(self):
-        for record in self:
-            if not record.icms_cst_code in ("101", "201", "900"):
-                raise ValidationError(
-                    _(
-                        f"O CSOSN {record.icms_cst_code} não admite informar o valor do crédito do ICMS SN. "
-                        f"Validação referente ao item da nota fiscal: {record.product_description}."
-                    )
-                )
-
-    @api.constrains("icms_sn_credit_percent", "icms_sn_credit_value")
-    def _check_icms_sn_credit_required(self):
-        for record in self:
-            if record.icms_cst_code != "900":
-                continue
-
-            icms_sn_credit_fields = [
-                record.icms_sn_credit_percent,
-                record.icms_sn_credit_value,
-            ]
-
-            if any(icms_sn_credit_fields) and not all(icms_sn_credit_fields):
-                raise ValidationError(
-                    _(
-                        f"Para o CSOSN {record.icms_cst_code} se o grupo do ICMS SN for informado, é obrigatório "
-                        f"informar a aliquota de crédito do ICMS SN ou o valor do crédito do ICMS SN. Validação referente ao item da nota "
-                        f"fiscal: {record.product_description}."
-                    )
-                )
-
-    # @api.depends("icms_tax_id")
-    # def _compute_icms_sn_credit(self):
-    #     for record in self:
-    #         record.icms_sn_credit_percent = False
-    #         record.icms_sn_credit_value = False
-    # icms_sn_credit_tax = self.env.ref("l10n_br_fiscal.tax_icms_sn_com_credito")
-    # icms_sn_credit_tax_st = self.env.ref(
-    #     "l10n_br_fiscal.tax_icms_sn_com_credito_st"
-    # )
-    # for record in self:
-    #     if record.icms_tax_id not in (
-    #         icms_sn_credit_tax,
-    #         icms_sn_credit_tax_st,
-    #     ):
-    #         record.icms_sn_credit_percent = False
-    #         record.icms_sn_credit_value = False
-
-    # ===  icms ===
-    # origem de marcadoria 0-8
-    # CST
-    # modalide da base de calculo
-    # valor da base de calculo
-    # percentual de reducao da base de calculo
-    # percentual do diferimento pra caso de icms defirido
-    # valor do icms diferido
-    # aliquota do ICMS
-    # valor ICMS
-    # base de calcuo FCP
-    # FCP aliquota
-    # FCP valor
-
-    # simples nacional
-    # csosn
-    # aliquota de credito
-    # valor credito icms
-
-    # CST 60 e CSOSN 500 - grupos opcionais nao implementados ICMS cobrado antiriorment por ST
-    # valor da BC do icms st retido  - CTS 60 Tributação ICMS cobrado anteriormente por substituição tributária
-    # aliquota suportada pelo consumidor final - CTS 60  Deve ser informada a alíquota do cálculo do ICMS-ST, já incluso o FCP caso incida sobre a mercadoria. Exemplo: alíquota da mercadoria na venda ao consumidor final = 18% e 2% de FCP. A alíquota a ser informada no campo pST deve ser 20%. (Atualizado NT2016.002)
-    # valor do icms do subistituto - CTS 60 Tributação ICMS cobrado anteriormente por substituição tributária Valor do ICMS Próprio do Substituto cobrado em operação anterior (Criado na NT 2018.005. Atualizado na 2018.005 v1.20)
-    # valor do icms st retido -  CST 60 Valor do ICMS ST cobrado anteriormente por ST (v2.0). O valor pode ser omitido quando a legislação não exigir a sua informação. (NT 2011/004)
-    # BC FCP retido pro ST - CST 60 Informar o valor da Base de Cálculo do FCP retido anteriormente por ST
-    # valor do FCP retido pro ST - CST 60 Informar o valor do FCP retido anteriormente por ST
-    # aliquota do FCP retido pro ST - CST 60 Informar a alíquota do FCP retido anteriormente por ST
-
-    # === ICMS ST ===
-
-    icms_st_modality = fields.Selection(
-        string="Modalidade da Base de Calculo do ICMS ST",
-        selection=[
-            ("0", "Preço tabelado ou máximo sugerido"),
-            ("1", "Lista Negativa (valor)"),
-            ("2", "Lista Positiva (valor)"),
-            ("3", "Lista Neutra (valor)"),
-            ("4", "Margem Valor Agregado (%)"),
-            ("5", "Pauta (valor)"),
-            ("6", "Valor da operação"),
-        ],
-    )
-
-    @api.constrains("icms_st_modality")
-    def _check_icms_st_modality(self):
-        for record in self:
-            if record.icms_cst_code in ("201", "202", "203"):
-                if not record.icms_st_modality:
-                    raise ValidationError(
-                        f"Produto: {record.product_description} - Modalidade da Base de Calculo do ICMS ST é obrigatório pro CST {record.icms_cst_code}."
-                    )
-                else:
-                    if record.icms_st_modality not in ("0", "1", "2", "3", "4", "5"):
-                        raise ValidationError(
-                            f"Produto: {record.product_description} - Modalidade da Base de Calculo do ICMS ST é inválida para o CST {record.icms_cst_code}: {record.icms_st_modality}."
-                        )
-
-    icms_st_mva_percent = fields.Float(string="MVA ICMS ST", digits=(3, 4))
-
-    @api.constrains("icms_st_mva_percent")
-    def _check_icms_st_mva_percent(self):
-        for record in self:
-            if record.icms_st_modality == "4" and record.icms_st_mva_percent <= 0:
-                raise ValidationError(
-                    f"Produto: {record.product_description} - MVA ICMS ST deve ser maior que 0 para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%) {record.icms_st_modality}."
-                )
-
-    icms_st_reduction_percent = fields.Float(
-        string="Percentual de Redução da Base de Calculo do ICMS ST", digits=(3, 4)
-    )
-
-    icms_st_bc_value = fields.Float(
-        string="Valor da Base de Calculo do ICMS ST", digits=(13, 2)
-    )
-
-    @api.constrains("icms_st_bc_value")
-    def _check_icms_st_bc_value(self):
-        for record in self:
-            if (
-                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
-                and record.icms_st_bc_value <= 0
-            ):
-                if record.icms_st_bc_value <= 0:
-                    raise ValidationError(
-                        f"Produto: {record.product_description} - Valor da Base de Calculo do ICMS ST deve ser maior que 0 para o CST {record.icms_cst_code}."
-                    )
-
-    icms_st_tax_percent = fields.Float(string="Aliquota do ICMS ST", digits=(3, 4))
-
-    @api.constrains("icms_st_tax_percent")
-    def _check_icms_st_tax_percent(self):
-        for record in self:
-            if (
-                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
-                and record.icms_st_tax_percent <= 0
-            ):
-                raise ValidationError(
-                    f"Produto: {record.product_description} - Aliquota do ICMS ST deve ser maior que 0 para o CST {record.icms_cst_code}."
-                )
-
-    icms_st_value = fields.Float(string="Valor do ICMS ST", digits=(13, 2))
-
-    @api.constrains("icms_st_value")
-    def _check_icms_st_value(self):
-        for record in self:
-            if (
-                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
-                and record.icms_st_value <= 0
-            ):
-                raise ValidationError(
-                    f"Produto: {record.product_description} - Valor do ICMS ST deve ser maior que 0 para o CST {record.icms_cst_code}."
-                )
-
-    def _domain_icms_st_fcp_tax_id(self):
-        return [
-            (
-                "tax_group_id",
-                "=",
-                self.env.ref("l10n_br_fiscal.tax_group_icmsfcp_st").id,
-            )
-        ]
-
-    icms_st_fcp_tax_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.tax",
-        string="FCP ST",
-        domain=_domain_icms_st_fcp_tax_id,
-    )
-
-    @api.constrains("icms_st_fcp_tax_id")
-    def _check_icms_st_fcp_tax_id(self):
-        for record in self:
-            if record.icms_tax_id.cst_out_id.code in ("201", "202", "203"):
-                if not record.icms_st_fcp_tax_id:
-                    raise ValidationError(
-                        f"Produto: {record.product_description} - FCP ST deve ser informado para o CST {record.icms_cst_code}."
-                    )
-
-    @api.constrains(
-        "icms_st_modality", "icms_st_bc_value", "icms_st_tax_percent", "icms_st_value"
-    )
-    def _check_icms_st_required(self):
-        for record in self:
-            if record.icms_cst_code != "900":
-                continue
-
-            icms_st_fields = [
-                record.icms_st_modality,
-                record.icms_st_bc_value,
-                record.icms_st_tax_percent,
-                record.icms_st_value,
-            ]
-
-            # If any ICMS field is set, all fields must be set
-            if any(icms_st_fields) and not all(icms_st_fields):
-                raise ValidationError(
-                    _(
-                        f"Para o CSOSN 900 se o grupo do ICMS ST for informado, é obrigatório "
-                        f"informar a modalidade da base de calculo ST, valor da base de calculo ST, "
-                        f"aliquota do ICMS ST e valor do ICMS ST. Validação referente ao item da nota "
-                        f"fiscal: {record.product_description}."
-                    )
-                )
-
-    icms_st_fcp_tax_percent = fields.Float(
-        related="icms_st_fcp_tax_id.percent_amount",
-        string="Aliquota do FCP ST",
-        digits=(13, 2),
-        store=True,
-    )
-
-    @api.constrains("icms_st_fcp_tax_percent")
-    def _check_icms_st_fcp_tax_percent(self):
-        for record in self:
-            if (
-                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
-                and record.icms_st_fcp_tax_percent <= 0
-            ):
-                raise ValidationError(
-                    f"Produto: {record.product_description} - Aliquota do FCP ST deve ser maior que 0 para o CST {record.icms_cst_code}."
-                )
-
-    icms_st_fcp_bc_value = fields.Float(
-        string="Valor da Base de Calculo do FCP ST", digits=(13, 2)
-    )
-
-    @api.constrains("icms_st_fcp_bc_value")
-    def _check_icms_st_fcp_bc_value(self):
-        for record in self:
-            if (
-                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
-                and record.icms_st_fcp_bc_value <= 0
-            ):
-                raise ValidationError(
-                    f"Produto: {record.product_description} - Valor da Base de Calculo do FCP ST deve ser maior que 0 para o CST {record.icms_cst_code}."
-                )
-
-    icms_st_fcp_value = fields.Float(string="Valor do FCP ST", digits=(13, 2))
-
-    @api.constrains("icms_st_fcp_value")
-    def _check_icms_st_fcp_value(self):
-        for record in self:
-            if (
-                record.icms_tax_id.cst_out_id.code in ("201", "202", "203")
-                and record.icms_st_fcp_value <= 0
-            ):
-                raise ValidationError(
-                    f"Produto: {record.product_description} - Valor do FCP ST deve ser maior que 0 para o CST {record.icms_cst_code}."
-                )
-
-    @api.constrains(
-        "icms_st_fcp_tax_percent", "icms_st_fcp_bc_value", "icms_st_fcp_value"
-    )
-    def _check_icms_st_fcp_required(self):
-        for record in self:
-            if record.icms_cst_code != "900":
-                continue
-
-            icms_st_fcp_fields = [
-                record.icms_st_fcp_tax_percent,
-                record.icms_st_fcp_bc_value,
-                record.icms_st_fcp_value,
-            ]
-
-            if any(icms_st_fcp_fields) and not all(icms_st_fcp_fields):
-                raise ValidationError(
-                    _(
-                        f"Para o CSOSN 900 se o grupo do FCP ST for informado, é obrigatório "
-                        f"informar a aliquota do FCP ST, valor da base de calculo do FCP ST e valor do FCP ST. Validação referente ao item da nota "
-                        f"fiscal: {record.product_description}."
-                    )
-                )
+    # ICMS desonerado, apenas deve ser informado para os seguintes CSTs:
+    # 20 - isenta ou nao tributada com cobrança de ICMS por ST
+    # 30 - isenta
+    # 40 - isenta
+    # 41 - nao tributada
+    # 50 - suspensao
+    # 70 - com redução de base de calculo e cobrança de ICMS por ST
+    # 90 - outros
 
     icms_deson_enabled = fields.Boolean(
         string="ICMS Desoneração Habilitado",
@@ -1440,10 +1423,32 @@ class NFeDocumentLine(models.Model):
                 record.icms_deson_value = 0.0
                 record.icms_deson_reason = False
 
+    is_imunne_cst = fields.Boolean(
+        string="É CST Imune",
+        compute="_compute_is_imunne_cst",
+        store=False,
+    )
+
+    @api.depends("icms_cst_id")
+    def _compute_is_imunne_cst(self):
+        for record in self:
+            record.is_imunne_cst = record.icms_cst_id.code in ("40", "41", "50")
+
     icms_deson_value = fields.Float(
         string="Valor do ICMS Desoneração",
         digits=(13, 2),
+        compute="_compute_icms_deson_value",
+        readonly=False,
+        store=True,
     )
+
+    @api.depends("icms_cst_id")
+    def _compute_icms_deson_value(self):
+        for record in self:
+            if record.icms_cst_id.code in ("40", "41", "50"):
+                record.icms_deson_value = False
+            else:
+                record.icms_deson_value = 0.00
 
     icms_deson_reason = fields.Many2one(
         comodel_name="l10n_br_fiscal.icms.deson.reason",
@@ -1454,12 +1459,625 @@ class NFeDocumentLine(models.Model):
     @api.constrains("icms_deson_reason", "icms_deson_value")
     def _check_icms_deson_required(self):
         for record in self:
-            if record.icms_deson_reason and not record.icms_deson_value:
+            if (
+                record.icms_deson_reason
+                and not record.icms_deson_value
+                and not record.is_imunne_cst
+            ):
                 raise ValidationError(
                     _(
                         "Produto: %s - O Valor do ICMS Desoneração é obrigatório quando o Motivo da Desoneração do ICMS está definido."
                     )
                     % record.product_description
+                )
+            elif record.icms_deson_value and record.icms_deson_value <= 0:
+                raise ValidationError(
+                    _(
+                        f"O valor do ICMS Desoneração deve ser maior que zero para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+
+    # def _compute_icms_value(self):
+    #     for record in self:
+    #         record.icms_value = False
+    # icms_group = self.env.ref("l10n_br_fiscal.tax_group_icms")
+    # icms_st_group = self.env.ref("l10n_br_fiscal.tax_group_icmsst")
+    # for record in self:
+    #     if (
+    #         record.icms_tax_id.tax_group_id == icms_group
+    #         or record.icms_tax_id.tax_group_id == icms_st_group
+    #     ) and self.icms_bc_modality == "3":
+    #         record.icms_value = (
+    #             record.icms_tax_id.percent_amount * record.icms_bc_value / 100
+    #         )
+    #     else:
+    #         record.icms_value = False
+
+    def _domain_icms_fcp_tax_id(self):
+        return [
+            ("tax_group_id", "=", self.env.ref("l10n_br_fiscal.tax_group_icmsfcp").id)
+        ]
+
+    can_have_icms_fcp = fields.Boolean(
+        string="Pode ter FCP",
+        compute="_compute_can_have_icms_fcp",
+    )
+
+    # somente tem FCP os seguintes CSTs:
+    # 00 - Tributada integralmente
+    # 10 - Tributada e com cobrança do ICMS por substituição tributária
+    # 20 - Com redução de base de cálculo
+    # 51 - tributação com diferimento
+    # 70 - Com redução de BC e cobrança de ICMS por ST
+    # 90 - outros
+    @api.depends("icms_cst_code")
+    def _compute_can_have_icms_fcp(self):
+        for record in self:
+            record.can_have_icms_fcp = record.icms_cst_code not in (
+                "101",
+                "102",
+                "103",
+                "201",
+                "202",
+                "203",
+                "300",
+                "400",
+                "500",
+                "900",
+                "30",
+                "40",
+                "41",
+                "50",
+                "60",
+            )
+
+    icms_fcp_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="FCP",
+        domain=_domain_icms_fcp_tax_id,
+    )
+
+    @api.constrains("icms_fcp_tax_id", "can_have_icms_fcp")
+    def _check_icms_fcp_tax_id(self):
+        for record in self:
+            if not record.can_have_icms_fcp and record.icms_fcp_tax_id:
+                raise ValidationError(
+                    _(
+                        f"O FCP não deve ser informado para o item da nota fiscal: {record.product_description}."
+                    )
+                )
+
+    icms_fcp_tax_percent = fields.Float(
+        related="icms_fcp_tax_id.percent_amount",
+        string="Aliquota do FCP",
+        digits=(3, 4),
+        store=True,
+        readonly=True,
+    )
+
+    icms_fcp_bc_value = fields.Float(
+        string="BC FCP`",
+        digits=(13, 2),
+        compute="_compute_icms_fcp_bc_value",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("icms_bc_value", "icms_fcp_tax_id", "can_have_icms_fcp")
+    def _compute_icms_fcp_bc_value(self):
+        for record in self:
+            if not record.can_have_icms_fcp:
+                record.icms_fcp_bc_value = False
+            elif record.icms_fcp_tax_id:
+                record.icms_fcp_bc_value = record.icms_bc_value
+            else:
+                record.icms_fcp_bc_value = 0.00
+
+    icms_fcp_value = fields.Float(
+        string="Valor do FCP",
+        digits=(13, 2),
+        compute="_compute_icms_fcp_value",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("can_have_icms_fcp", "icms_fcp_bc_value", "icms_fcp_tax_percent")
+    def _compute_icms_fcp_value(self):
+        for record in self:
+            if record.can_have_icms_fcp:
+                record.icms_fcp_value = (
+                    record.icms_fcp_bc_value * record.icms_fcp_tax_percent / 100
+                )
+            else:
+                record.icms_fcp_value = False
+
+    allows_icms_sn_credit = fields.Boolean(
+        string="Permite Crédito do ICMS SN",
+        compute="_compute_allows_icms_sn_credit",
+    )
+
+    @api.depends("icms_cst_code")
+    def _compute_allows_icms_sn_credit(self):
+        for record in self:
+            if record.icms_cst_code in ("101", "201", "900"):
+                record.allows_icms_sn_credit = True
+            else:
+                record.allows_icms_sn_credit = False
+
+    icms_sn_credit_percent = fields.Float(
+        string="Aliquota de Crédito do ICMS SN",
+        digits=(13, 2),
+    )
+
+    icms_sn_credit_value = fields.Float(
+        string="Valor do Crédito do ICMS SN",
+        digits=(13, 2),
+    )
+
+    @api.onchange(
+        "allows_icms_sn_credit", "icms_sn_credit_percent", "icms_sn_credit_value"
+    )
+    def _onchange_icms_cst_code(self):
+        for record in self:
+            if not record.allows_icms_sn_credit:
+                record.icms_sn_credit_percent = False
+                record.icms_sn_credit_value = False
+
+    @api.constrains("allows_icms_sn_credit", "icms_sn_credit_percent")
+    def _check_icms_sn_credit(self):
+        for record in self:
+            if not record.allows_icms_sn_credit and record.icms_sn_credit_percent:
+                raise ValidationError(
+                    _(
+                        f"O CSOSN {record.icms_cst_code} não admite informar a aliquota"
+                        f" do crédito do ICMS SN. "
+                        f"Validação referente ao item da nota fiscal: {record.product_description}."
+                    )
+                )
+
+    @api.constrains("allows_icms_sn_credit", "icms_sn_credit_value")
+    def _check_icms_sn_credit_value(self):
+        for record in self:
+            if not record.allows_icms_sn_credit and record.icms_sn_credit_value:
+                raise ValidationError(
+                    _(
+                        f"O CSOSN {record.icms_cst_code} não admite informar o valor do crédito do ICMS SN. "
+                        f"Validação referente ao item da nota fiscal: {record.product_description}."
+                    )
+                )
+
+    @api.constrains("icms_sn_credit_percent", "icms_sn_credit_value")
+    def _check_icms_sn_credit_required(self):
+        for record in self:
+            if record.icms_cst_code not in ("101", "201", "900"):
+                continue
+
+            icms_sn_credit_fields = [
+                record.icms_sn_credit_percent,
+                record.icms_sn_credit_value,
+            ]
+
+            if any(icms_sn_credit_fields) and not all(icms_sn_credit_fields):
+                raise ValidationError(
+                    _(
+                        f"Para o CSOSN {record.icms_cst_code} se o grupo do ICMS SN for informado, é obrigatório "
+                        f"informar a aliquota de crédito do ICMS SN ou o valor do crédito do ICMS SN. Validação referente ao item da nota "
+                        f"fiscal: {record.product_description}."
+                    )
+                )
+
+    # ===  icms ===
+    # origem de marcadoria 0-8
+    # CST
+    # modalide da base de calculo
+    # valor da base de calculo
+    # percentual de reducao da base de calculo
+    # percentual do diferimento pra caso de icms defirido
+    # valor do icms diferido
+    # aliquota do ICMS
+    # valor ICMS
+    # base de calcuo FCP
+    # FCP aliquota
+    # FCP valor
+
+    # simples nacional
+    # csosn
+    # aliquota de credito
+    # valor credito icms
+
+    # CST 60 e CSOSN 500 - grupos opcionais nao implementados ICMS cobrado antiriorment por ST
+    # valor da BC do icms st retido  - CTS 60 Tributação ICMS cobrado anteriormente por substituição tributária
+    # aliquota suportada pelo consumidor final - CTS 60  Deve ser informada a alíquota do cálculo do ICMS-ST, já incluso o FCP caso incida sobre a mercadoria. Exemplo: alíquota da mercadoria na venda ao consumidor final = 18% e 2% de FCP. A alíquota a ser informada no campo pST deve ser 20%. (Atualizado NT2016.002)
+    # valor do icms do subistituto - CTS 60 Tributação ICMS cobrado anteriormente por substituição tributária Valor do ICMS Próprio do Substituto cobrado em operação anterior (Criado na NT 2018.005. Atualizado na 2018.005 v1.20)
+    # valor do icms st retido -  CST 60 Valor do ICMS ST cobrado anteriormente por ST (v2.0). O valor pode ser omitido quando a legislação não exigir a sua informação. (NT 2011/004)
+    # BC FCP retido pro ST - CST 60 Informar o valor da Base de Cálculo do FCP retido anteriormente por ST
+    # valor do FCP retido pro ST - CST 60 Informar o valor do FCP retido anteriormente por ST
+    # aliquota do FCP retido pro ST - CST 60 Informar a alíquota do FCP retido anteriormente por ST
+
+    # === ICMS ST ===
+
+    is_icms_st_allowed = fields.Boolean(
+        string="É CST com ICMS ST",
+        compute="_compute_is_icms_st_allowed",
+    )
+
+    @api.depends("icms_cst_code")
+    def _compute_is_icms_st_allowed(self):
+        for record in self:
+            record.is_icms_st_allowed = record.icms_cst_code in (
+                "10",
+                "30",
+                "70",
+                "90",
+                "201",
+                "202",
+                "203",
+                "900",
+            )
+
+    is_icmc_st_required = fields.Boolean(
+        string="É CST com ICMS ST obrigatório",
+        compute="_compute_is_icmc_st_required",
+    )
+
+    @api.depends("icms_cst_code")
+    def _compute_is_icmc_st_required(self):
+        for record in self:
+            record.is_icmc_st_required = record.icms_cst_code in (
+                "10",
+                "30",
+                "70",
+                "201",
+                "202",
+                "203",
+            )
+
+    @api.onchange("is_icms_st_allowed", "icms_st_modality")
+    def _onchange_is_icms_st_allowed(self):
+        for record in self:
+            if not record.is_icms_st_allowed:
+                record.icms_st_modality = False
+
+    icms_st_modality = fields.Selection(
+        string="Modalidade da Base de Calculo do ICMS ST",
+        selection=[
+            ("0", "Preço tabelado ou máximo sugerido"),
+            ("1", "Lista Negativa (valor)"),
+            ("2", "Lista Positiva (valor)"),
+            ("3", "Lista Neutra (valor)"),
+            ("4", "Margem Valor Agregado (%)"),
+            ("5", "Pauta (valor)"),
+            ("6", "Valor da operação"),
+        ],
+        compute="_compute_icms_st_modality",
+        readonly=False,
+        store=True,
+    )
+
+    @api.depends("icms_cst_code")
+    def _compute_icms_st_modality(self):
+        for record in self:
+            if not record.is_icms_st_allowed:
+                record.icms_st_modality = False
+
+    @api.constrains("is_icms_st_allowed", "icms_st_modality")
+    def _check_icms_st_modality(self):
+        for record in self:
+            if not record.is_icms_st_allowed and record.icms_st_modality:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Modalidade da Base de Calculo do ICMS ST não pode ser informada para o CST {record.icms_cst_code}."
+                )
+            if record.is_icms_st_required:
+                if not record.icms_st_modality:
+                    raise ValidationError(
+                        f"Produto: {record.product_description} - Modalidade da Base de Calculo do ICMS ST é obrigatório pro CST {record.icms_cst_code}."
+                    )
+                else:
+                    if record.icms_st_modality not in (
+                        "0",
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                    ):
+                        raise ValidationError(
+                            f"Produto: {record.product_description} - Modalidade da Base de Calculo do ICMS ST é inválida para o CST {record.icms_cst_code}: {record.icms_st_modality}."
+                        )
+
+    is_icms_st_mva_modality = fields.Boolean(
+        string="É modalidade de base de calculo do ICMS ST MVA",
+        compute="_compute_is_icms_st_mva_modality",
+    )
+
+    @api.depends("icms_st_modality")
+    def _compute_is_icms_st_mva_modality(self):
+        for record in self:
+            record.is_icms_st_mva_modality = record.icms_st_modality == "4"
+
+    icms_st_mva_percent = fields.Float(
+        string="MVA ICMS ST",
+        digits=(3, 4),
+        compute="_compute_icms_st_mva_percent",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("icms_st_modality")
+    def _compute_icms_st_mva_percent(self):
+        for record in self:
+            if not record.is_icms_st_allowed or record.icms_st_modality != "4":
+                record.icms_st_mva_percent = False
+
+    @api.constrains("icms_st_mva_percent")
+    def _check_icms_st_mva_percent(self):
+        for record in self:
+            if record.icms_st_modality == "4" and record.icms_st_mva_percent <= 0:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - MVA ICMS ST deve ser maior que 0 para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%) {record.icms_st_modality}."
+                )
+            elif record.icms_st_modality == "4" and not record.icms_st_mva_percent:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - MVA ICMS ST é obrigatório para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%) {record.icms_st_modality}."
+                )
+
+    icms_st_reduction_percent = fields.Float(
+        string="Percentual de Redução da Base de Calculo do ICMS ST",
+        digits=(3, 4),
+        compute="_compute_icms_st_reduction_percent",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("icms_st_modality")
+    def _compute_icms_st_reduction_percent(self):
+        for record in self:
+            if not record.is_icms_st_allowed or record.icms_st_modality != "4":
+                record.icms_st_reduction_percent = False
+
+    icms_st_bc_value = fields.Float(
+        string="Valor da Base de Calculo do ICMS ST",
+        digits=(13, 2),
+        compute="_compute_icms_st_bc_value",
+        store=True,
+        readonly=False,
+    )
+
+    def _compute_icms_st_bc_value(self):
+        for record in self:
+            if not record.is_icms_st_allowed:
+                record.icms_st_bc_value = False
+            # deve ser inserido pelo próprio usuário
+            elif record.icms_st_modality != "4":
+                record.icms_st_bc_value = 0.00
+            else:
+                # se o emitente é simples nacional, o ipi nao é considerado na base de calculo do icms st
+                ipi_value = record.ipi_value if not record.is_simples_nacional else 0
+                base = (
+                    record.total_value
+                    + record.freight_value
+                    + record.insurance_value
+                    + record.other_expenses_value
+                    - record.discount_value
+                    + ipi_value
+                )
+                record.icms_st_bc_value = (
+                    base
+                    * (1 + record.icms_st_mva_percent / 100)
+                    * (1 - record.icms_st_reduction_percent / 100)
+                )
+
+    @api.constrains("is_icms_st_allowed", "icms_st_bc_value")
+    def _check_icms_st_bc_value(self):
+        for record in self:
+            if not record.is_icms_st_allowed and record.icms_st_bc_value:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor da Base de Calculo do ICMS ST não pode ser informado para o CST {record.icms_cst_code}."
+                )
+            elif record.is_icms_st_allowed and record.icms_st_bc_value <= 0:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor da Base de Calculo do ICMS ST deve ser maior que 0 para o CST {record.icms_cst_code}."
+                )
+            elif record.is_icms_st_required and not record.icms_st_bc_value:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor da Base de Calculo do ICMS ST é obrigatório para o CST {record.icms_cst_code}."
+                )
+
+    icms_st_tax_percent = fields.Float(
+        string="Aliquota do ICMS ST",
+        digits=(3, 4),
+        compute="_compute_icms_st_tax_percent",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("is_icms_st_allowed")
+    def _compute_icms_st_tax_percent(self):
+        for record in self:
+            if not record.is_icms_st_allowed:
+                record.icms_st_tax_percent = False
+
+    @api.constrains("is_icms_st_allowed", "icms_st_tax_percent")
+    def _check_icms_st_tax_percent(self):
+        for record in self:
+            if not record.is_icms_st_allowed and record.icms_st_tax_percent:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Aliquota do ICMS ST não pode ser informada para o CST {record.icms_cst_code}."
+                )
+            elif record.is_icms_st_allowed and record.icms_st_tax_percent <= 0:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Aliquota do ICMS ST deve ser maior que 0 para o CST {record.icms_cst_code}."
+                )
+            elif record.is_icms_st_required and not record.icms_st_bc_value:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Aliquota do ICMS ST é obrigatória para o CST {record.icms_cst_code}."
+                )
+
+    icms_st_value = fields.Float(
+        string="Valor do ICMS ST",
+        digits=(13, 2),
+        compute="_compute_icms_st_value",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends(
+        "is_icms_st_allowed",
+        "icms_st_bc_value",
+        "icms_st_tax_percent",
+        "is_simples_nacional",
+        "icms_value",
+    )
+    def _compute_icms_st_value(self):
+        for record in self:
+            if not record.is_icms_st_allowed:
+                record.icms_st_value = False
+            elif not record.is_simples_nacional:
+                record.icms_st_value = (
+                    record.icms_st_bc_value * record.icms_st_tax_percent / 100
+                    - record.icms_st_reduction_value * record.icms_value
+                )
+            elif record.is_simples_nacional:
+                # TODO: implementar o calculo do ICMS ST para simples nacional
+                # O simples mesmo não destacando o ICMS da operação própria,
+                #  o calcula pra descontar do mva*base icms st - icms da
+                # operacao propria = ICMS-ST
+                record.icms_st_value = 0.00
+
+    @api.constrains("is_icms_st_allowed", "icms_st_value")
+    def _check_icms_st_value(self):
+        for record in self:
+            if not record.is_icms_st_allowed and record.icms_st_value:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor do ICMS ST não pode ser informado para o CST {record.icms_cst_code}."
+                )
+            elif record.is_icms_st_allowed and record.icms_st_value <= 0:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor do ICMS ST deve ser maior que 0 para o CST {record.icms_cst_code}."
+                )
+            elif record.is_icms_st_required and not record.icms_st_value:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor do ICMS ST é obrigatório para o CST {record.icms_cst_code}."
+                )
+
+    def _domain_icms_st_fcp_tax_id(self):
+        return [
+            (
+                "tax_group_id",
+                "=",
+                self.env.ref("l10n_br_fiscal.tax_group_icmsfcp_st").id,
+            )
+        ]
+
+    icms_st_fcp_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="FCP ST",
+        domain=_domain_icms_st_fcp_tax_id,
+    )
+
+    @api.constrains("is_icms_st_allowed", "icms_st_fcp_tax_id")
+    def _check_icms_st_fcp_tax_id(self):
+        for record in self:
+            if not record.is_icms_st_allowed and record.icms_st_fcp_tax_id:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - FCP ST não pode ser informado para o CST {record.icms_cst_code}."
+                )
+
+    icms_st_fcp_tax_percent = fields.Float(
+        related="icms_st_fcp_tax_id.percent_amount",
+        string="Aliquota do FCP ST",
+        digits=(13, 2),
+        store=True,
+        readonly=True,
+    )
+
+    @api.constrains("is_icms_st_allowed", "icms_st_fcp_tax_percent")
+    def _check_icms_st_fcp_tax_percent(self):
+        for record in self:
+            if not record.is_icms_st_allowed and record.icms_st_fcp_tax_percent:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Aliquota do FCP ST não pode ser informada para o CST {record.icms_cst_code}."
+                )
+
+    icms_st_fcp_bc_value = fields.Float(
+        string="Valor da Base de Calculo do FCP ST",
+        digits=(13, 2),
+        compute="_compute_icms_st_fcp_bc_value",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("is_icms_st_allowed", "icms_st_bc_value", "icms_st_fcp_tax_id")
+    def _compute_icms_st_fcp_bc_value(self):
+        for record in self:
+            if not record.is_icms_st_allowed:
+                record.icms_st_fcp_bc_value = False
+            elif record.icms_st_fcp_tax_id:
+                record.icms_st_fcp_bc_value = record.icms_st_bc_value
+            else:
+                record.icms_st_fcp_bc_value = 0.00
+
+    @api.constrains("is_icms_st_allowed", "icms_st_fcp_bc_value", "icms_st_fcp_tax_id")
+    def _check_icms_st_fcp_bc_value(self):
+        for record in self:
+            if not record.is_icms_st_allowed and record.icms_st_fcp_bc_value:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor da Base de Calculo do FCP ST não pode ser informado para o CST {record.icms_cst_code}."
+                )
+            elif (
+                record.is_icms_st_allowed
+                and record.icms_st_fcp_tax_id
+                and (
+                    record.icms_st_fcp_bc_value == False
+                    or record.icms_st_fcp_bc_value <= 0
+                )
+            ):
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor da Base de Calculo do FCP ST é obrigatório para o CST {record.icms_cst_code}."
+                )
+
+    icms_st_fcp_value = fields.Float(
+        string="Valor do FCP ST",
+        digits=(13, 2),
+        compute="_compute_icms_st_fcp_value",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends(
+        "icms_st_fcp_tax_percent",
+        "icms_st_fcp_bc_value",
+        "is_icms_st_allowed",
+        "icms_st_fcp_tax_id",
+    )
+    def _compute_icms_st_fcp_value(self):
+        for record in self:
+            if (
+                record.is_icms_st_allowed
+                and record.icms_st_fcp_tax_id
+                and record.icms_st_fcp_bc_value
+            ):
+                record.icms_st_fcp_value = (
+                    record.icms_st_fcp_bc_value * record.icms_st_fcp_tax_percent / 100
+                )
+            else:
+                record.icms_st_fcp_value = False
+
+    @api.constrains("is_icms_st_allowed", "icms_st_fcp_value", "icms_st_fcp_tax_id")
+    def _check_icms_st_fcp_value(self):
+        for record in self:
+            if not record.is_icms_st_allowed and record.icms_st_fcp_value:
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor do FCP ST não pode ser informado para o CST {record.icms_cst_code}."
+                )
+            elif (
+                record.is_icms_st_allowed
+                and record.icms_st_fcp_tax_id
+                and (record.icms_st_fcp_bc_value or record.icms_st_fcp_value <= 0)
+            ):
+                raise ValidationError(
+                    f"Produto: {record.product_description} - Valor do FCP ST é obrigatório para o CST {record.icms_cst_code}."
                 )
 
     # icms_st modalidade
@@ -1471,11 +2089,6 @@ class NFeDocumentLine(models.Model):
     # base de calculo fcp ST
     # percentual fcp st
     # valor fcp st
-
-    # === ICMS Desoneração ===
-    # Não implementado
-    # valor icms desonarado
-    # motivo de desoneração do icms
 
     # === ICMS ST Retido Anteriormente por Substituição Tributária ===
     # se para revenda, deve ser informado a base do ST, aliquota e valor. O mesmo vale para o FCP ST.
@@ -1519,12 +2132,6 @@ class NFeDocumentLine(models.Model):
     # default 999 para outros produtos
     # Informar apenas quando o item for sujeito ao IPI
     ipi_guideline_code = fields.Char(string="Código de Enquadramento", size=3)
-
-    def _is_issuer_simples_nacional(self):
-        return self.issuer_id.fiscal_framework in ("1", "2")
-
-    def _issuer_contributes_to_ipi(self):
-        return self.issuer_id.ipi_contributes
 
     # empresa do simples utilizar ipi de saida 99 com valor zero quando for contruibinte do ipi - 99 outras saidas
     # simples NAO contribuinte do ipi e empresa no regime normal que nao tributa ipi (comercio) utilizar ipi de saida 53 - saida nao tributada
@@ -1655,17 +2262,6 @@ class NFeDocumentLine(models.Model):
     # Tipo de Cálculo: Percentual.
     # Alíquota 0%.
     # Valor do COFINS: 0,00.
-
-    is_simples_nacional = fields.Boolean(
-        string="Simples Nacional",
-        compute="_compute_is_simples_nacional",
-        readonly=True,
-    )
-
-    @api.depends("issuer_id", "issuer_id.fiscal_framework")
-    def _compute_is_simples_nacional(self):
-        for record in self:
-            record.is_simples_nacional = record._is_issuer_simples_nacional()
 
     pis_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",

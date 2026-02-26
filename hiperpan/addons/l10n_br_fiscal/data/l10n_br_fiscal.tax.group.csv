@@ -8,8 +8,6 @@
 "tax_group_icmsfcp","ICMS FCP","icmsfcp","True","False","state","","True"
 "tax_group_icmsfcp_st","ICMS FCP ST","icmsfcpst","False","False","state","","True"
 "tax_group_icmssn","ICMS - Simples Nacional","icmssn","True","False","state","","True"
-"tax_group_icmssn_st","ICMS - Simples Nacional ST","icmssn_st","False","False","state","","True"
-"tax_group_icms_st","ICMS ST","icmsst","False","False","state","","True"
 "tax_group_ii","II","ii","True","False","federal","","False"
 "tax_group_inss","INSS","inss","True","False","federal","","False"
 "tax_group_inss_wh","INSS RET","inss_wh","True","True","federal","20","False"

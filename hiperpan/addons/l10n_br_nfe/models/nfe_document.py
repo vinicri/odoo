@@ -114,6 +114,10 @@ def format_datetime_for_nfe(dt_field, company):
 
 
 def buildNfeXmlFromNfeDocumentModel(nfe_document):
+    # Ensure sequential item numbering before XML generation
+    nfe_document.env["l10n_br_nfe.nfe.document.line"]._reorder_item_numbers(
+        nfe_document.id
+    )
     root = etree.Element("Nfe")
 
     # grupo A
@@ -517,34 +521,31 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
     for item in nfe_document.invoice_line_ids:
         det = etree.SubElement(root, "det")
-        det.set("nItem", str(item.item_number))
+        det.set("nItem", item.item_number)
 
         prod = etree.SubElement(det, "prod")
 
         cProd = etree.SubElement(prod, "cProd")
         cProd.text = item.product_code
 
-        if not item.product_id.no_barcode and not item.product_id.barcode:
-            raise ValidationError(
-                _(
-                    "Geração de XML: O produto '%s' não possui código de barras mas não está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
-                )
-                % item.product_id.name
-            )
-        elif item.product_id.no_barcode and item.product_id.barcode:
-            raise ValidationError(
-                _(
-                    "Geração de XML: O produto '%s' possui código de barras mas está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
-                )
-                % item.product_id.name
-            )
+        # if not item.product_id.no_barcode and not item.product_id.barcode:
+        #     raise ValidationError(
+        #         _(
+        #             "Geração de XML: O produto '%s' não possui código de barras mas não está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
+        #         )
+        #         % item.product_id.name
+        #     )
+        # elif item.product_id.no_barcode and item.product_id.barcode:
+        #     # sera que precisa dessa validação?
+        #     raise ValidationError(
+        #         _(
+        #             "Geração de XML: O produto '%s' possui código de barras mas está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
+        #         )
+        #         % item.product_id.name
+        #     )
 
-        if item.product_id.barcode:
-            cEAN = etree.SubElement(prod, "cEAN")
-            cEAN.text = item.product_id.barcode
-        else:
-            cEAN = etree.SubElement(prod, "cEAN")
-            cEAN.text = "SEM GTIN"
+        cEAN = etree.SubElement(prod, "cEAN")
+        cEAN.text = item.gtin
 
         xProd = etree.SubElement(prod, "xProd")
         xProd.text = item.product_description
@@ -566,7 +567,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         qCom.text = f"{item.quantity:.4f}"
 
         vUnCom = etree.SubElement(prod, "vUnCom")
-        vUnCom.text = f"{item.unit_price:.10f}"
+        vUnCom.text = f"{item.unit_price:.2f}"
 
         vProd = etree.SubElement(prod, "vProd")
         vProd.text = f"{item.total_value:.2f}"
@@ -1572,8 +1573,6 @@ def printNfeXml(nfe_document):
     root = buildNfeXmlFromNfeDocumentModel(nfe_document)
     print(etree.tostring(root, pretty_print=True).decode("utf-8"))
 
-
-OPERATION_TYPE = [("0", "Entrada"), ("1", "Saída")]
 
 DANFE_PRINT_FORMAT = [
     ("0", "Sem geração de DANFE"),
@@ -2671,7 +2670,12 @@ class NFeDocument(models.Model):
     def _check_recipient_zip(self):
         for record in self:
             if record.recipient_id and not record.recipient_id.is_foreign:
-                raise ValidationError(_("O CEP do Destinatário é obrigatório."))
+                if not record.recipient_zip:
+                    raise ValidationError(_("O CEP do Destinatário é obrigatório."))
+                elif not (len(record.recipient_zip) == 8):
+                    raise ValidationError(
+                        _("O CEP do Destinatário deve ter 8 caracteres.")
+                    )
 
     # Código do País do destinatário. Usar Tabela BACEN. Opcional.
     recipient_country_code = fields.Integer(
@@ -3684,6 +3688,7 @@ class NFeDocument(models.Model):
         comodel_name="l10n_br_nfe.nfe.document.line",
         inverse_name="nfe_id",
         string="Itens da Nota Fiscal",
+        ondelete="cascade",
     )
 
     @api.constrains("invoice_line_ids")

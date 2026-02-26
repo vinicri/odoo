@@ -1,16 +1,59 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-  <record id="l10n_br_fiscal_product_template_form_view" model="ir.ui.view">
+  <record id="l10n_br_fiscal_product_product_form_view" model="ir.ui.view">
     <field name="name">l10n_br_fiscal.product.product.form</field>
     <field name="model">product.product</field>
-    <field name="mode">primary</field>
-    <field name="priority" eval="14" />
+    <field name="priority" eval="2" />
     <field name="inherit_id" ref="product.product_normal_form_view"/>
     <field name="arch" type="xml">
+      <xpath expr="//page[last()]" position="before">
+        <page name="fiscal_information" string="Fiscal Information">
+          <group>
+            <field name="fiscal_type_id" />
+            <field name="icms_origin_id" />
+            <field name="ncm_id" />
+            <field name="fiscal_genre_id" />
+            <field name="cest_id" />
+            <field name="no_barcode" />
+            <field name="fiscal_additional_information" />
+          </group>
+        </page>
+        <page name="manufacture" string="Manufacture">
+          <field name="variant_bom_ids" context="{'default_product_tmpl_id': product_tmpl_id}">
+            <list>
+              <field name="is_default_bom_for_product"/>
+              <field name="code"/>
+              <field name="type"/>
+              <field name="product_qty"/>
+              <field name="product_uom_id" groups="uom.group_uom"/>
+            </list>
+            <form>
+              <group>
+                <group>
+                  <field name="is_default_bom_for_product"/>
+                  <field name="code"/>
+                  <field name="type"/>
+                </group>
+                <group>
+                  <field name="product_qty"/>
+                  <field name="product_uom_id" groups="uom.group_uom"/>
+                </group>
+              </group>
+              <field name="bom_line_ids">
+                <list editable="bottom">
+                  <field name="sequence" widget="handle"/>
+                  <field name="product_id"/>
+                  <field name="product_qty"/>
+                  <field name="product_uom_id" groups="uom.group_uom"/>
+                </list>
+              </field>
+            </form>
+          </field>
+        </page>
+      </xpath>
       <xpath expr="//field[@name='barcode']" position="after">
         <field name="no_barcode" />
       </xpath>
     </field>
   </record>
-
 </odoo>

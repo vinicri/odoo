@@ -69,12 +69,24 @@ ICMS_ST_BASE_TYPE_REL = {
 
 class Tax(models.Model):
     _name = "l10n_br_fiscal.tax"
-    _order = "tax_domain, name"
+    _order = "tax_domain, cst_in_code, cst_out_code, name"
     _description = "Fiscal Tax"
 
     name = fields.Char(size=256, required=True)
 
     description = fields.Char(string="Description")
+
+    @api.depends("name", "cst_in_code", "cst_out_code")
+    @api.depends_context("operation_type")
+    def _compute_display_name(self):
+        operation_type = self.env.context.get("operation_type")
+        for record in self:
+            if operation_type == "0" and record.cst_in_code:
+                record.display_name = f"[{record.cst_in_code}] {record.name}"
+            elif operation_type == "1" and record.cst_out_code:
+                record.display_name = f"[{record.cst_out_code}] {record.name}"
+            else:
+                record.display_name = record.name
 
     # sequence = fields.Integer(
     #     related="tax_group_id.sequence",
@@ -149,11 +161,21 @@ class Tax(models.Model):
         "('tax_domain', '=', tax_domain)]",
     )
 
+    cst_in_code = fields.Char(
+        related="cst_in_id.code",
+        string="CST In Code",
+    )
+
     cst_out_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.cst",
         string="CST Out",
         domain="[('cst_type', 'in', ('out', 'all')), "
         "('tax_domain', '=', tax_domain)]",
+    )
+
+    cst_out_code = fields.Char(
+        related="cst_out_id.code",
+        string="CST Out Code",
     )
 
     table_date = fields.Date(string="Fiscal Table Issue Date")
@@ -186,7 +208,7 @@ class Tax(models.Model):
         ("fiscal_tax_code_uniq", "unique (name)", "Tax already exists with this name !")
     ]
 
-    # cst_from_operation_type 
+    # cst_from_operation_type
     @api.model
     def cst_from_tax(self, fiscal_operation_type=FISCAL_OUT):
         self.ensure_one()

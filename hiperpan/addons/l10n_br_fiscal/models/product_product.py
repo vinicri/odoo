@@ -56,3 +56,9 @@ class ProductProduct(models.Model):
     fiscal_additional_information = fields.Text(
         string="Informações adicionais de produto para documento fiscal"
     )
+
+    mrp_bom_id = fields.Many2one(
+        comodel_name="mrp.bom",
+        string="Recipe",
+        domain="[('product_id', '=', id), ('product_tmpl_id', '=', product_tmpl_id)]",
+    )

@@ -30,3 +30,6 @@ DESTINATION_ID = [
     ("2", "Operação interestadual"),
     ("3", "Operação com exterior"),
 ]
+
+
+NFE_OPERATION_TYPE = [("0", "Entrada"), ("1", "Saída")]

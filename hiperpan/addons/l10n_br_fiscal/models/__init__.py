@@ -13,6 +13,7 @@ from . import product_mixin
 from . import product_template
 from . import product_product
 from . import product_fiscal_type
+from . import mrp_bom
 from . import freight_carrier_vehicle
 from . import icms_origin
 from . import party_mixin

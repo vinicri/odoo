@@ -7,6 +7,7 @@
     <field name="arch" type="xml">
       <form>
         <sheet class="nfe_item">
+          <field name="is_debug_mode" invisible="1" />
           <group>
             <field name="issuer_id" />
             <field name="product_id" />
@@ -44,53 +45,60 @@
             <page string="ICMS">
               <div>
                 <group>
-                  <group>
-                    <field name="icms_origin" />
-                    <field name="icms_tax_id" />
-                    <field name="icms_cst" />
-                    <field name="icms_tax_percent" />
-                    <field name="icms_value" />
-                  </group>
+                  <field name="icms_tax_id" context="{'operation_type': operation_type}" />
+                  <field name="icms_cst_code" invisible="1"/>
+                  <field name="icms_cst" invisible="is_debug_mode" />
+                  <field name="icms_origin" invisible="is_debug_mode" />
+                  <field name="icms_bc_modality" invisible="not has_icms_own_operation" />
+                  <field name="is_production_fiscal_type" invisible="1" />
+                  <field name="include_ipi_in_icms_bc" widget="ipi_icms_confirmation" invisible="not is_production_fiscal_type or not has_icms_own_operation" />
+                  <field name="icms_bc_value" invisible="not has_icms_own_operation" readonly="not is_icms_cst_90_900"/>
+                  <field name="icms_bc_reduction_percent" invisible="not is_icms_base_reduction_allowed"/>
 
-                  <group>
-                    <field name="icms_bc_modality" />
-                    <field name="icms_bc_value" />
-                    <field name="icms_bc_reduction_percent" />
+                  <field name="icms_tax_percent" invisible="not has_icms_own_operation"/>
+                  <field name="icms_value" invisible="not has_icms_own_operation"/>
+                </group>
 
-                    <separator string="ICMS Diferido"/>
+                <field name="is_deferment_cst" invisible="1"/>
+                <group invisible="not is_deferment_cst">
+                  <separator string="ICMS Diferido"/>
+                  <field name="icms_deferment_percent" />
+                  <field name="icms_deferment_value" />
+                </group>
 
-                    <field name="icms_deferment_percent" />
-                    <field name="icms_deferment_value" />
+                <field name="icms_deson_enabled" invisible="1"/>
+                <group invisible="not icms_deson_enabled">
+                  <separator string="ICMS Desonerado"/>
+                  <field name="icms_deson_reason" />
+                  <field name="icms_deson_value" invisible="not is_imunne_cst"/>
+                </group>
 
-                    <separator string="ICMS Desonerado"/>
-
-                    <field name="icms_deson_enabled" invisible="1"/>
-                    <field name="icms_deson_reason" readonly="not icms_deson_enabled"/>
-                    <field name="icms_deson_value" readonly="not icms_deson_enabled"/>
-                  </group>
+                <field name="allows_icms_sn_credit" invisible="1"/>
+                <group invisible="not allows_icms_sn_credit">
+                  <separator string="Crédito do ICMS SN"/>
+                  <field name="icms_sn_credit_percent" />
+                  <field name="icms_sn_credit_value"/>
                 </group>
               </div>
               <div>
                 <group>
-                  <group>
+                  <field name="can_have_icms_fcp" invisible="1"/>
+                  <group invisible="not can_have_icms_fcp">
                     <field name="icms_fcp_tax_id" />
                     <field name="icms_fcp_tax_percent" />
-                    <field name="icms_fcp_bc_value" />
+                    <field name="icms_fcp_bc_value"/>
                     <field name="icms_fcp_value" />
                   </group>
 
-                  <group>
-                    <fiels name="icms_sn_credit_percent" />
-                    <fiels name="icms_sn_credit_value" />
-                  </group>
+
                 </group>
               </div>
             </page>
-            <page string="ICMS ST">
+            <page string="ICMS ST" invisible="not is_icms_st_allowed">
               <group>
                 <group>
                   <field name="icms_st_modality" />
-                  <field name="icms_st_mva_percent" />
+                  <field name="icms_st_mva_percent" invisible="not is_icms_st_mva_modality" />
                   <field name="icms_st_bc_value"/>
                   <field name="icms_st_reduction_percent" />
                   <field name="icms_st_tax_percent" />

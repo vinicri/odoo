@@ -1,10 +1,10 @@
 {
     "name": "Hiperpan - Fiscal",
-    "version": "1.0",
+    "version": "1.1",
     "category": "Localization",
     "description": "Fiscal module for Brazil",
     "author": "Hiperpan",
-    "depends": ["l10n_br_base", "product"],
+    "depends": ["l10n_br_base", "product", "mrp"],
     "license": "LGPL-3",
     "data": [
         # security
@@ -23,7 +23,6 @@
         "data/l10n_br_fiscal.product.fiscal.type.csv",
         "data/l10n_br_fiscal.icms.origin.csv",
         "data/l10n_br_fiscal.icms.deson.reason.csv",
-        "data/res_country_data.xml",
         # views
         "views/ncm_views.xml",
         "views/ncm_genre_views.xml",
@@ -36,6 +35,7 @@
         "views/icms_origin_views.xml",
         "views/product_fiscal_type_views.xml",
         "views/product_template_views.xml",
+        "views/product_product_views.xml",
         "views/ibpt_views.xml",
         "views/freight_carrier_vehicle.xml",
         "views/fiscal_views.xml",
@@ -45,6 +45,7 @@
         "views/icms_deson_reason.xml",
         "views/res_country.xml",
     ],
+    "post_init_hook": "_post_init_hook",
     "external_dependencies": {
         "python": ["erpbrasil.base"],
     },

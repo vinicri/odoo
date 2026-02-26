@@ -156,6 +156,40 @@ class ProductTemplate(models.Model):
     def _set_fiscal_additional_information(self):
         self._set_product_variant_field("fiscal_additional_information")
 
+    mrp_bom_id = fields.Many2one(
+        comodel_name="mrp.bom",
+        string="BoM",
+        domain="[('product_tmpl_id', '=', id)]",
+        inverse="_set_mrp_bom_id",
+    )
+
+    mrp_bom_line_ids = fields.One2many(
+        related="mrp_bom_id.bom_line_ids",
+        string="BoM Lines",
+    )
+
+    def _set_mrp_bom_id(self):
+        self._set_product_variant_field("mrp_bom_id")
+
+    @api.constrains("fiscal_type_id", "bom_ids")
+    def _check_bom_required_for_fiscal_type(self):
+        required_codes = ("03", "04")
+        for product in self:
+            company = product.company_id or self.env.company
+            if company.country_id.code != "BR":
+                continue
+            fiscal_code = product.fiscal_type_id.code
+            if fiscal_code in required_codes and not product.bom_ids:
+                raise ValidationError(
+                    _(
+                        "O produto '%(product)s' possui tipo fiscal '%(fiscal_type)s'. "
+                        "Produtos com tipo fiscal '03 - Produto em Processo' ou "
+                        "'04 - Produto Acabado' devem possuir ao menos uma lista de materiais cadastrada.",
+                        product=product.display_name,
+                        fiscal_type=product.fiscal_type_id.display_name,
+                    )
+                )
+
     # Some modules of the repo depend on stock and have
     # demo products of type 'product' (this type is added to product.template
     # in the stock module).

@@ -155,6 +155,7 @@ class PartyMixin(models.AbstractModel):
         string="CEP sem formatação",
         compute="_compute_unformatted_zip",
         tracking=True,
+        store=True,
     )
 
     phone = fields.Char(
