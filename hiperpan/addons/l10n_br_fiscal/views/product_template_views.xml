@@ -50,6 +50,14 @@
             </form>
           </field>
         </page>
+        <page name="ipi" string="IPI" invisible="not has_ipi">
+          <group>
+            <field name="ipi_guideline_id" />
+            <field name="ipi_tax_id" />
+            <field name="ipi_tax_percent" invisible="not is_ipi_with_percentage or is_ipi_qtt"/>
+
+          </group>
+        </page>
       </xpath>
       <xpath expr="//field[@name='ncm_id']" position="after">
         <xpath expr="//field[@name='barcode']" position="after">

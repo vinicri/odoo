@@ -31,6 +31,7 @@ class ProductTemplate(models.Model):
         "Não possui código de barras",
         inverse="_set_no_barcode",
         compute="_compute_no_barcode",
+        store=True,
     )
 
     @api.depends("product_variant_ids.no_barcode")
@@ -189,6 +190,36 @@ class ProductTemplate(models.Model):
                         fiscal_type=product.fiscal_type_id.display_name,
                     )
                 )
+
+    ipi_guideline_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.ipi.guideline",
+        string="Código de Enquadramento",
+        compute="_compute_ipi_guideline_id",
+        inverse="_set_ipi_guideline_id",
+        store=True,
+    )
+
+    def _set_ipi_guideline_id(self):
+        self._set_product_variant_field("ipi_guideline_id")
+
+    @api.depends("product_variant_ids.ipi_guideline_id")
+    def _compute_ipi_guideline_id(self):
+        self._compute_template_field_from_variant_field("ipi_guideline_id")
+
+    ipi_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="IPI",
+        compute="_compute_ipi_tax_id",
+        inverse="_set_ipi_tax_id",
+        store=True,
+    )
+
+    def _set_ipi_tax_id(self):
+        self._set_product_variant_field("ipi_tax_id")
+
+    @api.depends("product_variant_ids.ipi_tax_id")
+    def _compute_ipi_tax_id(self):
+        self._compute_template_field_from_variant_field("ipi_tax_id")
 
     # Some modules of the repo depend on stock and have
     # demo products of type 'product' (this type is added to product.template

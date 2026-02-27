@@ -27,12 +27,6 @@ class ProductProduct(models.Model):
         string="CEST",
     )
 
-    fiscal_type_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.product.fiscal.type",
-        string="Fiscal Type",
-        required=True,
-    )
-
     icms_origin_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.icms.origin",
         string="ICMS Origin",

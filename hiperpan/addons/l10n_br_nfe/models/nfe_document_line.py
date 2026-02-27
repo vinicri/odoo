@@ -2158,13 +2158,15 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
-    @api.depends("is_simples_nacional")
+    @api.depends("is_simples_nacional", "product_id", "product_id.ipi_guideline_id")
     def _compute_ipi_guideline_id(self):
         for record in self:
             if record.is_simples_nacional:
                 record.ipi_guideline_id = self.env.ref(
                     "l10n_br_fiscal.ipi_guideline_999"
                 )
+            elif record.product_id.ipi_guideline_id:
+                record.ipi_guideline_id = record.product_id.ipi_guideline_id
 
     @api.constrains("ipi_guideline_id")
     def _check_ipi_guideline_id(self):
@@ -2254,11 +2256,13 @@ class NFeDocumentLine(models.Model):
         store=True,
     )
 
-    @api.depends("forced_ipi_tax_id")
+    @api.depends("forced_ipi_tax_id", "product_id", "product_id.ipi_tax_id")
     def _compute_ipi_tax_id(self):
         for record in self:
             if record.forced_ipi_tax_id:
                 record.ipi_tax_id = record.forced_ipi_tax_id
+            elif record.product_id.ipi_tax_id:
+                record.ipi_tax_id = record.product_id.ipi_tax_id
 
     @api.constrains("ipi_tax_id")
     def _check_ipi_tax_id(self):
@@ -2479,12 +2483,15 @@ class NFeDocumentLine(models.Model):
     # Alíquota 0%.
     # Valor do COFINS: 0,00.
 
+    def domain_pis_tax_id(self):
+        return [("tax_group_id", "=", self.env.ref("l10n_br_fiscal.tax_group_pis").id)]
+
     pis_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="PIS",
         compute="_compute_pis_tax_id",
         store=True,
-        domain="[('tax_group_id', '=', 'tax_group_pis')]",
+        domain=domain_pis_tax_id,
         readonly=False,
     )
 
