@@ -53,7 +53,7 @@
         <page name="ipi" string="IPI" invisible="not has_ipi">
           <group>
             <field name="ipi_guideline_id" />
-            <field name="ipi_tax_id" />
+            <field name="ipi_tax_id" context="{'operation_type': '1', 'include_cst_name': True}" />
 
             <field name="ipi_tax_percent" invisible="not is_ipi_with_percentage or is_ipi_qtt"/>
 

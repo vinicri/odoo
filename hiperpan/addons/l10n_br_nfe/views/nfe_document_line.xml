@@ -120,7 +120,7 @@
                   <field name="ipi_guideline_id" />
                   <field name="ipi_guideline_code" />
                   <field name="allowed_ipi_tax_ids" invisible="1" />
-                  <field name="ipi_tax_id" readonly="forced_ipi_tax_id"/>
+                  <field name="ipi_tax_id" readonly="forced_ipi_tax_id" context="{'operation_type': operation_type, 'include_cst_name': True}" />
                   <field name="ipi_cst_id" />
                 </group>
 

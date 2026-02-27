@@ -80,11 +80,20 @@ class Tax(models.Model):
     @api.depends_context("operation_type")
     def _compute_display_name(self):
         operation_type = self.env.context.get("operation_type")
+        include_cst_name = self.env.context.get("include_cst_name")
         for record in self:
             if operation_type == "0" and record.cst_in_code:
-                record.display_name = f"[{record.cst_in_code}] {record.name}"
+                record.display_name = (
+                    f"[{record.cst_in_code} {record.cst_in_id.name}] {record.name}"
+                    if include_cst_name
+                    else f"[{record.cst_in_code}] {record.name}"
+                )
             elif operation_type == "1" and record.cst_out_code:
-                record.display_name = f"[{record.cst_out_code}] {record.name}"
+                record.display_name = (
+                    f"[{record.cst_out_code} {record.cst_out_id.name}] {record.name}"
+                    if include_cst_name
+                    else f"[{record.cst_out_code}] {record.name}"
+                )
             else:
                 record.display_name = record.name
 
