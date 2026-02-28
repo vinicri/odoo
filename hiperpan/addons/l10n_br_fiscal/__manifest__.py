@@ -11,6 +11,7 @@
         "security/fiscal_security.xml",
         "security/ir.model.access.csv",
         # data
+        "data/l10n_br_fiscal.tax.domain.csv",
         "data/l10n_br_fiscal.tax.group.csv",
         "data/l10n_br_fiscal.cst.csv",
         "data/l10n_br_fiscal.ipi.guideline.csv",
@@ -30,6 +31,7 @@
         "views/cest_views.xml",
         "views/cst_views.xml",
         "views/cfop_views.xml",
+        "views/tax_domain.xml",
         "views/tax_group_views.xml",
         "views/tax_views.xml",
         "views/icms_origin_views.xml",

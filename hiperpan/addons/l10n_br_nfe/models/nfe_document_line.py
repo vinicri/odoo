@@ -2184,6 +2184,7 @@ class NFeDocumentLine(models.Model):
         compute="_compute_allowed_ipi_tax_ids",
     )
 
+    # filtra os impostos de IPI associados ao CST de entrada ou saída do código de enquadramento
     @api.depends(
         "ipi_guideline_id",
         "ipi_guideline_id.ipi_cst_in",
@@ -2873,10 +2874,13 @@ class NFeDocumentLine(models.Model):
             if not record.is_ii_allowed:
                 record.ii_custom_expenses_value = False
 
+    def domain_ii_tax_id(self):
+        return [("tax_domain_id", "=", self.env.ref("l10n_br_fiscal.tax_domain_ii").id)]
+
     ii_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="Imposto de Importação",
-        domain=[("tax_domain", "=", "ii")],
+        domain=domain_ii_tax_id,
         compute="_compute_ii_tax_id",
         store=True,
         readonly=False,

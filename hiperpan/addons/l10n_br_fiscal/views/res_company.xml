@@ -7,6 +7,7 @@
     <field name="arch" type="xml">
       <xpath expr="//field[@name='accountant_id']" position="after">
         <field name="fiscal_framework" string="Regime Fiscal" />
+        <field name="regular_framework_type" string="Tipo de regime normal" />
         <field name="ipi_contributes" string="Contribui com IPI" />
       </xpath>
     </field>

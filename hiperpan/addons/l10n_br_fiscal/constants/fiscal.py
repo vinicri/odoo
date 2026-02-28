@@ -83,12 +83,18 @@ TAX_DOMAIN_ICMS_ST = "icmsst"
 TAX_DOMAIN_ICMS_SN_ST = "icmssn_st"
 TAX_DOMAIN_ICMS_FCP = "icmsfcp"
 TAX_DOMAIN_ICMS_FCP_ST = "icmsfcpst"
-TAX_DOMAIN_PIS = "pis"
-TAX_DOMAIN_PIS_ST = "pisst"
-TAX_DOMAIN_PIS_WH = "pis_wh"
-TAX_DOMAIN_COFINS = "cofins"
-TAX_DOMAIN_COFINS_ST = "cofinsst"
-TAX_DOMAIN_COFINS_WH = "cofins_wh"
+# alternativo ao pis e cofins separados
+TAX_DOMAIN_PIS_COFINS = "piscofins"
+TAX_DOMAIN_PIS_COFINS_ST = "piscofinsst"
+TAX_DOMAIN_PIS_COFINS_WH = "piscofins_wh"
+
+# TAX_DOMAIN_PIS = "pis"
+# TAX_DOMAIN_PIS_ST = "pisst"
+# TAX_DOMAIN_PIS_WH = "pis_wh"
+# TAX_DOMAIN_COFINS = "cofins"
+# TAX_DOMAIN_COFINS_ST = "cofinsst"
+# TAX_DOMAIN_COFINS_WH = "cofins_wh"
+
 TAX_DOMAIN_ISSQN = "issqn"
 TAX_DOMAIN_ISSQN_WH = "issqn_wh"
 TAX_DOMAIN_CSLL = "csll"
@@ -102,10 +108,10 @@ TAX_DOMAIN_SIMPLES = "simples"
 TAX_DOMAIN_OTHERS = "others"
 
 
-TAX_DOMAIN_PCC = (TAX_DOMAIN_PIS, TAX_DOMAIN_COFINS, TAX_DOMAIN_CSLL)
+# TAX_DOMAIN_PCC = (TAX_DOMAIN_PIS, TAX_DOMAIN_COFINS, TAX_DOMAIN_CSLL)
 
 
-TAX_DOMAIN_PCC_RET = (TAX_DOMAIN_PIS_WH, TAX_DOMAIN_COFINS_WH, TAX_DOMAIN_CSLL_WH)
+# TAX_DOMAIN_PCC_RET = (TAX_DOMAIN_PIS_WH, TAX_DOMAIN_COFINS_WH, TAX_DOMAIN_CSLL_WH)
 
 
 TAX_DOMAIN = [
@@ -116,12 +122,15 @@ TAX_DOMAIN = [
     (TAX_DOMAIN_ICMS_FCP, "ICMS FCP - Fundo de Combate a Pobreza"),
     (TAX_DOMAIN_ICMS_ST, "ICMS - Subistituição Tributária"),
     (TAX_DOMAIN_ICMS_FCP_ST, "ICMS FCP ST- Fundo de Combate a Pobreza ST"),
-    (TAX_DOMAIN_PIS, "PIS"),
-    (TAX_DOMAIN_PIS_ST, "PIS ST"),
-    (TAX_DOMAIN_PIS_WH, "pis_wh"),
-    (TAX_DOMAIN_COFINS, "COFINS"),
-    (TAX_DOMAIN_COFINS_ST, "COFINS ST"),
-    (TAX_DOMAIN_COFINS_WH, "COFINS WH"),
+    (TAX_DOMAIN_PIS_COFINS, "PIS/COFINS"),
+    (TAX_DOMAIN_PIS_COFINS_ST, "PIS/COFINS ST"),
+    (TAX_DOMAIN_PIS_COFINS_WH, "PIS/COFINS WH"),
+    # (TAX_DOMAIN_PIS, "PIS"),
+    # (TAX_DOMAIN_PIS_ST, "PIS ST"),
+    # (TAX_DOMAIN_PIS_WH, "pis_wh"),
+    # (TAX_DOMAIN_COFINS, "COFINS"),
+    # (TAX_DOMAIN_COFINS_ST, "COFINS ST"),
+    # (TAX_DOMAIN_COFINS_WH, "COFINS WH"),
     (TAX_DOMAIN_ISSQN, "ISSQN"),
     (TAX_DOMAIN_ISSQN_WH, "ISSQN WH"),
     (TAX_DOMAIN_IR, "IR"),
@@ -143,7 +152,7 @@ TAX_ICMS_OR_ISSQN = [
 ]
 
 
-# associado a empresa 
+# associado a empresa
 TAX_FRAMEWORK = [
     ("1", "1 - Simples Nacional"),
     ("2", "2 - Simples Nacional – excesso de sublimite da receita bruta"),

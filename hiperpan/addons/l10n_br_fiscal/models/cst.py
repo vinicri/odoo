@@ -9,7 +9,7 @@ from ..constants.fiscal import FISCAL_IN_OUT_ALL
 class CST(models.Model):
     _name = "l10n_br_fiscal.cst"
     _inherit = "l10n_br_fiscal.data.abstract"
-    _order = "tax_domain, code"
+    _order = "tax_domain_id, code"
     _description = "CST"
 
     code = fields.Char(size=4)
@@ -18,22 +18,16 @@ class CST(models.Model):
         selection=FISCAL_IN_OUT_ALL, string="Type", required=True
     )
 
-    tax_group_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.tax.group",
-        string="Fiscal Tax Group",
-        required=True,
-    )
-
-    tax_domain = fields.Selection(
-        related="tax_group_id.tax_domain",
+    tax_domain_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax.domain",
         string="Tax Domain",
-        store=True,
+        required=True,
     )
 
     _sql_constraints = [
         (
-            "l10n_br_fiscal_cst_code_tax_group_id_uniq",
-            "unique (code, tax_group_id)",
-            _("CST already exists with this code !"),
+            "l10n_br_fiscal_cst_code_tax_domain_uniq",
+            "unique (code, tax_domain_id)",
+            _("CST already exists with this code and tax domain !"),
         )
     ]

@@ -1,10 +1,16 @@
-from odoo import models, fields, api
+from odoo import _, models, fields, api
+from odoo.exceptions import ValidationError
 
 
 TAX_FRAMEWORK = [
     ("1", "1 - Simples Nacional"),
     ("2", "2 - Simples Nacional – excesso de sublimite da receita bruta"),
     ("3", "3 - Regime Normal"),
+]
+
+REGULAR_FRAMEWORK_TYPE = [
+    ("LR", "Lucro Real"),
+    ("LP", "Lucro Presumido"),
 ]
 
 
@@ -21,8 +27,17 @@ class PartyMixin(models.AbstractModel):
         help="Fiscal Framework of the company.",
     )
 
+    regular_framework_type = fields.Selection(
+        string="Regular Framework Type",
+        selection=REGULAR_FRAMEWORK_TYPE,
+        tracking=True,
+        help="Tipo de regime normal",
+    )
+
     # adicionar o motivo de ter este campo
     # acredito que seja pra saber se na devolucao o ipi deve ser destacado ?
+    # isso eh pra saber se a empresa contribui com IPI no simples e
+    # deve colocar o ipi cst 99 na nfe pra produtos de produção propria
     ipi_contributes = fields.Boolean(
         string="Contribui com IPI",
         default=False,

@@ -3,16 +3,16 @@
 
 from odoo import _, fields, models
 
-from ..constants.fiscal import TAX_DOMAIN
-
 
 class TaxGroup(models.Model):
     _name = "l10n_br_fiscal.tax.group"
     _description = "Tax Group"
-    _order = "name, tax_domain"
+    _order = "name, tax_domain_id"
 
     name = fields.Char(required=True)
-    tax_domain = fields.Selection(selection=TAX_DOMAIN, required=True)
+    tax_domain_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax.domain", string="Tax Domain", required=True
+    )
     tax_scope = fields.Selection(
         selection=[
             ("city", _("City")),
@@ -21,7 +21,6 @@ class TaxGroup(models.Model):
         ],
         required=True,
     )
-
 
     # sequence = fields.Integer(
     #     default=10,
@@ -37,11 +36,8 @@ class TaxGroup(models.Model):
     #     "order in which the tax lines are applied.",
     # )
 
-   
-
     tax_include = fields.Boolean(string="Tax Included in Price", default=False)
 
-     
     tax_withholding = fields.Boolean(default=False)
 
     # PIS / COFINS

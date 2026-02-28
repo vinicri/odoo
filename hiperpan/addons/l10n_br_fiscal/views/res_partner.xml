@@ -10,6 +10,7 @@
         <page name="fiscal_info" string="Fiscal Info">
           <group>
             <field name="fiscal_framework" string="Fiscal Framework" />
+            <field name="regular_framework_type" string="Tipo de regime normal" />
             <field name="ipi_contributes" string="Contribui com IPI" />
           </group>
         </page>

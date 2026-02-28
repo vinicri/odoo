@@ -7,13 +7,18 @@ class IcmsDesonReason(models.Model):
     _order = "code"
     _description = "Motivo da Desoneração do ICMS"
 
+    def domain_cst_ids(self):
+        return [
+            ("tax_domain_id", "=", self.env.ref("l10n_br_fiscal.tax_domain_icms").id)
+        ]
+
     cst_ids = fields.Many2many(
         comodel_name="l10n_br_fiscal.cst",
         relation="l10n_br_fiscal_icms_deson_reason_cst_rel",
         column1="icms_deson_reason_id",
         column2="cst_id",
         string="CSTs Permitidos",
-        domain=[("tax_domain", "=", "icms")],
+        domain=domain_cst_ids,
         help="CSTs ICMS que permitem este motivo de desoneração",
     )
 

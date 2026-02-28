@@ -3,7 +3,6 @@
 
 from odoo import _, fields, models
 
-from ..constants.fiscal import TAX_DOMAIN_II, TAX_DOMAIN_IPI
 
 # from .ibpt import get_ibpt_product
 
@@ -28,10 +27,15 @@ class Ncm(models.Model):
 
     exception_name = fields.Char()
 
+    def domain_tax_ipi_id(self):
+        return [
+            ("tax_domain_id", "=", self.env.ref("l10n_br_fiscal.tax_domain_ipi").id)
+        ]
+
     tax_ipi_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="Tax IPI",
-        domain=[("tax_domain", "=", TAX_DOMAIN_IPI)],
+        domain=domain_tax_ipi_id,
     )
 
     product_tmpl_ids = fields.One2many(

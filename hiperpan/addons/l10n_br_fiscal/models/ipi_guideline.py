@@ -13,9 +13,9 @@ class IpiGuideline(models.Model):
     def _domain_ipi_cst_in(self):
         return [
             (
-                "tax_group_id",
+                "tax_domain_id",
                 "=",
-                self.env.ref("l10n_br_fiscal.tax_group_ipi").id,
+                self.env.ref("l10n_br_fiscal.tax_domain_ipi").id,
             ),
             ("cst_type", "=", "in"),
         ]
@@ -40,9 +40,9 @@ class IpiGuideline(models.Model):
     def _domain_ipi_cst_out(self):
         return [
             (
-                "tax_group_id",
+                "tax_domain_id",
                 "=",
-                self.env.ref("l10n_br_fiscal.tax_group_ipi").id,
+                self.env.ref("l10n_br_fiscal.tax_domain_ipi").id,
             ),
             ("cst_type", "=", "out"),
         ]

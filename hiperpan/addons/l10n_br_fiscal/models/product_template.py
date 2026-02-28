@@ -8,9 +8,8 @@ from ..constants.fiscal import (
     NCM_FOR_SERVICE_REF,
     PRODUCT_FISCAL_TYPE,
     PRODUCT_FISCAL_TYPE_SERVICE,
-    TAX_DOMAIN_ICMS,
-    TAX_ICMS_OR_ISSQN,
 )
+
 from ..constants.icms import ICMS_ORIGIN, ICMS_ORIGIN_DEFAULT
 
 

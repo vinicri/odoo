@@ -5,6 +5,7 @@ from . import cfop
 from . import ncm
 from . import ibpt
 from . import ncm_genre
+from . import tax_domain
 from . import tax_group
 from . import ipi_guideline
 from . import cst

@@ -2,15 +2,6 @@
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
 
 from odoo import api, models, fields, _
-from odoo.exceptions import ValidationError
-
-
-from ..constants.fiscal import (
-    NCM_FOR_SERVICE_REF,
-    PRODUCT_FISCAL_TYPE_SERVICE,
-    TAX_DOMAIN_ICMS,
-    TAX_DOMAIN_ISSQN,
-)
 
 
 class ProductMixin(models.AbstractModel):
@@ -58,6 +49,7 @@ class ProductMixin(models.AbstractModel):
         compute="_compute_allowed_ipi_tax_ids",
     )
 
+    # filtra os impostos de IPI associados ao CST de saída do código de enquadramento
     @api.depends(
         "ipi_guideline_id",
         "ipi_guideline_id.ipi_cst_out",

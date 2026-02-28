@@ -17,7 +17,7 @@
             <group>
               <field name="tax_group_id" />
               <field name="tax_scope" />
-              <field name="tax_domain" />
+              <field name="tax_domain_id" />
               <field name="tax_base_type" />
               <field name="percent_amount" />
             </group>
@@ -41,7 +41,7 @@
         <field name="description" />
         <field name="percent_amount" />
         <field name="tax_group_id" />
-        <field name="tax_domain" />
+        <field name="tax_domain_id" />
         <field name="cst_in_id" />
         <field name="cst_out_id" />
       </list>
