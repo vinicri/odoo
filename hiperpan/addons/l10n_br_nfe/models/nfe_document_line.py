@@ -762,6 +762,11 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    @api.depends("issuer_id", "issuer_id.fiscal_framework")
+    def _compute_is_simples_nacional(self):
+        for record in self:
+            record.is_simples_nacional = record._is_issuer_simples_nacional()
+
     issuer_contributes_to_ipi = fields.Boolean(
         string="Contribui com IPI",
         compute="_compute_issuer_contributes_to_ipi",
@@ -772,11 +777,6 @@ class NFeDocumentLine(models.Model):
     def _compute_issuer_contributes_to_ipi(self):
         for record in self:
             record.issuer_contributes_to_ipi = record.issuer_id.ipi_contributes
-
-    @api.depends("issuer_id", "issuer_id.fiscal_framework")
-    def _compute_is_simples_nacional(self):
-        for record in self:
-            record.is_simples_nacional = record._is_issuer_simples_nacional()
 
     # ===  impostos ===
 
@@ -2316,12 +2316,23 @@ class NFeDocumentLine(models.Model):
         compute="_compute_is_ipi_with_percentage",
     )
 
+    # 01 - Operação Tributável com Alíquota Básica
+    # 02 - Operação Tributável com Alíquota Diferenciada
+    # 03 - Operação Tributável com Alíquota por Unidade de Medida de Produto
+    # 04 - Operação Tributável Monofásica - Revenda a Alíquota Zero
+    # 05 - Operação Tributável por Substituição Tributária
+    # 06 - Operação Tributável a Alíquota Zero
+    # 07 - Operação Isenta da Contribuição
+    # 08 - Operação sem Incidência da Contribuição
+    # 09 - Operação com Suspensão da Contribuição
+    # 49 - Outras Operações de Saída
+
     @api.depends("ipi_cst_id")
     def _compute_is_ipi_with_percentage(self):
         for record in self:
             record.is_ipi_with_percentage = record.ipi_cst_id.code in (
-                "00",
-                "50",
+                "01",
+                "02",
                 "49",
                 "99",
             )
@@ -2484,15 +2495,49 @@ class NFeDocumentLine(models.Model):
     # Alíquota 0%.
     # Valor do COFINS: 0,00.
 
-    def domain_pis_tax_id(self):
-        return [("tax_group_id", "=", self.env.ref("l10n_br_fiscal.tax_group_pis").id)]
+    allowed_pis_tax_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.tax",
+        string="Allowed CSTs",
+        compute="_compute_allowed_pis_tax_ids",
+    )
+
+    @api.depends("is_simples_nacional", "issuer_id.regular_framework_type")
+    def _compute_allowed_pis_tax_ids(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.allowed_pis_tax_ids = self.env.ref(
+                    "l10n_br_fiscal.tax_pis_outras_operacoes"
+                )
+            elif self.issuer_id.regular_framework_type == "LP":
+                record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_pis").id,
+                        ),
+                        ("id", "!=", self.env.ref("l10n_br_fiscal.tax_pis_1_65").id),
+                    ]
+                )
+            elif self.issuer_id.regular_framework_type == "LR":
+                record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_pis").id,
+                        )
+                    ]
+                )
+            else:
+                record.allowed_pis_tax_ids = False
 
     pis_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="PIS",
         compute="_compute_pis_tax_id",
         store=True,
-        domain=domain_pis_tax_id,
+        domain="[('id', 'in', allowed_pis_tax_ids)]",
         readonly=False,
     )
 
@@ -2511,7 +2556,6 @@ class NFeDocumentLine(models.Model):
         string="CST PIS",
         readonly=True,
         store=True,
-        # required=True,
     )
 
     pis_cst = fields.Char(
@@ -2522,11 +2566,50 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    is_pis_qtt = fields.Boolean(
+        string="PIS Tributado por Unidade",
+        compute="_compute_is_pis_qtt",
+        readonly=True,
+    )
+
+    @api.depends("pis_tax_id")
+    def _compute_is_pis_qtt(self):
+        for record in self:
+            record.is_pis_qtt = record.pis_tax_id == self.env.ref(
+                "l10n_br_fiscal.tax_pis_monofasico_qty"
+            )
+
+    is_pis_with_percentage = fields.Boolean(
+        string="PIS com Aliquota em Percentual",
+        compute="_compute_is_pis_with_percentage",
+        readonly=True,
+    )
+
+    # 01 - Operação Tributável com Alíquota Básica
+    # 02 - Operação Tributável com Alíquota Diferenciada
+    # 03 - Operação Tributável com Alíquota por Unidade de Medida de Produto
+    # 04 - Operação Tributável Monofásica - Revenda a Alíquota Zero
+    # 05 - Operação Tributável por Substituição Tributária
+    # 06 - Operação Tributável a Alíquota Zero
+    # 07 - Operação Isenta da Contribuição
+    # 08 - Operação sem Incidência da Contribuição
+    # 09 - Operação com Suspensão da Contribuição
+    # 49 - Outras Operações de Saída
+    @api.depends("pis_tax_id")
+    def _compute_is_pis_with_percentage(self):
+        for record in self:
+            record.is_pis_with_percentage = record.pis_cst_id.code in (
+                "01",
+                "02",
+                "49",
+            )
+
     pis_tax_percent = fields.Float(
         related="pis_tax_id.percent_amount",
         store=True,
         string="Aliquota do PIS",
         digits=(3, 4),
+        readonly=True,
     )
 
     pis_bc_value = fields.Float(
@@ -2537,13 +2620,115 @@ class NFeDocumentLine(models.Model):
         compute="_compute_pis_bc_value",
     )
 
-    @api.depends("is_simples_nacional")
+    def compute_pis_cofins_bc_value(self):
+        for record in self:
+            if record.is_simples_nacional:
+                return 0.00
+            else:
+                return (
+                    record.total_value
+                    + record.freight_value
+                    + record.insurance_value
+                    + record.other_expenses_value
+                    - record.discount_value
+                    - (record.icms_value or 0.00)
+                )
+
+    @api.depends(
+        "is_simples_nacional",
+        "total_value",
+        "freight_value",
+        "insurance_value",
+        "other_expenses_value",
+        "discount_value",
+        "icms_value",
+    )
     def _compute_pis_bc_value(self):
         for record in self:
             if record.is_simples_nacional:
                 record.pis_bc_value = 0.00
-            else:
+            elif record.is_pis_qtt:
                 record.pis_bc_value = False
+            elif not record.is_pis_with_percentage:
+                record.pis_bc_value = False
+            else:
+                record.pis_bc_value = self.compute_pis_cofins_bc_value()
+
+    @api.constrains("pis_bc_value", "is_pis_qtt", "is_pis_with_percentage")
+    def _check_pis_bc_value(self):
+        for record in self:
+            if record.is_pis_qtt and record.pis_bc_value:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do PIS não pode ser informado para o CST {record.pis_cst}."
+                    )
+                )
+            elif record.is_pis_with_percentage and not record.pis_bc_value:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do PIS é obrigatório para o CST {record.pis_cst}."
+                    )
+                )
+            elif record.is_pis_with_percentage and record.pis_bc_value <= 0:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do PIS deve ser maior que 0 para o CST {record.pis_cst}."
+                    )
+                )
+
+    pis_bc_quantity = fields.Float(
+        string="Quantidade (Tributado por quantidade)",
+        digits=(12, 4),
+        compute="_compute_pis_bc_quantity",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("is_pis_qtt")
+    def _compute_pis_bc_quantity(self):
+        for record in self:
+            if not record.is_pis_qtt:
+                record.pis_bc_quantity = False
+
+    @api.constrains("pis_bc_quantity")
+    def _check_pis_bc_quantity(self):
+        for record in self:
+            if record.is_pis_qtt and not record.pis_bc_quantity:
+                raise ValidationError(
+                    _("A Quantidade (Tributado por quantidade) é obrigatória.")
+                )
+            elif record.is_pis_qtt and record.pis_bc_quantity <= 0:
+                raise ValidationError(
+                    _("A Quantidade (Tributado por quantidade) deve ser maior que 0.")
+                )
+
+    pis_tax_quantity = fields.Float(
+        string="Aliquota em reais (Tributado por quantidade)",
+        digits=(11, 4),
+        compute="_compute_pis_tax_quantity",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("is_pis_qtt")
+    def _compute_pis_tax_quantity(self):
+        for record in self:
+            if not record.is_pis_qtt:
+                record.pis_tax_quantity = False
+
+    @api.constrains("pis_tax_quantity")
+    def _check_pis_tax_quantity(self):
+        for record in self:
+            if record.is_pis_qtt and not record.pis_tax_quantity:
+                raise ValidationError(
+                    _("A Aliquota em reais (Tributado por quantidade) é obrigatória.")
+                )
+            elif record.is_pis_qtt and record.pis_tax_quantity <= 0:
+                raise ValidationError(
+                    _(
+                        "A Aliquota em reais (Tributado por quantidade) deve ser maior que 0."
+                    )
+                )
 
     pis_value = fields.Float(
         string="Valor do PIS",
@@ -2553,18 +2738,20 @@ class NFeDocumentLine(models.Model):
         compute="_compute_pis_value",
     )
 
-    @api.depends("pis_bc_value", "pis_tax_percent")
+    @api.depends(
+        "pis_bc_value",
+        "pis_tax_percent",
+        "is_pis_qtt",
+        "pis_bc_quantity",
+        "pis_tax_quantity",
+    )
     def _compute_pis_value(self):
         for record in self:
-            record.pis_value = record.pis_bc_value * record.pis_tax_percent / 100
+            if record.is_pis_qtt:
+                record.pis_value = record.pis_bc_quantity * record.pis_tax_quantity
+            else:
+                record.pis_value = record.pis_bc_value * record.pis_tax_percent / 100
 
-    pis_bc_quantity = fields.Float(
-        string="Quantidade (Tributado por quantidade)", digits=(12, 4)
-    )
-
-    pis_tax_quantity = fields.Float(
-        string="Aliquota em reais (Tributado por quantidade)", digits=(11, 4)
-    )
     # cst
     # base de calculo
     # aliquota em percentual

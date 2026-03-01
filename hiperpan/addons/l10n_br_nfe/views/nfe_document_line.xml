@@ -149,16 +149,21 @@
                 <group>
                   <field name="pis_tax_id" readonly="is_simples_nacional"/>
                   <field name="pis_cst_id" />
-                  <field name="pis_tax_percent" />
-                  <field name="pis_bc_value"/>
+                  <field name="pis_tax_percent" invisible="not is_pis_with_percentage" />
+                  <field name="pis_bc_value" invisible="not is_pis_with_percentage" />
+                  <field name="pis_bc_quantity" invisible="not is_pis_qtt" />
+                  <field name="pis_tax_quantity" invisible="not is_pis_qtt"/>
                   <field name="pis_value" />
-                </group>
-                <group>
+
+                  <separator string="PIS ST"/>
                   <field name="pis_st_tax_id" readonly="is_simples_nacional"/>
                   <field name="pis_st_cst_id" />
                   <field name="pis_st_tax_percent" />
                   <field name="pis_st_bc_value" />
                   <field name="pis_st_value" />
+                </group>
+                <group>
+
                 </group>
               </group>
             </page>
