@@ -2501,12 +2501,30 @@ class NFeDocumentLine(models.Model):
         compute="_compute_allowed_pis_tax_ids",
     )
 
-    @api.depends("is_simples_nacional", "issuer_id.regular_framework_type")
+    @api.depends(
+        "is_simples_nacional", "issuer_id.regular_framework_type", "cofins_tax_id"
+    )
     def _compute_allowed_pis_tax_ids(self):
         for record in self:
             if record.is_simples_nacional:
                 record.allowed_pis_tax_ids = self.env.ref(
                     "l10n_br_fiscal.tax_pis_outras_operacoes"
+                )
+            elif record.cofins_tax_id:
+                record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_pis").id,
+                        ),
+                        ("cst_out_id", "=", record.cofins_tax_id.cst_out_id.id),
+                        (
+                            ("id", "!=", self.env.ref("l10n_br_fiscal.tax_pis_1_65").id)
+                            if record.issuer_id.regular_framework_type == "LP"
+                            else ()
+                        ),
+                    ]
                 )
             elif self.issuer_id.regular_framework_type == "LP":
                 record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
@@ -2541,13 +2559,15 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("is_simples_nacional")
+    @api.depends("is_simples_nacional", "product_id", "product_id.pis_tax_id")
     def _compute_pis_tax_id(self):
         for record in self:
             if record.is_simples_nacional:
                 record.pis_tax_id = record.env.ref(
                     "l10n_br_fiscal.tax_pis_outras_operacoes"
                 ).id
+            elif record.product_id.pis_tax_id:
+                record.pis_tax_id = record.product_id.pis_tax_id
             else:
                 record.pis_tax_id = False
 
@@ -2767,11 +2787,22 @@ class NFeDocumentLine(models.Model):
         compute="_compute_allowed_pis_st_tax_ids",
     )
 
-    @api.depends("is_simples_nacional")
+    @api.depends("is_simples_nacional", "cofins_st_tax_id")
     def _compute_allowed_pis_st_tax_ids(self):
         for record in self:
             if record.is_simples_nacional:
                 record.allowed_pis_st_tax_ids = False
+            elif record.cofins_st_tax_id:
+                record.allowed_pis_st_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_pisst").id,
+                        ),
+                        ("cst_out_id", "=", record.cofins_st_tax_id.cst_out_id.id),
+                    ]
+                )
             else:
                 record.allowed_pis_st_tax_ids = self.env["l10n_br_fiscal.tax"].search(
                     [
@@ -2995,12 +3026,34 @@ class NFeDocumentLine(models.Model):
         compute="_compute_allowed_cofins_tax_ids",
     )
 
-    @api.depends("is_simples_nacional", "issuer_id.regular_framework_type")
+    @api.depends(
+        "is_simples_nacional", "issuer_id.regular_framework_type", "pis_tax_id"
+    )
     def _compute_allowed_cofins_tax_ids(self):
         for record in self:
             if record.is_simples_nacional:
                 record.allowed_cofins_tax_ids = self.env.ref(
                     "l10n_br_fiscal.tax_cofins_outras_operacoes"
+                )
+            elif record.pis_tax_id:
+                record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_cofins").id,
+                        ),
+                        ("cst_out_id", "=", record.pis_tax_id.cst_out_id.id),
+                        (
+                            (
+                                "id",
+                                "!=",
+                                self.env.ref("l10n_br_fiscal.tax_cofins_7_6").id,
+                            )
+                            if record.issuer_id.regular_framework_type == "LP"
+                            else ()
+                        ),
+                    ],
                 )
             elif record.issuer_id.regular_framework_type == "LP":
                 record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
@@ -3039,13 +3092,15 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("is_simples_nacional")
+    @api.depends("is_simples_nacional", "product_id", "product_id.cofins_tax_id")
     def _compute_cofins_tax_id(self):
         for record in self:
             if record.is_simples_nacional:
                 record.cofins_tax_id = record.env.ref(
                     "l10n_br_fiscal.tax_cofins_outras_operacoes"
                 ).id
+            elif record.product_id.cofins_tax_id:
+                record.cofins_tax_id = record.product_id.cofins_tax_id
             else:
                 record.cofins_tax_id = False
 
@@ -3254,13 +3309,28 @@ class NFeDocumentLine(models.Model):
         compute="_compute_allowed_cofins_st_tax_ids",
     )
 
-    @api.depends("is_simples_nacional")
+    @api.depends("is_simples_nacional", "pis_st_tax_id")
     def _compute_allowed_cofins_st_tax_ids(self):
         for record in self:
             if record.is_simples_nacional:
                 record.allowed_cofins_st_tax_ids = False
+            elif record.pis_st_tax_id:
+                record.allowed_cofins_st_tax_ids = self.env[
+                    "l10n_br_fiscal.tax"
+                ].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_cofinsst").id,
+                        ),
+                        ("cst_out_id", "=", record.pis_st_tax_id.cst_out_id.id),
+                    ]
+                )
             else:
-                record.allowed_cofins_st_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                record.allowed_cofins_st_tax_ids = self.env[
+                    "l10n_br_fiscal.tax"
+                ].search(
                     [
                         (
                             "tax_group_id",
@@ -3349,7 +3419,10 @@ class NFeDocumentLine(models.Model):
             else:
                 record.cofins_st_bc_value = self.compute_pis_cofins_st_bc_value()
 
-    @api.constrains("cofins_st_bc_value", "is_cofins_st_qtt", "is_cofins_st_with_percentage")
+    @api.constrains(
+        "cofins_st_bc_value",
+        "is_cofins_st_qtt",
+    )
     def _check_cofins_st_bc_value(self):
         for record in self:
             if record.is_cofins_st_qtt and record.cofins_st_bc_value:

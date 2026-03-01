@@ -59,6 +59,19 @@
 
           </group>
         </page>
+        <page name="piscofins" string="PIS COFINS">
+          <group>
+            <group>
+              <field name="allowed_pis_tax_ids" invisible="1"/>
+              <field name="pis_tax_id" />
+            </group>
+            <group>
+              <field name="allowed_cofins_tax_ids" invisible="1"/>
+              <field name="cofins_tax_id" />
+            </group>
+          </group>
+        </page>
+
       </xpath>
       <xpath expr="//field[@name='barcode']" position="after">
         <field name="no_barcode" />

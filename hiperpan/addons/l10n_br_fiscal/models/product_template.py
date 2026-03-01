@@ -156,6 +156,36 @@ class ProductTemplate(models.Model):
     def _set_fiscal_additional_information(self):
         self._set_product_variant_field("fiscal_additional_information")
 
+    pis_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="PIS",
+        compute="_compute_pis_tax_id",
+        inverse="_set_pis_tax_id",
+        store=True,
+    )
+
+    def _set_pis_tax_id(self):
+        self._set_product_variant_field("pis_tax_id")
+
+    @api.depends("product_variant_ids.pis_tax_id")
+    def _compute_pis_tax_id(self):
+        self._compute_template_field_from_variant_field("pis_tax_id")
+
+    cofins_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="COFINS",
+        compute="_compute_cofins_tax_id",
+        inverse="_set_cofins_tax_id",
+        store=True,
+    )
+
+    def _set_cofins_tax_id(self):
+        self._set_product_variant_field("cofins_tax_id")
+
+    @api.depends("product_variant_ids.cofins_tax_id")
+    def _compute_cofins_tax_id(self):
+        self._compute_template_field_from_variant_field("cofins_tax_id")
+
     mrp_bom_id = fields.Many2one(
         comodel_name="mrp.bom",
         string="BoM",

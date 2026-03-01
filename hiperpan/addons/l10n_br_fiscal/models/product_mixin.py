@@ -167,6 +167,122 @@ class ProductMixin(models.AbstractModel):
         else:
             record.fiscal_genre_id = False
 
+    allowed_pis_tax_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.tax",
+        string="Allowed CSTs",
+        compute="_compute_allowed_pis_tax_ids",
+    )
+
+    @api.depends("cofins_tax_id")
+    def _compute_allowed_pis_tax_ids(self):
+        for record in self:
+            if record.cofins_tax_id:
+                record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_pis").id,
+                        ),
+                        ("cst_out_id", "=", record.cofins_tax_id.cst_out_id.id),
+                        (
+                            ("id", "!=", self.env.ref("l10n_br_fiscal.tax_pis_1_65").id)
+                            if self.env.company.regular_framework_type == "LP"
+                            else ()
+                        ),
+                    ]
+                )
+            elif self.env.company.regular_framework_type == "LP":
+                record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_pis").id,
+                        ),
+                        ("id", "!=", self.env.ref("l10n_br_fiscal.tax_pis_1_65").id),
+                    ]
+                )
+            elif self.env.company.regular_framework_type == "LR":
+                record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_pis").id,
+                        )
+                    ]
+                )
+            else:
+                record.allowed_pis_tax_ids = False
+
+    pis_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="PIS",
+        domain="[('id', 'in', allowed_pis_tax_ids)]",
+        company_dependent=True,
+    )
+
+    allowed_cofins_tax_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.tax",
+        string="Allowed COFINS Tax",
+        compute="_compute_allowed_cofins_tax_ids",
+    )
+
+    @api.depends("pis_tax_id")
+    def _compute_allowed_cofins_tax_ids(self):
+        for record in self:
+            if record.pis_tax_id:
+                record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_cofins").id,
+                        ),
+                        ("cst_out_id", "=", record.pis_tax_id.cst_out_id.id),
+                        (
+                            (
+                                "id",
+                                "!=",
+                                self.env.ref("l10n_br_fiscal.tax_cofins_7_6").id,
+                            )
+                            if self.env.company.regular_framework_type == "LP"
+                            else ()
+                        ),
+                    ]
+                )
+            elif self.env.company.regular_framework_type == "LP":
+                record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_cofins").id,
+                        ),
+                        ("id", "!=", self.env.ref("l10n_br_fiscal.tax_cofins_7_6").id),
+                    ]
+                )
+            elif self.env.company.regular_framework_type == "LR":
+                record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_cofins").id,
+                        )
+                    ]
+                )
+            else:
+                record.allowed_cofins_tax_ids = False
+
+    cofins_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="COFINS",
+        domain="[('id', 'in', allowed_cofins_tax_ids)]",
+        company_dependent=True,
+    )
+
     # @api.depends("fiscal_type")
     # def _compute_tax_icms_or_issqn(self):
     #     for product in self:
