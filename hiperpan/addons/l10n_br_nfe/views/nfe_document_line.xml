@@ -144,7 +144,7 @@
 
               </div>
             </page>
-            <page string="PIS">
+            <page string="PIS COFINS">
               <group>
                 <group>
                   <field name="pis_tax_id" readonly="is_simples_nacional"/>
@@ -163,21 +163,15 @@
                   <field name="pis_st_value" />
                 </group>
                 <group>
-
-                </group>
-              </group>
-            </page>
-
-            <page string="COFINS">
-              <group>
-                <group>
                   <field name="cofins_tax_id" readonly="is_simples_nacional"/>
                   <field name="cofins_cst_id" />
-                  <field name="cofins_tax_percent" />
-                  <field name="cofins_bc_value" />
+                  <field name="cofins_tax_percent" invisible="not is_cofins_with_percentage" />
+                  <field name="cofins_bc_value" invisible="not is_cofins_with_percentage" />
+                  <field name="cofins_bc_quantity" invisible="not is_cofins_qtt" />
+                  <field name="cofins_tax_quantity" invisible="not is_cofins_qtt"/>
                   <field name="cofins_value" />
-                </group>
-                <group>
+
+                  <separator string="COFINS ST"/>
                   <field name="cofins_st_tax_id" readonly="is_simples_nacional"/>
                   <field name="cofins_st_cst_id" />
                   <field name="cofins_st_tax_percent" />
@@ -186,6 +180,8 @@
                 </group>
               </group>
             </page>
+
+
             <field name="is_ii_allowed" invisible="1" />
             <page string="Imposto de Importação" invisible="not is_ii_allowed">
               <group>

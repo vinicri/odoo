@@ -2839,13 +2839,58 @@ class NFeDocumentLine(models.Model):
 
     # ===  cofins ===
 
+    allowed_cofins_tax_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.tax",
+        string="Allowed CSTs",
+        compute="_compute_allowed_cofins_tax_ids",
+    )
+
+    @api.depends("is_simples_nacional", "issuer_id.regular_framework_type")
+    def _compute_allowed_cofins_tax_ids(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.allowed_cofins_tax_ids = self.env.ref(
+                    "l10n_br_fiscal.tax_cofins_outras_operacoes"
+                )
+            elif record.issuer_id.regular_framework_type == "LP":
+                record.allowed_cofins_tax_ids = self.env[
+                    "l10n_br_fiscal.tax"
+                ].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_cofins").id,
+                        ),
+                        (
+                            "id",
+                            "!=",
+                            self.env.ref("l10n_br_fiscal.tax_cofins_7_6").id,
+                        ),
+                    ]
+                )
+            elif record.issuer_id.regular_framework_type == "LR":
+                record.allowed_cofins_tax_ids = self.env[
+                    "l10n_br_fiscal.tax"
+                ].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_cofins").id,
+                        )
+                    ]
+                )
+            else:
+                record.allowed_cofins_tax_ids = False
+
     cofins_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="COFINS",
-        domain="[('tax_group_id', '=', 'tax_group_cofins')]",
-        readonly=False,
-        store=True,
         compute="_compute_cofins_tax_id",
+        store=True,
+        domain="[('id', 'in', allowed_cofins_tax_ids)]",
+        readonly=False,
     )
 
     @api.depends("is_simples_nacional")
@@ -2862,7 +2907,6 @@ class NFeDocumentLine(models.Model):
         related="cofins_tax_id.cst_out_id",
         string="CST COFINS",
         readonly=True,
-        # required=True,
         store=True,
     )
 
@@ -2874,56 +2918,185 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    is_cofins_qtt = fields.Boolean(
+        string="COFINS Tributado por Unidade",
+        compute="_compute_is_cofins_qtt",
+        readonly=True,
+    )
+
+    @api.depends("cofins_tax_id")
+    def _compute_is_cofins_qtt(self):
+        for record in self:
+            record.is_cofins_qtt = record.cofins_tax_id == self.env.ref(
+                "l10n_br_fiscal.tax_cofins_value_monofasico_qty"
+            )
+
+    is_cofins_with_percentage = fields.Boolean(
+        string="COFINS com Aliquota em Percentual",
+        compute="_compute_is_cofins_with_percentage",
+        readonly=True,
+    )
+
+    # 01 - Operação Tributável com Alíquota Básica
+    # 02 - Operação Tributável com Alíquota Diferenciada
+    # 03 - Operação Tributável com Alíquota por Unidade de Medida de Produto
+    # 04 - Operação Tributável Monofásica - Revenda a Alíquota Zero
+    # 05 - Operação Tributável por Substituição Tributária
+    # 06 - Operação Tributável a Alíquota Zero
+    # 07 - Operação Isenta da Contribuição
+    # 08 - Operação sem Incidência da Contribuição
+    # 09 - Operação com Suspensão da Contribuição
+    # 49 - Outras Operações de Saída
+    @api.depends("cofins_tax_id")
+    def _compute_is_cofins_with_percentage(self):
+        for record in self:
+            record.is_cofins_with_percentage = record.cofins_cst_id.code in (
+                "01",
+                "02",
+                "49",
+            )
+
     cofins_tax_percent = fields.Float(
         related="cofins_tax_id.percent_amount",
+        store=True,
         string="Aliquota do COFINS",
         digits=(3, 4),
-        store=True,
         readonly=True,
     )
 
     cofins_bc_value = fields.Float(
         string="Valor da Base de Calculo do COFINS",
         digits=(13, 2),
+        readonly=True,
         store=True,
         compute="_compute_cofins_bc_value",
-        readonly=True,
     )
 
-    @api.depends("is_simples_nacional")
+    @api.depends(
+        "is_simples_nacional",
+        "total_value",
+        "freight_value",
+        "insurance_value",
+        "other_expenses_value",
+        "discount_value",
+        "icms_value",
+    )
     def _compute_cofins_bc_value(self):
         for record in self:
             if record.is_simples_nacional:
                 record.cofins_bc_value = 0.00
-            else:
+            elif record.is_cofins_qtt:
                 record.cofins_bc_value = False
+            elif not record.is_cofins_with_percentage:
+                record.cofins_bc_value = False
+            else:
+                record.cofins_bc_value = self.compute_pis_cofins_bc_value()
+
+    @api.constrains("cofins_bc_value", "is_cofins_qtt", "is_cofins_with_percentage")
+    def _check_cofins_bc_value(self):
+        for record in self:
+            if record.is_cofins_qtt and record.cofins_bc_value:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do COFINS não pode ser informado para o CST {record.cofins_cst}."
+                    )
+                )
+            elif record.is_cofins_with_percentage and not record.cofins_bc_value:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do COFINS é obrigatório para o CST {record.cofins_cst}."
+                    )
+                )
+            elif record.is_cofins_with_percentage and record.cofins_bc_value <= 0:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do COFINS deve ser maior que 0 para o CST {record.cofins_cst}."
+                    )
+                )
 
     cofins_bc_quantity = fields.Float(
-        string="Quantidade COFINS (Tributado por quantidade)", digits=(12, 4)
+        string="Quantidade (Tributado por quantidade)",
+        digits=(12, 4),
+        compute="_compute_cofins_bc_quantity",
+        store=True,
+        readonly=False,
     )
 
+    @api.depends("is_cofins_qtt")
+    def _compute_cofins_bc_quantity(self):
+        for record in self:
+            if not record.is_cofins_qtt:
+                record.cofins_bc_quantity = False
+
+    @api.constrains("cofins_bc_quantity")
+    def _check_cofins_bc_quantity(self):
+        for record in self:
+            if record.is_cofins_qtt and not record.cofins_bc_quantity:
+                raise ValidationError(
+                    _("A Quantidade (Tributado por quantidade) é obrigatória.")
+                )
+            elif record.is_cofins_qtt and record.cofins_bc_quantity <= 0:
+                raise ValidationError(
+                    _("A Quantidade (Tributado por quantidade) deve ser maior que 0.")
+                )
+
     cofins_tax_quantity = fields.Float(
-        string="Aliquota em reais COFINS (Tributado por quantidade)", digits=(11, 4)
+        string="Aliquota em reais (Tributado por quantidade)",
+        digits=(11, 4),
+        compute="_compute_cofins_tax_quantity",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("is_cofins_qtt")
+    def _compute_cofins_tax_quantity(self):
+        for record in self:
+            if not record.is_cofins_qtt:
+                record.cofins_tax_quantity = False
+
+    @api.constrains("cofins_tax_quantity")
+    def _check_cofins_tax_quantity(self):
+        for record in self:
+            if record.is_cofins_qtt and not record.cofins_tax_quantity:
+                raise ValidationError(
+                    _("A Aliquota em reais (Tributado por quantidade) é obrigatória.")
+                )
+            elif record.is_cofins_qtt and record.cofins_tax_quantity <= 0:
+                raise ValidationError(
+                    _(
+                        "A Aliquota em reais (Tributado por quantidade) deve ser maior que 0."
+                    )
+                )
 
     cofins_value = fields.Float(
         string="Valor do COFINS",
         digits=(13, 2),
+        readonly=True,
         store=True,
         compute="_compute_cofins_value",
-        readonly=True,
     )
 
-    @api.depends("cofins_bc_value", "cofins_tax_percent")
+    @api.depends(
+        "cofins_bc_value",
+        "cofins_tax_percent",
+        "is_cofins_qtt",
+        "cofins_bc_quantity",
+        "cofins_tax_quantity",
+    )
     def _compute_cofins_value(self):
         for record in self:
-            record.cofins_value = (
-                record.cofins_bc_value * record.cofins_tax_percent / 100
-            )
+            if record.is_cofins_qtt:
+                record.cofins_value = (
+                    record.cofins_bc_quantity * record.cofins_tax_quantity
+                )
+            else:
+                record.cofins_value = (
+                    record.cofins_bc_value * record.cofins_tax_percent / 100
+                )
 
+    # cst
     # base de calculo
     # aliquota em percentual
-    # valor do cofins
     # quantidade vendida
     # aliquota em valor
 
