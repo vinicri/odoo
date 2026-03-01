@@ -158,8 +158,10 @@
                   <separator string="PIS ST"/>
                   <field name="pis_st_tax_id" readonly="is_simples_nacional"/>
                   <field name="pis_st_cst_id" />
-                  <field name="pis_st_tax_percent" />
-                  <field name="pis_st_bc_value" />
+                  <field name="pis_st_tax_percent" invisible="is_pis_st_qtt" />
+                  <field name="pis_st_bc_value" invisible="is_pis_st_qtt" />
+                  <field name="pis_st_bc_quantity" invisible="not is_pis_st_qtt" />
+                  <field name="pis_st_tax_quantity" invisible="not is_pis_st_qtt"/>
                   <field name="pis_st_value" />
                 </group>
                 <group>

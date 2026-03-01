@@ -2761,13 +2761,35 @@ class NFeDocumentLine(models.Model):
 
     # ===  pis st ===
 
+    allowed_pis_st_tax_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.tax",
+        string="Allowed CSTs",
+        compute="_compute_allowed_pis_st_tax_ids",
+    )
+
+    @api.depends("is_simples_nacional")
+    def _compute_allowed_pis_st_tax_ids(self):
+        for record in self:
+            if record.is_simples_nacional:
+                record.allowed_pis_st_tax_ids = False
+            else:
+                record.allowed_pis_st_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        (
+                            "tax_group_id",
+                            "=",
+                            self.env.ref("l10n_br_fiscal.tax_group_pisst").id,
+                        )
+                    ]
+                )
+
     pis_st_tax_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.tax",
         string="PIS ST",
-        domain=[("tax_group_id", "=", "tax_group_pis_st")],
-        readonly=False,
         compute="_compute_pis_st_tax_id",
         store=True,
+        domain="[('id', 'in', allowed_pis_st_tax_ids)]",
+        readonly=False,
     )
 
     @api.depends("is_simples_nacional")
@@ -2791,50 +2813,178 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
+    is_pis_st_qtt = fields.Boolean(
+        string="PIS ST Tributado por Unidade",
+        compute="_compute_is_pis_st_qtt",
+        readonly=True,
+    )
+
+    @api.depends("pis_st_tax_id")
+    def _compute_is_pis_st_qtt(self):
+        for record in self:
+            record.is_pis_st_qtt = record.pis_st_tax_id == self.env.ref(
+                "l10n_br_fiscal.tax_pis_st_qty"
+            )
+
     pis_st_tax_percent = fields.Float(
         related="pis_st_tax_id.percent_amount",
+        store=True,
         string="Aliquota do PIS ST",
         digits=(3, 4),
         readonly=True,
-        store=True,
     )
 
     pis_st_bc_value = fields.Float(
         string="Valor da Base de Calculo do PIS ST",
         digits=(13, 2),
         readonly=True,
-        compute="_compute_pis_st_bc_value",
         store=True,
+        compute="_compute_pis_st_bc_value",
     )
 
+    def compute_pis_cofins_st_bc_value(self):
+        for record in self:
+            if record.is_simples_nacional:
+                return 0.00
+            elif record.is_pis_st_qtt:
+                return False
+            else:
+                return (
+                    record.total_value
+                    + record.freight_value
+                    + record.insurance_value
+                    + record.other_expenses_value
+                    - record.discount_value
+                    - (record.icms_value or 0.00)
+                )
+
+    @api.depends(
+        "is_simples_nacional",
+        "total_value",
+        "freight_value",
+        "insurance_value",
+        "other_expenses_value",
+        "discount_value",
+        "icms_value",
+    )
     def _compute_pis_st_bc_value(self):
         for record in self:
-            record.pis_st_bc_value = False
+            if record.is_simples_nacional:
+                record.pis_st_bc_value = 0.00
+            elif not record.pis_st_tax_id:
+                record.pis_st_bc_value = False
+            elif record.is_pis_st_qtt:
+                record.pis_st_bc_value = False
+            else:
+                record.pis_st_bc_value = self.compute_pis_cofins_st_bc_value()
+
+    @api.constrains("pis_st_bc_value", "is_pis_st_qtt", "is_pis_st_with_percentage")
+    def _check_pis_st_bc_value(self):
+        for record in self:
+            if record.is_pis_st_qtt and record.pis_st_bc_value:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do PIS ST não pode ser informado para o CST {record.pis_st_cst}."
+                    )
+                )
+            elif not record.pis_st_bc_value:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do PIS ST é obrigatório para o CST {record.pis_st_cst}."
+                    )
+                )
+            elif record.pis_st_bc_value <= 0:
+                raise ValidationError(
+                    _(
+                        "O Valor da Base de Calculo do PIS ST deve ser maior que 0 para o CST {record.pis_st_cst}."
+                    )
+                )
 
     pis_st_bc_quantity = fields.Float(
-        string="Quantidade PIS ST (Tributado por quantidade)", digits=(12, 4)
+        string="Quantidade (Tributado por quantidade)",
+        digits=(12, 4),
+        compute="_compute_pis_st_bc_quantity",
+        store=True,
+        readonly=False,
     )
 
+    @api.depends("is_pis_st_qtt")
+    def _compute_pis_st_bc_quantity(self):
+        for record in self:
+            if not record.is_pis_st_qtt:
+                record.pis_st_bc_quantity = False
+
+    @api.constrains("pis_st_bc_quantity")
+    def _check_pis_st_bc_quantity(self):
+        for record in self:
+            if record.is_pis_st_qtt and not record.pis_st_bc_quantity:
+                raise ValidationError(
+                    _("A Quantidade (Tributado por quantidade) é obrigatória.")
+                )
+            elif record.is_pis_st_qtt and record.pis_st_bc_quantity <= 0:
+                raise ValidationError(
+                    _("A Quantidade (Tributado por quantidade) deve ser maior que 0.")
+                )
+
     pis_st_tax_quantity = fields.Float(
-        string="Aliquota em reais PIS ST (Tributado por quantidade)", digits=(11, 4)
+        string="Aliquota em reais (Tributado por quantidade)",
+        digits=(11, 4),
+        compute="_compute_pis_st_tax_quantity",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends("is_pis_st_qtt")
+    def _compute_pis_st_tax_quantity(self):
+        for record in self:
+            if not record.is_pis_st_qtt:
+                record.pis_st_tax_quantity = False
+
+    @api.constrains("pis_st_tax_quantity")
+    def _check_pis_st_tax_quantity(self):
+        for record in self:
+            if record.is_pis_st_qtt and not record.pis_st_tax_quantity:
+                raise ValidationError(
+                    _("A Aliquota em reais (Tributado por quantidade) é obrigatória.")
+                )
+            elif record.is_pis_st_qtt and record.pis_st_tax_quantity <= 0:
+                raise ValidationError(
+                    _(
+                        "A Aliquota em reais (Tributado por quantidade) deve ser maior que 0."
+                    )
+                )
 
     pis_st_value = fields.Float(
         string="Valor do PIS ST",
         digits=(13, 2),
-        compute="_compute_pis_st_value",
-        store=True,
         readonly=True,
+        store=True,
+        compute="_compute_pis_st_value",
     )
 
+    @api.depends(
+        "pis_st_bc_value",
+        "pis_st_tax_percent",
+        "is_pis_st_qtt",
+        "pis_st_bc_quantity",
+        "pis_st_tax_quantity",
+    )
     def _compute_pis_st_value(self):
         for record in self:
-            record.pis_st_value = False
+            if record.is_pis_st_qtt:
+                record.pis_st_value = (
+                    record.pis_st_bc_quantity * record.pis_st_tax_quantity
+                )
+            else:
+                record.pis_st_value = (
+                    record.pis_st_bc_value * record.pis_st_tax_percent / 100
+                )
 
+    # cst
     # base de calculo
     # aliquota em percentual
-    # aliquota em valor
     # quantidade vendida
+    # aliquota em valor
     # valor do pis st
 
     # ===  cofins ===
@@ -2853,9 +3003,7 @@ class NFeDocumentLine(models.Model):
                     "l10n_br_fiscal.tax_cofins_outras_operacoes"
                 )
             elif record.issuer_id.regular_framework_type == "LP":
-                record.allowed_cofins_tax_ids = self.env[
-                    "l10n_br_fiscal.tax"
-                ].search(
+                record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
                     [
                         (
                             "tax_group_id",
@@ -2870,9 +3018,7 @@ class NFeDocumentLine(models.Model):
                     ]
                 )
             elif record.issuer_id.regular_framework_type == "LR":
-                record.allowed_cofins_tax_ids = self.env[
-                    "l10n_br_fiscal.tax"
-                ].search(
+                record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
                     [
                         (
                             "tax_group_id",
