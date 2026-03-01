@@ -176,8 +176,10 @@
                   <separator string="COFINS ST"/>
                   <field name="cofins_st_tax_id" readonly="is_simples_nacional"/>
                   <field name="cofins_st_cst_id" />
-                  <field name="cofins_st_tax_percent" />
-                  <field name="cofins_st_bc_value" />
+                  <field name="cofins_st_tax_percent" invisible="is_cofins_st_qtt" />
+                  <field name="cofins_st_bc_value" invisible="is_cofins_st_qtt" />
+                  <field name="cofins_st_bc_quantity" invisible="not is_cofins_st_qtt" />
+                  <field name="cofins_st_tax_quantity" invisible="not is_cofins_st_qtt"/>
                   <field name="cofins_st_value" />
                 </group>
               </group>
