@@ -2377,7 +2377,14 @@ class NFeDocumentLine(models.Model):
     )
 
     # Decisão do STF (Tema 84): Definiu que frete, seguro e descontos incondicionais não compõem a base de cálculo.
-    @api.depends("issuer_id.fiscal_framework", "is_ipi_qtt")
+    @api.depends(
+        "issuer_id.fiscal_framework",
+        "is_ipi_qtt",
+        "is_ipi_with_percentage",
+        "total_value",
+        "other_expenses_value",
+        "discount_value",
+    )
     def _compute_ipi_bc_value(self):
         for record in self:
             if record._is_issuer_simples_nacional():
