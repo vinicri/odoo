@@ -3722,6 +3722,7 @@ class NFeDocument(models.Model):
         store=True,
     )
 
+    # TODO verificar  se nao existem condicoes especificas de soma pro ICMS diferido
     @api.depends(
         "issuer_id",
         "issuer_id.fiscal_framework",
@@ -3775,9 +3776,6 @@ class NFeDocument(models.Model):
             else:
                 record.total_icms = total_icms
 
-    # Valor Total do ICMS.
-
-    # soma do valor do icms desonerado dos items, nao implementado
     total_icms_deson = fields.Float(
         string="Valor ICMS Desonerado",
         digits=(13, 2),
@@ -3791,8 +3789,6 @@ class NFeDocument(models.Model):
             record.total_icms_deson = sum(
                 record.invoice_line_ids.mapped("icms_deson_value")
             )
-
-    # Valor Total do ICMS desonerado.
 
     # == icms difal ==
 
@@ -4304,6 +4300,20 @@ class NFeDocument(models.Model):
                 + record.total_ipi_returned
             )
 
+    # -Total do vNF (id:W16)
+    # (+) vProd (id:W07)
+    # (-) vDesc (id:W10)
+    # (-) vICMSDeson (id:W04a)
+    # (+) vST (id:W06)
+    # (+) vFCPST (id:W06a)
+    # (+) vFrete (id:W08)
+    # (+) vSeg (id:W09)
+    # (+) vOutro (id:W15)
+    # (+) vII (id:W11)
+    # (+) vIPI (id:W12)
+    # (+) vIPIDevol (id: W12a)
+    # (+) vServ (id:W18) (*3) (NT 2011/005)
+
     total_approx_taxes_federal = fields.Float(
         string="Valor Aproximado dos Tributos Federais",
         digits=(13, 2),
@@ -4498,6 +4508,7 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
+    # Literal “ISENTO” para transportador isento de inscrição no cadastro de contribuintes ICMS;
     freight_carrier_ie = fields.Char(
         related="freight_partner_id.inscr_est",
         string="Inscrição Estadual da Transportadora",
@@ -4608,11 +4619,9 @@ class NFeDocument(models.Model):
         readonly=False,
     )
 
-    @api.depends("total_nfe")
     def _compute_billing_original_value(self):
         for record in self:
-            if not record.billing_original_value:
-                record.billing_original_value = record.total_nfe
+            record.billing_original_value = 0.00
 
     # Valor do Desconto da Fatura.
     billing_discount_value = fields.Float(

@@ -1040,9 +1040,9 @@ class NFeDocumentLine(models.Model):
     icms_bc_value = fields.Float(
         string="Valor da Base de Calculo",
         digits=(13, 2),
-        required=True,
         compute="_compute_icms_bc_value",
         store=True,
+        readonly=True,
     )
 
     # ainda não cobre a base de calculo da importação
@@ -2311,28 +2311,31 @@ class NFeDocumentLine(models.Model):
             if record.product_has_ipi and not record.ipi_cst:
                 raise ValidationError(_("O CST IPI é obrigatório."))
 
+    @api.constrains("ipi_tax_id", "cofins_tax_id")
+    def _check_ipi_cst_and_cofins_cst(self):
+        for record in self:
+            if record.ipi_tax_id.cst_out_id != record.cofins_tax_id.cst_out_id:
+                raise ValidationError(
+                    _(
+                        "O PIS e COFINS devem ser informados simultaneamente e devem ser equivalentes."
+                    )
+                )
+
     is_ipi_with_percentage = fields.Boolean(
         string="É CST com Aliquota em Percentual",
         compute="_compute_is_ipi_with_percentage",
     )
 
-    # 01 - Operação Tributável com Alíquota Básica
-    # 02 - Operação Tributável com Alíquota Diferenciada
-    # 03 - Operação Tributável com Alíquota por Unidade de Medida de Produto
-    # 04 - Operação Tributável Monofásica - Revenda a Alíquota Zero
-    # 05 - Operação Tributável por Substituição Tributária
-    # 06 - Operação Tributável a Alíquota Zero
-    # 07 - Operação Isenta da Contribuição
-    # 08 - Operação sem Incidência da Contribuição
-    # 09 - Operação com Suspensão da Contribuição
-    # 49 - Outras Operações de Saída
-
+    # 00 - entrade com recuperação de crédito
+    # 50 - saida tributada
+    # 49 - outras entradas
+    # 99 - outras saídas
     @api.depends("ipi_cst_id")
     def _compute_is_ipi_with_percentage(self):
         for record in self:
             record.is_ipi_with_percentage = record.ipi_cst_id.code in (
-                "01",
-                "02",
+                "00",
+                "50",
                 "49",
                 "99",
             )
@@ -2384,6 +2387,8 @@ class NFeDocumentLine(models.Model):
         "total_value",
         "other_expenses_value",
         "discount_value",
+        "freight_value",
+        "insurance_value",
     )
     def _compute_ipi_bc_value(self):
         for record in self:
@@ -2396,6 +2401,8 @@ class NFeDocumentLine(models.Model):
             else:
                 record.ipi_bc_value = (
                     record.total_value
+                    + record.freight_value
+                    + record.insurance_value
                     + record.other_expenses_value
                     - record.discount_value
                 )
@@ -2622,7 +2629,7 @@ class NFeDocumentLine(models.Model):
     # 08 - Operação sem Incidência da Contribuição
     # 09 - Operação com Suspensão da Contribuição
     # 49 - Outras Operações de Saída
-    @api.depends("pis_tax_id")
+    @api.depends("pis_cst_id")
     def _compute_is_pis_with_percentage(self):
         for record in self:
             record.is_pis_with_percentage = record.pis_cst_id.code in (
@@ -2669,6 +2676,8 @@ class NFeDocumentLine(models.Model):
         "other_expenses_value",
         "discount_value",
         "icms_value",
+        "is_pis_qtt",
+        "is_pis_with_percentage",
     )
     def _compute_pis_bc_value(self):
         for record in self:
@@ -2717,7 +2726,7 @@ class NFeDocumentLine(models.Model):
             if not record.is_pis_qtt:
                 record.pis_bc_quantity = False
 
-    @api.constrains("pis_bc_quantity")
+    @api.constrains("is_pis_qtt", "pis_bc_quantity")
     def _check_pis_bc_quantity(self):
         for record in self:
             if record.is_pis_qtt and not record.pis_bc_quantity:
@@ -2743,7 +2752,7 @@ class NFeDocumentLine(models.Model):
             if not record.is_pis_qtt:
                 record.pis_tax_quantity = False
 
-    @api.constrains("pis_tax_quantity")
+    @api.constrains("is_pis_qtt", "pis_tax_quantity")
     def _check_pis_tax_quantity(self):
         for record in self:
             if record.is_pis_qtt and not record.pis_tax_quantity:
@@ -2904,6 +2913,8 @@ class NFeDocumentLine(models.Model):
         "other_expenses_value",
         "discount_value",
         "icms_value",
+        "is_pis_st_qtt",
+        "pis_st_tax_id",
     )
     def _compute_pis_st_bc_value(self):
         for record in self:
@@ -2916,7 +2927,7 @@ class NFeDocumentLine(models.Model):
             else:
                 record.pis_st_bc_value = self.compute_pis_cofins_st_bc_value()
 
-    @api.constrains("pis_st_bc_value", "is_pis_st_qtt", "is_pis_st_with_percentage")
+    @api.constrains("pis_st_bc_value", "is_pis_st_qtt")
     def _check_pis_st_bc_value(self):
         for record in self:
             if record.is_pis_st_qtt and record.pis_st_bc_value:
@@ -2952,7 +2963,7 @@ class NFeDocumentLine(models.Model):
             if not record.is_pis_st_qtt:
                 record.pis_st_bc_quantity = False
 
-    @api.constrains("pis_st_bc_quantity")
+    @api.constrains("pis_st_bc_quantity", "is_pis_st_qtt")
     def _check_pis_st_bc_quantity(self):
         for record in self:
             if record.is_pis_st_qtt and not record.pis_st_bc_quantity:
@@ -2978,7 +2989,7 @@ class NFeDocumentLine(models.Model):
             if not record.is_pis_st_qtt:
                 record.pis_st_tax_quantity = False
 
-    @api.constrains("pis_st_tax_quantity")
+    @api.constrains("pis_st_tax_quantity", "is_pis_st_qtt")
     def _check_pis_st_tax_quantity(self):
         for record in self:
             if record.is_pis_st_qtt and not record.pis_st_tax_quantity:
@@ -3155,7 +3166,7 @@ class NFeDocumentLine(models.Model):
     # 08 - Operação sem Incidência da Contribuição
     # 09 - Operação com Suspensão da Contribuição
     # 49 - Outras Operações de Saída
-    @api.depends("cofins_tax_id")
+    @api.depends("cofins_cst_id")
     def _compute_is_cofins_with_percentage(self):
         for record in self:
             record.is_cofins_with_percentage = record.cofins_cst_id.code in (
@@ -3182,6 +3193,8 @@ class NFeDocumentLine(models.Model):
 
     @api.depends(
         "is_simples_nacional",
+        "is_cofins_qtt",
+        "is_cofins_with_percentage",
         "total_value",
         "freight_value",
         "insurance_value",
@@ -3236,7 +3249,7 @@ class NFeDocumentLine(models.Model):
             if not record.is_cofins_qtt:
                 record.cofins_bc_quantity = False
 
-    @api.constrains("cofins_bc_quantity")
+    @api.constrains("cofins_bc_quantity", "is_cofins_qtt")
     def _check_cofins_bc_quantity(self):
         for record in self:
             if record.is_cofins_qtt and not record.cofins_bc_quantity:
@@ -3262,7 +3275,7 @@ class NFeDocumentLine(models.Model):
             if not record.is_cofins_qtt:
                 record.cofins_tax_quantity = False
 
-    @api.constrains("cofins_tax_quantity")
+    @api.constrains("cofins_tax_quantity", "is_cofins_qtt")
     def _check_cofins_tax_quantity(self):
         for record in self:
             if record.is_cofins_qtt and not record.cofins_tax_quantity:
@@ -3408,6 +3421,8 @@ class NFeDocumentLine(models.Model):
 
     @api.depends(
         "is_simples_nacional",
+        "cofins_st_tax_id",
+        "is_cofins_st_qtt",
         "total_value",
         "freight_value",
         "insurance_value",
@@ -3465,7 +3480,7 @@ class NFeDocumentLine(models.Model):
             if not record.is_cofins_st_qtt:
                 record.cofins_st_bc_quantity = False
 
-    @api.constrains("cofins_st_bc_quantity")
+    @api.constrains("cofins_st_bc_quantity", "is_cofins_st_qtt")
     def _check_cofins_st_bc_quantity(self):
         for record in self:
             if record.is_cofins_st_qtt and not record.cofins_st_bc_quantity:
@@ -3491,7 +3506,7 @@ class NFeDocumentLine(models.Model):
             if not record.is_cofins_st_qtt:
                 record.cofins_st_tax_quantity = False
 
-    @api.constrains("cofins_st_tax_quantity")
+    @api.constrains("cofins_st_tax_quantity", "is_cofins_st_qtt")
     def _check_cofins_st_tax_quantity(self):
         for record in self:
             if record.is_cofins_st_qtt and not record.cofins_st_tax_quantity:
@@ -3660,6 +3675,19 @@ class NFeDocumentLine(models.Model):
 
     # === Grupo UA. Tributos Devolvidos ===
     #  IPI Devolvido
+
+    is_ipi_returned_allowed = fields.Boolean(
+        string="Permite IPI Devolvido",
+        compute="_compute_is_ipi_returned_allowed",
+    )
+
+    @api.depends("emission_finality")
+    def _compute_is_ipi_returned_allowed(self):
+        for record in self:
+            if record.emission_finality == "4":
+                record.is_ipi_returned_allowed = True
+            else:
+                record.is_ipi_returned_allowed = False
 
     # Valor Total do IPI Devolvido.
     # O motivo da devolução deverá ser informado pela empresa no campo de Informações Adicionais do Produto

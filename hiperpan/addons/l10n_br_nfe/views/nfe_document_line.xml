@@ -224,7 +224,7 @@
                 </group>
               </group>
             </page>
-            <page string="Tributos Devolvidos">
+            <page string="Tributos Devolvidos" invisible="not is_ipi_returned_allowed">
               <group>
                 <field name="total_ipi_returned" />
                 <field name="total_product_returned_percentage" />
