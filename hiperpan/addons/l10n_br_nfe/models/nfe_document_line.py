@@ -1080,6 +1080,8 @@ class NFeDocumentLine(models.Model):
                         if record.icms_bc_reduction_percent
                         else standard_base
                     )
+                else:
+                    record.icms_bc_value = 0
 
     @api.constrains("icms_bc_value")
     def _check_icms_bc_value(self):
@@ -1726,7 +1728,7 @@ class NFeDocumentLine(models.Model):
                 "900",
             )
 
-    is_icmc_st_required = fields.Boolean(
+    is_icms_st_required = fields.Boolean(
         string="É CST com ICMS ST obrigatório",
         compute="_compute_is_icmc_st_required",
     )
@@ -1734,7 +1736,7 @@ class NFeDocumentLine(models.Model):
     @api.depends("icms_cst_code")
     def _compute_is_icmc_st_required(self):
         for record in self:
-            record.is_icmc_st_required = record.icms_cst_code in (
+            record.is_icms_st_required = record.icms_cst_code in (
                 "10",
                 "30",
                 "70",
@@ -2219,6 +2221,8 @@ class NFeDocumentLine(models.Model):
                     record.allowed_ipi_tax_ids = self.env["l10n_br_fiscal.tax"].search(
                         [("tax_group_id", "=", ipi_group.id)]
                     )
+            else:
+                record.allowed_ipi_tax_ids = False
 
     # empresa do simples utilizar ipi de saida 99 com valor zero quando for contruibinte do ipi - 99 outras saidas
     # simples NAO contribuinte do ipi e empresa no regime normal que nao tributa ipi (comercio) utilizar ipi de saida 53 - saida nao tributada
@@ -2310,16 +2314,6 @@ class NFeDocumentLine(models.Model):
         for record in self:
             if record.product_has_ipi and not record.ipi_cst:
                 raise ValidationError(_("O CST IPI é obrigatório."))
-
-    @api.constrains("ipi_tax_id", "cofins_tax_id")
-    def _check_ipi_cst_and_cofins_cst(self):
-        for record in self:
-            if record.ipi_tax_id.cst_out_id != record.cofins_tax_id.cst_out_id:
-                raise ValidationError(
-                    _(
-                        "O PIS e COFINS devem ser informados simultaneamente e devem ser equivalentes."
-                    )
-                )
 
     is_ipi_with_percentage = fields.Boolean(
         string="É CST com Aliquota em Percentual",
@@ -2525,20 +2519,20 @@ class NFeDocumentLine(models.Model):
                     "l10n_br_fiscal.tax_pis_outras_operacoes"
                 )
             elif record.cofins_tax_id:
+                domain = [
+                    (
+                        "tax_group_id",
+                        "=",
+                        self.env.ref("l10n_br_fiscal.tax_group_pis").id,
+                    ),
+                    ("cst_out_id", "=", record.cofins_tax_id.cst_out_id.id),
+                ]
+                if record.issuer_id.regular_framework_type == "LP":
+                    domain.append(
+                        ("id", "!=", self.env.ref("l10n_br_fiscal.tax_pis_1_65").id)
+                    )
                 record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
-                    [
-                        (
-                            "tax_group_id",
-                            "=",
-                            self.env.ref("l10n_br_fiscal.tax_group_pis").id,
-                        ),
-                        ("cst_out_id", "=", record.cofins_tax_id.cst_out_id.id),
-                        (
-                            ("id", "!=", self.env.ref("l10n_br_fiscal.tax_pis_1_65").id)
-                            if record.issuer_id.regular_framework_type == "LP"
-                            else ()
-                        ),
-                    ]
+                    domain
                 )
             elif self.issuer_id.regular_framework_type == "LP":
                 record.allowed_pis_tax_ids = self.env["l10n_br_fiscal.tax"].search(
@@ -2584,6 +2578,16 @@ class NFeDocumentLine(models.Model):
                 record.pis_tax_id = record.product_id.pis_tax_id
             else:
                 record.pis_tax_id = False
+
+    @api.constrains("pis_tax_id", "cofins_tax_id")
+    def _check_pis_cst_and_cofins_cst(self):
+        for record in self:
+            if record.pis_tax_id.cst_out_id != record.cofins_tax_id.cst_out_id:
+                raise ValidationError(
+                    _(
+                        "O PIS e COFINS devem ser informados simultaneamente e devem ter o mesmo CST."
+                    )
+                )
 
     pis_cst_id = fields.Many2one(
         related="pis_tax_id.cst_out_id",
@@ -2927,25 +2931,23 @@ class NFeDocumentLine(models.Model):
             else:
                 record.pis_st_bc_value = self.compute_pis_cofins_st_bc_value()
 
-    @api.constrains("pis_st_bc_value", "is_pis_st_qtt")
+    @api.constrains("pis_st_bc_value", "is_pis_st_qtt", "pis_st_tax_id")
     def _check_pis_st_bc_value(self):
         for record in self:
             if record.is_pis_st_qtt and record.pis_st_bc_value:
                 raise ValidationError(
                     _(
-                        "O Valor da Base de Calculo do PIS ST não pode ser informado para o CST {record.pis_st_cst}."
+                        f"O Valor da Base de Calculo do PIS ST não pode ser informado para o CST {record.pis_st_cst_id.code}."
                     )
                 )
-            elif not record.pis_st_bc_value:
+            elif (
+                record.pis_st_tax_id
+                and not record.is_pis_st_qtt
+                and (not record.pis_st_bc_value or record.pis_st_bc_value <= 0)
+            ):
                 raise ValidationError(
                     _(
-                        "O Valor da Base de Calculo do PIS ST é obrigatório para o CST {record.pis_st_cst}."
-                    )
-                )
-            elif record.pis_st_bc_value <= 0:
-                raise ValidationError(
-                    _(
-                        "O Valor da Base de Calculo do PIS ST deve ser maior que 0 para o CST {record.pis_st_cst}."
+                        f"O Valor da Base de Calculo do PIS ST é obrigatório para o CST {record.pis_st_cst_id.code}."
                     )
                 )
 
@@ -3054,24 +3056,23 @@ class NFeDocumentLine(models.Model):
                     "l10n_br_fiscal.tax_cofins_outras_operacoes"
                 )
             elif record.pis_tax_id:
+
+                domain = [
+                    (
+                        "tax_group_id",
+                        "=",
+                        self.env.ref("l10n_br_fiscal.tax_group_cofins").id,
+                    ),
+                    ("cst_out_id", "=", record.pis_tax_id.cst_out_id.id),
+                ]
+
+                if record.issuer_id.regular_framework_type == "LP":
+                    domain.append(
+                        ("id", "!=", self.env.ref("l10n_br_fiscal.tax_cofins_7_6").id)
+                    )
+
                 record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
-                    [
-                        (
-                            "tax_group_id",
-                            "=",
-                            self.env.ref("l10n_br_fiscal.tax_group_cofins").id,
-                        ),
-                        ("cst_out_id", "=", record.pis_tax_id.cst_out_id.id),
-                        (
-                            (
-                                "id",
-                                "!=",
-                                self.env.ref("l10n_br_fiscal.tax_cofins_7_6").id,
-                            )
-                            if record.issuer_id.regular_framework_type == "LP"
-                            else ()
-                        ),
-                    ],
+                    domain
                 )
             elif record.issuer_id.regular_framework_type == "LP":
                 record.allowed_cofins_tax_ids = self.env["l10n_br_fiscal.tax"].search(
@@ -3444,6 +3445,7 @@ class NFeDocumentLine(models.Model):
     @api.constrains(
         "cofins_st_bc_value",
         "is_cofins_st_qtt",
+        "cofins_st_tax_id",
     )
     def _check_cofins_st_bc_value(self):
         for record in self:
@@ -3453,16 +3455,14 @@ class NFeDocumentLine(models.Model):
                         "O Valor da Base de Calculo do COFINS ST não pode ser informado para o CST {record.cofins_st_cst}."
                     )
                 )
-            elif not record.cofins_st_bc_value:
+            elif (
+                record.cofins_st_tax_id
+                and not record.is_cofins_st_qtt
+                and (not record.cofins_st_bc_value or record.cofins_st_bc_value <= 0)
+            ):
                 raise ValidationError(
                     _(
                         "O Valor da Base de Calculo do COFINS ST é obrigatório para o CST {record.cofins_st_cst}."
-                    )
-                )
-            elif record.cofins_st_bc_value <= 0:
-                raise ValidationError(
-                    _(
-                        "O Valor da Base de Calculo do COFINS ST deve ser maior que 0 para o CST {record.cofins_st_cst}."
                     )
                 )
 
