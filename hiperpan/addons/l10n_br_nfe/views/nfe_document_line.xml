@@ -9,13 +9,20 @@
         <sheet class="nfe_item">
           <field name="is_debug_mode" invisible="1" />
           <group>
+            <field name="nfe_id" />
             <field name="issuer_id" />
+            <field name="operation_nature_id" />
+            <field name="operation_type" />
+            <field name="destination_id" />
+            <field name="emission_finality" />
+            <field name="document_model" />
+
             <field name="product_id" />
             <!-- Campo auxiliar para filtrar CFOP pelo tipo de operação -->
             <field name="operation_nature_id" invisible="1" />
             <field name="cfop_type_in_out" invisible="1" />
             <field name="document_model" invisible="1" />
-            <field name="cfop_code_id" />
+            <field name="cfop_code_id" options="{'no_create': True, 'no_create_edit': True}" />
           </group>
           <div>
             <group>
@@ -45,7 +52,7 @@
             <page string="ICMS">
               <div>
                 <group>
-                  <field name="icms_tax_id" context="{'operation_type': operation_type}" />
+                  <field name="icms_tax_id" context="{'operation_type': operation_type}" options="{'no_create': True, 'no_create_edit': True}" />
                   <field name="icms_cst_code" invisible="1"/>
                   <field name="icms_cst" invisible="is_debug_mode" />
                   <field name="icms_origin" invisible="is_debug_mode" />
@@ -84,7 +91,7 @@
                 <group>
                   <field name="can_have_icms_fcp" invisible="1"/>
                   <group invisible="not can_have_icms_fcp">
-                    <field name="icms_fcp_tax_id" />
+                    <field name="icms_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
                     <field name="icms_fcp_tax_percent" />
                     <field name="icms_fcp_bc_value"/>
                     <field name="icms_fcp_value" />
@@ -103,11 +110,10 @@
                   <field name="icms_st_reduction_percent" />
                   <field name="icms_st_tax_percent" />
                   <field name="icms_st_value" />
-                  <field name="icms_st_reduction_percent" />
 
                 </group>
                 <group>
-                  <field name="icms_st_fcp_tax_id" />
+                  <field name="icms_st_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
                   <field name="icms_st_fcp_tax_percent" />
                   <field name="icms_st_fcp_bc_value" />
                   <field name="icms_st_fcp_value" />
@@ -117,10 +123,10 @@
             <page string="IPI" invisible="not product_has_ipi">
               <div>
                 <group>
-                  <field name="ipi_guideline_id" />
+                  <field name="ipi_guideline_id" options="{'no_create': True, 'no_create_edit': True}" />
                   <field name="ipi_guideline_code" />
                   <field name="allowed_ipi_tax_ids" invisible="1" />
-                  <field name="ipi_tax_id" readonly="forced_ipi_tax_id" context="{'operation_type': operation_type, 'include_cst_name': True}" />
+                  <field name="ipi_tax_id" readonly="forced_ipi_tax_id" context="{'operation_type': operation_type, 'include_cst_name': True}" options="{'no_create': True, 'no_create_edit': True}"/>
                   <field name="ipi_cst_id" />
                 </group>
 
@@ -147,7 +153,7 @@
             <page string="PIS COFINS">
               <group>
                 <group>
-                  <field name="pis_tax_id" readonly="is_simples_nacional"/>
+                  <field name="pis_tax_id" readonly="is_simples_nacional" options="{'no_create': True, 'no_create_edit': True}"/>
                   <field name="pis_cst_id" />
                   <field name="pis_tax_percent" invisible="not is_pis_with_percentage" />
                   <field name="pis_bc_value" invisible="not is_pis_with_percentage" />
@@ -156,7 +162,7 @@
                   <field name="pis_value" />
 
                   <separator string="PIS ST"/>
-                  <field name="pis_st_tax_id" readonly="is_simples_nacional"/>
+                  <field name="pis_st_tax_id" readonly="is_simples_nacional" options="{'no_create': True, 'no_create_edit': True}"/>
                   <field name="pis_st_cst_id" />
                   <field name="pis_st_tax_percent" invisible="is_pis_st_qtt" />
                   <field name="pis_st_bc_value" invisible="is_pis_st_qtt" />
@@ -165,7 +171,7 @@
                   <field name="pis_st_value" />
                 </group>
                 <group>
-                  <field name="cofins_tax_id" readonly="is_simples_nacional"/>
+                  <field name="cofins_tax_id" readonly="is_simples_nacional" options="{'no_create': True, 'no_create_edit': True}"/>
                   <field name="cofins_cst_id" />
                   <field name="cofins_tax_percent" invisible="not is_cofins_with_percentage" />
                   <field name="cofins_bc_value" invisible="not is_cofins_with_percentage" />
@@ -174,7 +180,7 @@
                   <field name="cofins_value" />
 
                   <separator string="COFINS ST"/>
-                  <field name="cofins_st_tax_id" readonly="is_simples_nacional"/>
+                  <field name="cofins_st_tax_id" readonly="is_simples_nacional" options="{'no_create': True, 'no_create_edit': True}"/>
                   <field name="cofins_st_cst_id" />
                   <field name="cofins_st_tax_percent" invisible="is_cofins_st_qtt" />
                   <field name="cofins_st_bc_value" invisible="is_cofins_st_qtt" />
@@ -190,7 +196,7 @@
             <page string="Imposto de Importação" invisible="not is_ii_allowed">
               <group>
                 <group>
-                  <field name="ii_tax_id" />
+                  <field name="ii_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
                   <field name="ii_tax_percent" />
                 </group>
                 <group>

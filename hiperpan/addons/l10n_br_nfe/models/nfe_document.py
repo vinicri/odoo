@@ -3728,6 +3728,7 @@ class NFeDocument(models.Model):
         "issuer_id.fiscal_framework",
         "invoice_line_ids",
         "invoice_line_ids.icms_bc_value",
+        "emission_finality",
     )
     def _compute_total_icms_base(self):
         for record in self:
@@ -3758,6 +3759,7 @@ class NFeDocument(models.Model):
         "issuer_id.fiscal_framework",
         "invoice_line_ids",
         "invoice_line_ids.icms_value",
+        "emission_finality",
     )
     def _compute_total_icms(self):
         for record in self:
@@ -3840,6 +3842,7 @@ class NFeDocument(models.Model):
         "issuer_id.fiscal_framework",
         "invoice_line_ids",
         "invoice_line_ids.icms_fcp_value",
+        "emission_finality",
     )
     def _compute_total_fcp(self):
         for record in self:
@@ -4097,6 +4100,7 @@ class NFeDocument(models.Model):
         "issuer_id.fiscal_framework",
         "invoice_line_ids",
         "invoice_line_ids.ipi_value",
+        "emission_finality",
     )
     def _compute_total_ipi(self):
         for record in self:
@@ -4138,7 +4142,7 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.depends("invoice_line_ids", "invoice_line_ids.total_ipi_returned")
+    @api.depends("invoice_line_ids", "invoice_line_ids.total_ipi_returned", "emission_finality")
     def _compute_total_ipi_returned(self):
         for record in self:
             total_ipi_returned = sum(
@@ -4177,6 +4181,7 @@ class NFeDocument(models.Model):
         "issuer_id.fiscal_framework",
         "invoice_line_ids",
         "invoice_line_ids.pis_value",
+        "emission_finality",
     )
     def _compute_total_pis(self):
         for record in self:
@@ -4209,6 +4214,7 @@ class NFeDocument(models.Model):
         "issuer_id.fiscal_framework",
         "invoice_line_ids",
         "invoice_line_ids.cofins_value",
+        "emission_finality",
     )
     def _compute_total_cofins(self):
         for record in self:
@@ -4273,6 +4279,7 @@ class NFeDocument(models.Model):
 
     @api.depends(
         "invoice_line_ids",
+        "total_products",
         "total_discount",
         "total_icms_deson",
         "total_icms_st_value",

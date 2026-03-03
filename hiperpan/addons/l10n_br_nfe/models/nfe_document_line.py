@@ -45,6 +45,7 @@ class NFeDocumentLine(models.Model):
         string="NF-e",
         required=True,
         ondelete="cascade",
+        readonly=True,
     )
 
     is_debug_mode = fields.Boolean(string="Debug mode", default=True, store=False)
@@ -715,6 +716,7 @@ class NFeDocumentLine(models.Model):
     # esse campo vem do contexto do documento fiscal, do nfe_document xml view.
     issuer_id = fields.Many2one(
         comodel_name="res.partner",
+        related="nfe_id.issuer_id",
         string="Emitente",
         readonly=True,
     )
@@ -723,24 +725,28 @@ class NFeDocumentLine(models.Model):
         comodel_name="l10n_br_nfe.nfe.operation_nature",
         string="Natureza da Operação",
         readonly=True,
+        related="nfe_id.operation_nature_id",
     )
 
     operation_type = fields.Selection(
         NFE_OPERATION_TYPE,
         string="Tipo de Operação",
         readonly=True,
+        related="nfe_id.operation_type",
     )
 
     destination_id = fields.Selection(
         DESTINATION_ID,
         string="Identificador de Local de Destino",
         readonly=True,
+        related="nfe_id.destination_id",
     )
 
     document_model = fields.Selection(
         NFE_DOCUMENT_MODEL,
         string="Modelo do Documento Fiscal",
         readonly=True,
+        related="nfe_id.document_model",
     )
 
     # esse campo vem do contexto do documento fiscal, do nfe_document xml view.
@@ -748,6 +754,7 @@ class NFeDocumentLine(models.Model):
         NFE_EMISSION_FINALITY,
         string="Finalidade da Emissão",
         readonly=True,
+        related="nfe_id.emission_finality",
     )
 
     def _is_issuer_simples_nacional(self):
@@ -1302,7 +1309,7 @@ class NFeDocumentLine(models.Model):
         store=True,
     )
 
-    @api.depends("icms_cst_code", "icms_deferment_value")
+    @api.depends("icms_cst_code", "icms_value", "icms_deferment_percent")
     def _compute_icms_deferment_value(self):
         for record in self:
             if record.icms_cst_code == "51":
@@ -1351,7 +1358,7 @@ class NFeDocumentLine(models.Model):
         store=True,
     )
 
-    @api.depends("icms_bc_value", "icms_tax_percent")
+    @api.depends("icms_bc_value", "icms_tax_percent", "icms_cst_code")
     def _compute_icms_value(self):
         for record in self:
             # 00 - Tributada integralmente
@@ -1854,9 +1861,22 @@ class NFeDocumentLine(models.Model):
         digits=(13, 2),
         compute="_compute_icms_st_bc_value",
         store=True,
-        readonly=False,
+        readonly=True,
     )
 
+    @api.depends(
+        "is_icms_st_allowed",
+        "icms_st_modality",
+        "ipi_value",
+        "is_simples_nacional",
+        "total_value",
+        "freight_value",
+        "insurance_value",
+        "other_expenses_value",
+        "discount_value",
+        "icms_st_mva_percent",
+        "icms_st_reduction_percent",
+    )
     def _compute_icms_st_bc_value(self):
         for record in self:
             if not record.is_icms_st_allowed:
@@ -1905,11 +1925,13 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("is_icms_st_allowed")
+    @api.depends("is_icms_st_allowed", "icms_tax_percent")
     def _compute_icms_st_tax_percent(self):
         for record in self:
             if not record.is_icms_st_allowed:
                 record.icms_st_tax_percent = False
+            else:
+                record.icms_st_tax_percent = record.icms_tax_percent
 
     @api.constrains("is_icms_st_allowed", "icms_st_tax_percent")
     def _check_icms_st_tax_percent(self):
@@ -1947,10 +1969,11 @@ class NFeDocumentLine(models.Model):
             if not record.is_icms_st_allowed:
                 record.icms_st_value = False
             elif not record.is_simples_nacional:
-                record.icms_st_value = (
-                    record.icms_st_bc_value * record.icms_st_tax_percent / 100
-                    - record.icms_st_reduction_value * record.icms_value
-                )
+                icms_st = record.icms_st_bc_value * record.icms_st_tax_percent / 100
+                if icms_st == 0:
+                    record.icms_st_value = 0.00
+                else:
+                    record.icms_st_value = icms_st - record.icms_value
             elif record.is_simples_nacional:
                 # TODO: implementar o calculo do ICMS ST para simples nacional
                 # O simples mesmo não destacando o ICMS da operação própria,
@@ -2087,7 +2110,7 @@ class NFeDocumentLine(models.Model):
             elif (
                 record.is_icms_st_allowed
                 and record.icms_st_fcp_tax_id
-                and (record.icms_st_fcp_bc_value or record.icms_st_fcp_value <= 0)
+                and (not record.icms_st_fcp_value or record.icms_st_fcp_value <= 0)
             ):
                 raise ValidationError(
                     f"Produto: {record.product_description} - Valor do FCP ST é obrigatório para o CST {record.icms_cst_code}."
