@@ -2183,15 +2183,15 @@ class NFeDocumentLine(models.Model):
         readonly=True,
     )
 
-    @api.depends("is_simples_nacional", "product_id", "product_id.ipi_guideline_id")
+    @api.depends("is_simples_nacional", "product_taxes_id.ipi_guideline_id")
     def _compute_ipi_guideline_id(self):
         for record in self:
             if record.is_simples_nacional:
                 record.ipi_guideline_id = self.env.ref(
                     "l10n_br_fiscal.ipi_guideline_999"
                 )
-            elif record.product_id.ipi_guideline_id:
-                record.ipi_guideline_id = record.product_id.ipi_guideline_id
+            elif record.product_taxes_id and record.product_taxes_id.ipi_guideline_id:
+                record.ipi_guideline_id = record.product_taxes_id.ipi_guideline_id
 
     @api.constrains("ipi_guideline_id")
     def _check_ipi_guideline_id(self):
@@ -2284,14 +2284,15 @@ class NFeDocumentLine(models.Model):
         compute="_compute_ipi_tax_id",
         domain="[('id', 'in', allowed_ipi_tax_ids)]",
         store=True,
+        readonly=False,
     )
 
-    @api.depends("forced_ipi_tax_id", "product_id", "product_id.ipi_tax_id")
+    @api.depends("forced_ipi_tax_id", "product_taxes_id.ipi_tax_id")
     def _compute_ipi_tax_id(self):
         for record in self:
             if record.forced_ipi_tax_id:
                 record.ipi_tax_id = record.forced_ipi_tax_id
-            elif record.product_id.ipi_tax_id:
+            elif record.product_taxes_id and record.product_taxes_id.ipi_tax_id:
                 record.ipi_tax_id = record.product_id.ipi_tax_id
 
     @api.constrains("ipi_tax_id")

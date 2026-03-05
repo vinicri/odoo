@@ -52,6 +52,114 @@ class ProductTaxes(models.Model):
                     )
                 )
 
+    fiscal_type_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.product.fiscal.type",
+        string="Tipo Fiscal",
+        compute="_compute_fiscal_type_id",
+        readonly=True,
+    )
+
+    @api.depends("product_tmpl_id.fiscal_type_id", "product_id.fiscal_type_id")
+    def _compute_fiscal_type_id(self):
+        for record in self:
+            if record.product_id:
+                record.fiscal_type_id = record.product_id.fiscal_type_id
+            elif record.product_tmpl_id:
+                record.fiscal_type_id = record.product_tmpl_id.fiscal_type_id
+            else:
+                record.fiscal_type_id = False
+
+    @api.onchange("fiscal_type_id")
+    def _onchange_fiscal_type_reset_ipi(self):
+        for record in self:
+            if record.has_ipi:
+                if not record.ipi_guideline_id:
+                    record.ipi_guideline_id = self.env.ref(
+                        "l10n_br_fiscal.ipi_guideline_999"
+                    )
+            else:
+                record.ipi_guideline_id = False
+                record.ipi_tax_id = False
+
+    has_ipi = fields.Boolean(
+        string="Tem IPI",
+        compute="_compute_has_ipi",
+        readonly=True,
+    )
+
+    @api.depends("fiscal_type_id")
+    def _compute_has_ipi(self):
+        for record in self:
+            record.has_ipi = record.fiscal_type_id.code == "04"
+
+    ipi_guideline_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.ipi.guideline",
+        string="Código de Enquadramento IPI",
+        default=lambda self: self.env.ref("l10n_br_fiscal.ipi_guideline_999"),
+    )
+
+    @api.onchange("ipi_guideline_id")
+    def _onchange_ipi_guideline_id(self):
+        for record in self:
+            record.ipi_tax_id = False
+
+    allowed_ipi_tax_ids = fields.Many2many(
+        comodel_name="l10n_br_fiscal.tax",
+        string="Allowed IPI CSTs",
+        compute="_compute_allowed_ipi_tax_ids",
+    )
+
+    # filtra os impostos de IPI associados ao CST de saída do código de enquadramento
+    @api.depends(
+        "ipi_guideline_id",
+        "ipi_guideline_id.ipi_cst_out",
+    )
+    def _compute_allowed_ipi_tax_ids(self):
+        ipi_group = self.env.ref("l10n_br_fiscal.tax_group_ipi")
+        for record in self:
+            if record.ipi_guideline_id.ipi_cst_out:
+                record.allowed_ipi_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [
+                        ("tax_group_id", "=", ipi_group.id),
+                        ("cst_out_id", "=", record.ipi_guideline_id.ipi_cst_out.id),
+                    ]
+                )
+            else:
+                record.allowed_ipi_tax_ids = self.env["l10n_br_fiscal.tax"].search(
+                    [("tax_group_id", "=", ipi_group.id)]
+                )
+
+    ipi_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="IPI",
+        domain="[('id', 'in', allowed_ipi_tax_ids)]",
+    )
+
+    ipi_cst_id = fields.Many2one(
+        related="ipi_tax_id.cst_out_id",
+        string="CST IPI",
+        readonly=True,
+    )
+
+    is_ipi_with_percentage = fields.Boolean(
+        string="É CST com Aliquota em Percentual",
+        compute="_compute_is_ipi_with_percentage",
+        readonly=True,
+    )
+
+    @api.depends("ipi_cst_id")
+    def _compute_is_ipi_with_percentage(self):
+        for record in self:
+            record.is_ipi_with_percentage = record.ipi_cst_id.code == "50"
+
+    ipi_tax_percent = fields.Float(
+        related="ipi_tax_id.percent_amount",
+        string="Aliquota",
+        digits=(3, 4),
+        readonly=True,
+        store=True,
+    )
+
     def icms_sn_tax_id_domain(self):
         return [
             ("tax_group_id", "=", self.env.ref("l10n_br_fiscal.tax_group_icmssn").id)

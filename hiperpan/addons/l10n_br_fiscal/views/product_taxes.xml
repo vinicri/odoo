@@ -24,13 +24,7 @@
             <field name="icms_tax_percent" invisible="not has_icms_own_operation"/>
             <field name="icms_deferment_percent" invisible="not is_deferment_cst"/>
 
-            <separator string="FCP"/>
-            <field name="icms_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" invisible="not has_icms_own_operation"/>
-            <field name="icms_fcp_tax_percent" invisible="not has_icms_own_operation"/>
 
-            <separator string="PIS COFINS"/>
-            <field name="pis_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
-            <field name="cofins_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
 
 
 
@@ -46,6 +40,25 @@
             <field name="icms_st_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
             <field name="icms_st_fcp_tax_percent" />
           </group>
+
+          <group>
+            <separator string="FCP"/>
+            <field name="icms_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" invisible="not has_icms_own_operation"/>
+            <field name="icms_fcp_tax_percent" invisible="not has_icms_own_operation"/>
+
+            <separator string="PIS COFINS"/>
+            <field name="pis_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
+            <field name="cofins_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
+          </group>
+
+          <group>
+            <separator string="IPI"/>
+            <field name="ipi_guideline_id" />
+            <field name="ipi_tax_id" options="{'no_create': True, 'no_create_edit': True}" context="{'operation_type': '1', 'include_cst_name': True}" />
+            <field name="ipi_tax_percent" invisible="not is_ipi_with_percentage" />
+          </group>
+
+
         </sheet>
       </form>
     </field>
