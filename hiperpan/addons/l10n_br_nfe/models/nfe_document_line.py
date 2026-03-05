@@ -779,6 +779,28 @@ class NFeDocumentLine(models.Model):
         for record in self:
             record.issuer_contributes_to_ipi = record.issuer_id.ipi_contributes
 
+    product_taxes_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.product.taxes",
+        string="Product Taxes",
+        compute="_compute_product_taxes_id",
+        readonly=True,
+    )
+
+    @api.depends("product_id")
+    def _compute_product_taxes_id(self):
+        for record in self:
+            if record.product_id:
+                if record.product_id.product_tmpl_taxes:
+                    record.product_taxes_id = record.product_id.product_tmpl_taxes
+                elif record.product_id.product_tmpl_id.product_tmpl_taxes:
+                    record.product_taxes_id = (
+                        record.product_id.product_tmpl_id.product_tmpl_taxes
+                    )
+                else:
+                    record.product_taxes_id = False
+            else:
+                record.product_taxes_id = False
+
     # ===  impostos ===
 
     icms_allowed_tax_group_ids = fields.Many2many(
@@ -2572,15 +2594,15 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("is_simples_nacional", "product_id", "product_id.pis_tax_id")
+    @api.depends("is_simples_nacional", "product_taxes_id.pis_tax_id")
     def _compute_pis_tax_id(self):
         for record in self:
             if record.is_simples_nacional:
                 record.pis_tax_id = record.env.ref(
                     "l10n_br_fiscal.tax_pis_outras_operacoes"
                 ).id
-            elif record.product_id.pis_tax_id:
-                record.pis_tax_id = record.product_id.pis_tax_id
+            elif record.product_taxes_id and record.product_taxes_id.pis_tax_id:
+                record.pis_tax_id = record.product_taxes_id.pis_tax_id
             else:
                 record.pis_tax_id = False
 
@@ -3116,15 +3138,15 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("is_simples_nacional", "product_id", "product_id.cofins_tax_id")
+    @api.depends("is_simples_nacional", "product_taxes_id.cofins_tax_id")
     def _compute_cofins_tax_id(self):
         for record in self:
             if record.is_simples_nacional:
                 record.cofins_tax_id = record.env.ref(
                     "l10n_br_fiscal.tax_cofins_outras_operacoes"
                 ).id
-            elif record.product_id.cofins_tax_id:
-                record.cofins_tax_id = record.product_id.cofins_tax_id
+            elif record.product_taxes_id and record.product_taxes_id.cofins_tax_id:
+                record.cofins_tax_id = record.product_taxes_id.cofins_tax_id
             else:
                 record.cofins_tax_id = False
 
