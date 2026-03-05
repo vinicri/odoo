@@ -10,6 +10,7 @@ from . import tax_group
 from . import ipi_guideline
 from . import cst
 from . import tax
+from . import product_taxes
 from . import product_mixin
 from . import product_template
 from . import product_product

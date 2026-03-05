@@ -8,6 +8,12 @@ class ProductMixin(models.AbstractModel):
     _name = "l10n_br_fiscal.product.mixin"
     _description = "Fiscal Product Mixin"
 
+    icms_origin_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.icms.origin",
+        string="ICMS Origin",
+        required=True,
+    )
+
     fiscal_type_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.product.fiscal.type",
         string="Fiscal Type",
@@ -45,7 +51,7 @@ class ProductMixin(models.AbstractModel):
 
     allowed_ipi_tax_ids = fields.Many2many(
         comodel_name="l10n_br_fiscal.tax",
-        string="Allowed CSTs",
+        string="Allowed IPI CSTs",
         compute="_compute_allowed_ipi_tax_ids",
     )
 
@@ -169,7 +175,7 @@ class ProductMixin(models.AbstractModel):
 
     allowed_pis_tax_ids = fields.Many2many(
         comodel_name="l10n_br_fiscal.tax",
-        string="Allowed CSTs",
+        string="Allowed PIS CSTs",
         compute="_compute_allowed_pis_tax_ids",
     )
 
@@ -283,10 +289,74 @@ class ProductMixin(models.AbstractModel):
         company_dependent=True,
     )
 
-    # @api.depends("fiscal_type")
-    # def _compute_tax_icms_or_issqn(self):
-    #     for product in self:
-    #         if product.fiscal_type == PRODUCT_FISCAL_TYPE_SERVICE:
-    #             product.tax_icms_or_issqn = TAX_DOMAIN_ISSQN
-    #         else:
-    #             product.tax_icms_or_issqn = TAX_DOMAIN_ICMS
+    def product_taxes_domain(self):
+        return [("company_id", "=", self.env.company.id)]
+
+    product_taxes_ids = fields.One2many(
+        comodel_name="l10n_br_fiscal.product.taxes",
+        inverse_name="product_tmpl_id",
+        string="Product Taxes",
+        domain=product_taxes_domain,
+        copy=False,
+    )
+
+    product_tmpl_taxes = fields.Many2one(
+        comodel_name="l10n_br_fiscal.product.taxes",
+        string="Product Taxes (Company)",
+        compute="_compute_product_tmpl_taxes",
+    )
+
+    @api.depends("product_taxes_ids.company_id")
+    @api.depends_context("company")
+    def _compute_product_tmpl_taxes(self):
+        for record in self:
+            record.product_tmpl_taxes = record.product_taxes_ids.filtered(
+                lambda t: t.company_id == self.env.company
+            )[:1]
+
+    product_taxes_icms_sn_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="ICMS SN",
+        related="product_tmpl_taxes.icms_sn_tax_id",
+    )
+
+    product_taxes_icms_sn_cst_nfe_code = fields.Char(
+        string="Código CST ICMS SN",
+        related="product_tmpl_taxes.icms_sn_cst_nfe_code",
+    )
+
+    product_taxes_icms_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="ICMS",
+        related="product_tmpl_taxes.icms_tax_id",
+    )
+
+    def _action_create_product_taxes(self, product_tmpl_id=None, product_id=None):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Novo Imposto do Produto"),
+            "res_model": "l10n_br_fiscal.product.taxes",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_product_tmpl_id": product_tmpl_id,
+                "default_product_id": product_id,
+            },
+        }
+
+    def _action_edit_product_taxes(self, product_taxes_id):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Editar Imposto do Produto"),
+            "res_model": "l10n_br_fiscal.product.taxes",
+            "view_mode": "form",
+            "res_id": product_taxes_id.id,
+            "target": "new",
+        }
+
+    def action_delete_product_taxes(self):
+        self.ensure_one()
+        if self.product_tmpl_taxes:
+            self.product_tmpl_taxes.unlink()

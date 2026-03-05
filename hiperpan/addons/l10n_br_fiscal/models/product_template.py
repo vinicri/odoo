@@ -250,6 +250,16 @@ class ProductTemplate(models.Model):
     def _compute_ipi_tax_id(self):
         self._compute_template_field_from_variant_field("ipi_tax_id")
 
+    product_taxes_ids = fields.One2many(
+        inverse_name="product_tmpl_id",
+    )
+
+    def action_create_product_taxes(self):
+        return self._action_create_product_taxes(product_tmpl_id=self.id)
+
+    def action_edit_product_taxes(self):
+        return self._action_edit_product_taxes(self.product_tmpl_taxes)
+
     # Some modules of the repo depend on stock and have
     # demo products of type 'product' (this type is added to product.template
     # in the stock module).

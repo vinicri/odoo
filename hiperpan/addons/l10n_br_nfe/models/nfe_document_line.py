@@ -174,9 +174,7 @@ class NFeDocumentLine(models.Model):
                 )
             if record.gtin and len(record.gtin) not in (8, 12, 13, 14):
                 record._raise_validation_error(
-                    _(
-                        "O Código de Barras deve ter 8, 12, 13 ou 14 caracteres."
-                    )
+                    _("O Código de Barras deve ter 8, 12, 13 ou 14 caracteres.")
                 )
 
     # Descrição do produto ou serviço.
@@ -204,7 +202,9 @@ class NFeDocumentLine(models.Model):
     def _check_product_description(self):
         for record in self:
             if not record.product_description:
-                record._raise_validation_error(_("A Descrição do Produto é obrigatória."))
+                record._raise_validation_error(
+                    _("A Descrição do Produto é obrigatória.")
+                )
 
     # Código NCM com 8 dígitos. Obrigatório.
     # Para serviço ou item sem produto, informar “00” (dois zeros)
@@ -229,21 +229,13 @@ class NFeDocumentLine(models.Model):
     def _check_ncm_code(self):
         for record in self:
             if not record.ncm_code:
-                record._raise_validation_error(
-                    _(
-                        "O Código NCM é obrigatório."
-                    )
-                )
+                record._raise_validation_error(_("O Código NCM é obrigatório."))
 
     @api.constrains("ncm_unmasked")
     def _check_ncm_unmasked(self):
         for record in self:
             if record.ncm_unmasked and len(record.ncm_unmasked) != 8:
-                record._raise_validation_error(
-                    _(
-                        "O Código NCM deve ter 8 dígitos."
-                    )
-                )
+                record._raise_validation_error(_("O Código NCM deve ter 8 dígitos."))
 
     # Código CEST (Código Especificador da Substituição Tributária). Opcional.
     # cest é obrigatório para os CST/CSONS com substituição tributária, mas essa validação está a cargo da SEFAZ no momento
@@ -357,17 +349,9 @@ class NFeDocumentLine(models.Model):
     def _check_cfop_code(self):
         for record in self:
             if not record.cfop_code:
-                record._raise_validation_error(
-                    _(
-                        "O Código CFOP é obrigatório."
-                    )
-                )
+                record._raise_validation_error(_("O Código CFOP é obrigatório."))
             if len(record.cfop_code) != 4:
-                record._raise_validation_error(
-                    _(
-                        "O Código CFOP deve ter 4 dígitos."
-                    )
-                )
+                record._raise_validation_error(_("O Código CFOP deve ter 4 dígitos."))
             # Rejeição 794: NFC-e (modelo 65) com CFOP inválido
             if (
                 record.document_model == "65"
@@ -410,7 +394,9 @@ class NFeDocumentLine(models.Model):
     def _check_quantity(self):
         for record in self:
             if not record.quantity:
-                record._raise_validation_error(_("A Quantidade de Venda é obrigatória."))
+                record._raise_validation_error(
+                    _("A Quantidade de Venda é obrigatória.")
+                )
             elif record.quantity < 0:
                 record._raise_validation_error(
                     _("A Quantidade de Venda deve ser maior ou igual a 0.")
@@ -626,7 +612,9 @@ class NFeDocumentLine(models.Model):
     def _check_gtin_trib(self):
         for record in self:
             if not record.gtin_trib:
-                record._raise_validation_error(_("O GTIN da Unidade Tributável é obrigatório."))
+                record._raise_validation_error(
+                    _("O GTIN da Unidade Tributável é obrigatório.")
+                )
 
     # Unidade Tributável. Obrigatório.
     unit_trib = fields.Char(
@@ -655,7 +643,9 @@ class NFeDocumentLine(models.Model):
     def _check_quantity_trib(self):
         for record in self:
             if not record.quantity_trib:
-                record._raise_validation_error(_("A Quantidade Tributável é obrigatória."))
+                record._raise_validation_error(
+                    _("A Quantidade Tributável é obrigatória.")
+                )
 
     @api.depends("quantity")
     def _compute_quantity_trib(self):
@@ -673,7 +663,9 @@ class NFeDocumentLine(models.Model):
     def _check_unit_value_trib(self):
         for record in self:
             if not record.unit_value_trib:
-                record._raise_validation_error(_("O Valor Unitário Tributável é obrigatório."))
+                record._raise_validation_error(
+                    _("O Valor Unitário Tributável é obrigatório.")
+                )
 
     @api.depends("unit_price")
     def _compute_unit_value_trib(self):
@@ -827,7 +819,9 @@ class NFeDocumentLine(models.Model):
     def _check_icms_origin(self):
         for record in self:
             if not record.icms_origin:
-                record._raise_validation_error(_("A Origem da Mercadoria é obrigatória."))
+                record._raise_validation_error(
+                    _("A Origem da Mercadoria é obrigatória.")
+                )
             if record.icms_origin not in ("0", "1", "2", "3", "4", "5", "6", "7", "8"):
                 record._raise_validation_error(_("A Origem da Mercadoria é inválida."))
 
@@ -843,9 +837,7 @@ class NFeDocumentLine(models.Model):
         for record in self:
             if not record.icms_tax_id:
                 record._raise_validation_error(
-                    _(
-                        f"O ICMS não foi informado para o item da nota fiscal."
-                    )
+                    _(f"O ICMS não foi informado para o item da nota fiscal.")
                 )
             if (
                 record.nfe_id.issuer_id.fiscal_framework in ("1", "2")
@@ -882,9 +874,7 @@ class NFeDocumentLine(models.Model):
         for record in self:
             if not record.icms_cst_id:
                 record._raise_validation_error(
-                    _(
-                        f"O CST do ICMS é invalido para o item da nota fiscal."
-                    )
+                    _(f"O CST do ICMS é invalido para o item da nota fiscal.")
                 )
 
     icms_cst_code = fields.Char(
@@ -899,9 +889,7 @@ class NFeDocumentLine(models.Model):
         for record in self:
             if not record.icms_cst_code:
                 record._raise_validation_error(
-                    _(
-                        f"O código do CST do ICMS é invalido para o item da nota fiscal."
-                    )
+                    _(f"O código do CST do ICMS é invalido para o item da nota fiscal.")
                 )
 
     # devolucao de simples nacional csosn 900
@@ -932,9 +920,7 @@ class NFeDocumentLine(models.Model):
         for record in self:
             if not record.icms_cst:
                 record._raise_validation_error(
-                    _(
-                        f"O CST do ICMS não foi informado para o item da nota fiscal."
-                    )
+                    _(f"O CST do ICMS não foi informado para o item da nota fiscal.")
                 )
 
     has_icms_own_operation = fields.Boolean(
@@ -990,9 +976,9 @@ class NFeDocumentLine(models.Model):
             # 41 - nao tributada
             # 50 - suspensao
             # 60 - tributada anteriormente por ST
-            elif record.icms_cst_code in ("30", "40", "41", "50", "51", "60", "90"):
+            elif record.icms_cst_code in ("30", "40", "41", "50", "60", "90"):
                 record.icms_bc_modality = False
-            elif record.icms_cst_code in ("00", "10", "20", "70"):
+            elif record.icms_cst_code in ("00", "10", "20", "51", "70"):
                 record.icms_bc_modality = "0"
 
     @api.constrains("icms_bc_modality")
@@ -1257,9 +1243,7 @@ class NFeDocumentLine(models.Model):
                 )
             elif record.icms_tax_percent and record.icms_tax_percent <= 0:
                 record._raise_validation_error(
-                    _(
-                        f"A aliquota do ICMS é invalido para o item da nota fiscal."
-                    )
+                    _(f"A aliquota do ICMS é invalido para o item da nota fiscal.")
                 )
 
     is_deferment_cst = fields.Boolean(
@@ -1397,9 +1381,7 @@ class NFeDocumentLine(models.Model):
                 )
             if record.icms_value and record.icms_value <= 0:
                 record._raise_validation_error(
-                    _(
-                        f"O valor do ICMS é invalido para o item da nota fiscal."
-                    )
+                    _(f"O valor do ICMS é invalido para o item da nota fiscal.")
                 )
 
     # ICMS desonerado, apenas deve ser informado para os seguintes CSTs:
@@ -1488,7 +1470,8 @@ class NFeDocumentLine(models.Model):
             ):
                 record._raise_validation_error(
                     _(
-                        "O Valor do ICMS Desoneração é obrigatório quando o Motivo da Desoneração do ICMS está definido.")
+                        "O Valor do ICMS Desoneração é obrigatório quando o Motivo da Desoneração do ICMS está definido."
+                    )
                 )
             elif record.icms_deson_value and record.icms_deson_value <= 0:
                 record._raise_validation_error(
@@ -1562,9 +1545,7 @@ class NFeDocumentLine(models.Model):
         for record in self:
             if not record.can_have_icms_fcp and record.icms_fcp_tax_id:
                 record._raise_validation_error(
-                    _(
-                        f"O FCP não deve ser informado para o item da nota fiscal."
-                    )
+                    _(f"O FCP não deve ser informado para o item da nota fiscal.")
                 )
 
     icms_fcp_tax_percent = fields.Float(
@@ -1850,7 +1831,7 @@ class NFeDocumentLine(models.Model):
     @api.depends("icms_st_modality")
     def _compute_icms_st_reduction_percent(self):
         for record in self:
-            if not record.is_icms_st_allowed or record.icms_st_modality != "4":
+            if not record.is_icms_st_allowed:
                 record.icms_st_reduction_percent = False
 
     icms_st_bc_value = fields.Float(
@@ -2194,7 +2175,9 @@ class NFeDocumentLine(models.Model):
     def _check_ipi_guideline_id(self):
         for record in self:
             if not record.product_has_ipi and not record.ipi_guideline_id:
-                record._raise_validation_error(_("O Código de Enquadramento é obrigatório."))
+                record._raise_validation_error(
+                    _("O Código de Enquadramento é obrigatório.")
+                )
 
     ipi_guideline_code = fields.Char(
         string="Código de Enquadramento", size=3, related="ipi_guideline_id.code"
@@ -2453,7 +2436,9 @@ class NFeDocumentLine(models.Model):
     def _check_ipi_unit_value(self):
         for record in self:
             if record.is_ipi_qtt and not record.ipi_unit_value:
-                record._raise_validation_error(_("O Valor na Unidade Tributável é obrigatório."))
+                record._raise_validation_error(
+                    _("O Valor na Unidade Tributável é obrigatório.")
+                )
             elif record.is_ipi_qtt and record.ipi_unit_value <= 0:
                 record._raise_validation_error(
                     _("O Valor na Unidade Tributável deve ser maior que 0.")
@@ -3677,7 +3662,8 @@ class NFeDocumentLine(models.Model):
             if record.ii_tax_id and not record.ii_bc_value:
                 record._raise_validation_error(
                     _(
-                        "O Valor da Base de Cálculo do Imposto de Importação é obrigatório quando o Imposto de Importação está definido.")
+                        "O Valor da Base de Cálculo do Imposto de Importação é obrigatório quando o Imposto de Importação está definido."
+                    )
                 )
 
     @api.constrains("ii_tax_id", "ii_custom_expenses_value")
@@ -3686,7 +3672,8 @@ class NFeDocumentLine(models.Model):
             if record.ii_tax_id and not record.ii_custom_expenses_value:
                 record._raise_validation_error(
                     _(
-                        "O Valor das Despesas Aduaneiras e Alfandegárias é obrigatório quando o Imposto de Importação está definido.")
+                        "O Valor das Despesas Aduaneiras e Alfandegárias é obrigatório quando o Imposto de Importação está definido."
+                    )
                 )
 
     # === Grupo UA. Tributos Devolvidos ===

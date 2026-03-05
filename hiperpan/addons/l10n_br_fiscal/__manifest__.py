@@ -38,6 +38,7 @@
         "views/product_fiscal_type_views.xml",
         "views/product_template_views.xml",
         "views/product_product_views.xml",
+        "views/product_taxes.xml",
         "views/ibpt_views.xml",
         "views/freight_carrier_vehicle.xml",
         "views/fiscal_views.xml",

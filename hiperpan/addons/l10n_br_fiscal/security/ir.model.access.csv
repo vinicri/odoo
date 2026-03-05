@@ -30,3 +30,5 @@
 "l10n_br_fiscal_freight_carrier_vehicle_manager","Freight carrier vehicle manager entitlement","model_l10n_br_fiscal_freight_carrier_vehicle","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
 "l10n_br_fiscal_tax_domain_user","Tax domain user entitlement","model_l10n_br_fiscal_tax_domain","l10n_br_fiscal.group_user_fiscal",1,0,0,0
 "l10n_br_fiscal_tax_domain_manager","Tax domain manager entitlement","model_l10n_br_fiscal_tax_domain","l10n_br_fiscal.group_fiscal_manager",1,1,1,1
+"l10n_br_fiscal_product_taxes_user","Product taxes user entitlement","model_l10n_br_fiscal_product_taxes","l10n_br_fiscal.group_user_fiscal",1,0,0,0
+"l10n_br_fiscal_product_taxes_manager","Product taxes manager entitlement","model_l10n_br_fiscal_product_taxes","l10n_br_fiscal.group_fiscal_manager",1,1,1,1

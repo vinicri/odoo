@@ -27,12 +27,6 @@ class ProductProduct(models.Model):
         string="CEST",
     )
 
-    icms_origin_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.icms.origin",
-        string="ICMS Origin",
-        required=True,
-    )
-
     fiscal_genre_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.ncm.genre",
         string="Fiscal NCM Genre",
@@ -56,3 +50,22 @@ class ProductProduct(models.Model):
         string="Recipe",
         domain="[('product_id', '=', id), ('product_tmpl_id', '=', product_tmpl_id)]",
     )
+
+    product_taxes_ids = fields.One2many(
+        inverse_name="product_id",
+    )
+
+    def action_create_product_taxes(self):
+        return self._action_create_product_taxes(product_id=self.id)
+
+    def action_edit_product_taxes(self):
+        return self._action_edit_product_taxes(self.product_tmpl_taxes)
+
+    # @api.depends("product_tmpl_id")
+    # def _compute_product_taxes_ids(self):
+    #     for record in self:
+    #         record.product_taxes_ids = (
+    #             record.product_tmpl_id.product_taxes_ids.filtered(
+    #                 lambda x: x.product_id == record
+    #             )
+    #         )
