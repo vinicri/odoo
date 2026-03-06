@@ -60,6 +60,7 @@
 "tax_icms_ant_st","ICMS cobrado anteriormente por substuição tributária","","percent","","0","cst_icms_60","cst_icms_60","tax_group_icms"
 "tax_icms_diferimento","ICMS Diferimento","","percent","","0","cst_icms_51","cst_icms_51","tax_group_icms"
 "tax_icms_isento","ICMS Isento","","percent","","0","cst_icms_40","cst_icms_40","tax_group_icms"
+"tax_icms_isento_st","ICMS Isento com ST","","percent","","0","cst_icms_30","cst_icms_30","tax_group_icms"
 "tax_icms_nt","ICMS NT","","percent","","0","cst_icms_41","cst_icms_41","tax_group_icms"
 "tax_icms_suspensao","ICMS Suspensão","","percent","","0","cst_icms_50","cst_icms_50","tax_group_icms"
 "tax_icms_outras","ICMS Outras","","percent","","0","cst_icms_90","cst_icms_90","tax_group_icms"
