@@ -56,12 +56,57 @@
             <button name="action_edit_product_taxes" type="object" string="Editar Imposto" class="btn btn-secondary" icon="fa-pencil" invisible="not product_tmpl_taxes"/>
             <button name="action_delete_product_taxes" type="object" string="Remover definição de imposto" class="btn btn-danger" icon="fa-trash" invisible="not product_tmpl_taxes" confirm="Deseja realmente remover a definição de imposto deste produto?"/>
           </div>
-          <group invisible="not product_tmpl_taxes">
-            <field name="product_tmpl_taxes" invisible="1" />
-            <field name="product_taxes_icms_sn_tax_id" options="{'no_create': True, 'no_create_edit': True}" context="{'operation_type': '1'}"/>
+          <field name="product_tmpl_taxes" invisible="1" />
+
+          <group >
+            <separator string="ICMS Simples Nacional"/>
+            <field name="product_taxes_icms_sn_tax_id" context="{'operation_type': '1'}" />
             <field name="product_taxes_icms_sn_cst_nfe_code" />
-            <field name="product_taxes_icms_tax_id" options="{'no_create': True, 'no_create_edit': True}" context="{'operation_type': '1'}"/>
           </group>
+          <group>
+            <separator string="ICMS"/>
+            <field name="product_taxes_icms_tax_id" context="{'operation_type': '1'}"/>
+            <field name="product_taxes_icms_cst_nfe_code" />
+            <field name="product_taxes_has_icms_own_operation" invisible="1"/>
+            <field name="product_taxes_is_deferment_cst" invisible="1"/>
+            <field name="product_taxes_is_icms_with_base_reduction" invisible="1"/>
+            <field name="product_taxes_icms_bc_modality" invisible="not product_taxes_has_icms_own_operation"/>
+            <field name="product_taxes_icms_bc_reduction_percent" invisible="not product_taxes_is_icms_with_base_reduction"/>
+            <field name="product_taxes_icms_tax_percent" invisible="not product_taxes_has_icms_own_operation"/>
+            <field name="product_taxes_icms_deferment_percent" invisible="not product_taxes_is_deferment_cst"/>
+          </group>
+          <group invisible="not product_taxes_has_icms_own_operation">
+            <separator string="FCP" />
+            <field name="product_taxes_icms_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
+            <field name="product_taxes_icms_fcp_tax_percent" />
+          </group>
+
+          <group invisible="not product_taxes_is_icms_st">
+            <separator string="ICMS ST"/>
+            <field name="product_taxes_icms_st_modality" />
+            <field name="product_taxes_icms_st_mva_percent" invisible="not product_taxes_is_icms_st_mva_modality" />
+            <field name="product_taxes_icms_st_reduction_percent" />
+            <field name="product_taxes_icms_st_tax_percent" />
+
+            <field name="product_taxes_icms_st_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
+            <field name="product_taxes_icms_st_fcp_tax_percent" />
+          </group>
+
+          <group invisible="not product_taxes_has_ipi">
+            <separator string="IPI"/>
+            <field name="product_taxes_ipi_guideline_id" />
+            <field name="product_taxes_ipi_tax_id" context="{'operation_type': '1', 'include_cst_name': True}" />
+            <field name="product_taxes_ipi_tax_percent" invisible="not product_taxes_is_ipi_with_percentage" />
+          </group>
+
+          <group>
+            <separator string="PIS COFINS"/>
+            <field name="product_taxes_pis_tax_id" />
+            <field name="product_taxes_cofins_tax_id" />
+          </group>
+
+
+
         </page>
         <page name="ipi" string="IPI" invisible="not has_ipi">
           <group>

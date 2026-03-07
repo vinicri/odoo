@@ -215,6 +215,137 @@ class ProductMixin(models.AbstractModel):
         related="product_tmpl_taxes.icms_tax_id",
     )
 
+    product_taxes_icms_cst_nfe_code = fields.Char(
+        string="Código CST ICMS",
+        related="product_tmpl_taxes.icms_cst_nfe_code",
+    )
+
+    product_taxes_has_icms_own_operation = fields.Boolean(
+        string="Tributado em operação própria",
+        related="product_tmpl_taxes.has_icms_own_operation",
+    )
+
+    product_taxes_is_deferment_cst = fields.Boolean(
+        string="É CST de deferimento",
+        related="product_tmpl_taxes.is_deferment_cst",
+    )
+
+    product_taxes_is_icms_with_base_reduction = fields.Boolean(
+        string="É CST com redução de base de calculo",
+        related="product_tmpl_taxes.is_icms_with_base_reduction",
+    )
+
+    product_taxes_icms_bc_modality = fields.Selection(
+        string="Modalidade da Base de Calculo",
+        related="product_tmpl_taxes.icms_bc_modality",
+    )
+
+    product_taxes_icms_bc_reduction_percent = fields.Float(
+        string="Percentual de Redução da Base de Calculo",
+        related="product_tmpl_taxes.icms_bc_reduction_percent",
+    )
+
+    product_taxes_icms_deferment_percent = fields.Float(
+        string="Percentual de Deferimento",
+        related="product_tmpl_taxes.icms_deferment_percent",
+    )
+
+    product_taxes_icms_tax_percent = fields.Float(
+        string="Aliquota",
+        related="product_tmpl_taxes.icms_tax_percent",
+    )
+
+    product_taxes_icms_fcp_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="FCP",
+        related="product_tmpl_taxes.icms_fcp_tax_id",
+    )
+
+    product_taxes_icms_fcp_tax_percent = fields.Float(
+        string="Aliquota do FCP",
+        related="product_tmpl_taxes.icms_fcp_tax_percent",
+    )
+
+    product_taxes_is_icms_st = fields.Boolean(
+        string="É CST com ICMS ST",
+        related="product_tmpl_taxes.is_icms_st",
+    )
+
+    product_taxes_icms_st_modality = fields.Selection(
+        string="Modalidade da Base de Calculo",
+        related="product_tmpl_taxes.icms_st_modality",
+    )
+
+    product_taxes_is_icms_st_mva_modality = fields.Boolean(
+        string="É modalidade de base de calculo do ICMS ST MVA",
+        related="product_tmpl_taxes.is_icms_st_mva_modality",
+    )
+
+    product_taxes_icms_st_mva_percent = fields.Float(
+        string="Percentual de MVA",
+        related="product_tmpl_taxes.icms_st_mva_percent",
+    )
+
+    product_taxes_icms_st_reduction_percent = fields.Float(
+        string="Percentual de Redução da Base de Calculo",
+        related="product_tmpl_taxes.icms_st_reduction_percent",
+    )
+
+    product_taxes_icms_st_tax_percent = fields.Float(
+        string="Aliquota do ICMS ST",
+        related="product_tmpl_taxes.icms_st_tax_percent",
+    )
+
+    product_taxes_icms_st_fcp_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="FCP ST",
+        related="product_tmpl_taxes.icms_st_fcp_tax_id",
+    )
+
+    product_taxes_icms_st_fcp_tax_percent = fields.Float(
+        string="Aliquota do FCP ST",
+        related="product_tmpl_taxes.icms_st_fcp_tax_percent",
+    )
+
+    product_taxes_pis_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="PIS",
+        related="product_tmpl_taxes.pis_tax_id",
+    )
+
+    product_taxes_cofins_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="COFINS",
+        related="product_tmpl_taxes.cofins_tax_id",
+    )
+
+    product_taxes_has_ipi = fields.Boolean(
+        string="Tem IPI",
+        related="product_tmpl_taxes.has_ipi",
+    )
+
+    product_taxes_is_ipi_with_percentage = fields.Boolean(
+        string="É CST com Aliquota em Percentual",
+        related="product_tmpl_taxes.is_ipi_with_percentage",
+    )
+
+    product_taxes_ipi_guideline_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.ipi.guideline",
+        string="Código de Enquadramento IPI",
+        related="product_tmpl_taxes.ipi_guideline_id",
+    )
+
+    product_taxes_ipi_tax_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.tax",
+        string="IPI",
+        related="product_tmpl_taxes.ipi_tax_id",
+    )
+
+    product_taxes_ipi_tax_percent = fields.Float(
+        string="Aliquota",
+        related="product_tmpl_taxes.ipi_tax_percent",
+    )
+
     def _action_create_product_taxes(self, product_tmpl_id=None, product_id=None):
         self.ensure_one()
         return {
