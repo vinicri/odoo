@@ -50,7 +50,7 @@
             </form>
           </field>
         </page>
-        <page name="icms" string="ICMS">
+        <page name="impostos" string="Impostos">
           <div class="mb-2 d-flex gap-2 justify-content-center">
             <button name="action_create_product_taxes" type="object" string="Definir imposto padrão" class="btn btn-primary" icon="fa-plus" invisible="product_tmpl_taxes"/>
             <button name="action_edit_product_taxes" type="object" string="Editar Imposto" class="btn btn-secondary" icon="fa-pencil" invisible="not product_tmpl_taxes"/>
@@ -107,14 +107,6 @@
 
 
 
-        </page>
-        <page name="ipi" string="IPI" invisible="not has_ipi">
-          <group>
-            <field name="ipi_guideline_id" />
-            <field name="ipi_tax_id" context="{'operation_type': '1', 'include_cst_name': True}" options="{'no_create': True, 'no_create_edit': True}"/>
-            <field name="ipi_tax_percent" invisible="not is_ipi_with_percentage or is_ipi_qtt"/>
-
-          </group>
         </page>
       </xpath>
       <xpath expr="//field[@name='ncm_id']" position="after">

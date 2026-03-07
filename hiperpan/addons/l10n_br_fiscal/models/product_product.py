@@ -55,6 +55,36 @@ class ProductProduct(models.Model):
         inverse_name="product_id",
     )
 
+    product_tmpl_taxes = fields.Many2one(
+        comodel_name="l10n_br_fiscal.product.taxes",
+        string="Product Taxes (Company)",
+        compute="_compute_product_tmpl_taxes",
+    )
+
+    @api.depends("product_taxes_ids.company_id")
+    @api.depends_context("company")
+    def _compute_product_tmpl_taxes(self):
+        for record in self:
+            taxes = record.product_taxes_ids.filtered(
+                lambda t: t.company_id == self.env.company
+            )[:1]
+            if taxes:
+                record.product_tmpl_taxes = taxes
+            else:
+                record.product_tmpl_taxes = record.product_tmpl_id.product_tmpl_taxes
+
+    has_own_taxes = fields.Boolean(
+        string="Tem imposto próprio",
+        compute="_compute_has_own_taxes",
+    )
+
+    @api.depends("product_tmpl_taxes")
+    def _compute_has_own_taxes(self):
+        for record in self:
+            record.has_own_taxes = (
+                record.product_tmpl_taxes != record.product_tmpl_id.product_tmpl_taxes
+            )
+
     def action_create_product_taxes(self):
         return self._action_create_product_taxes(product_id=self.id)
 
