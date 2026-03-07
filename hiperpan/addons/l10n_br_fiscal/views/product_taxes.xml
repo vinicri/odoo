@@ -7,12 +7,16 @@
       <form>
         <sheet>
           <group>
-            <separator string="ICMS"/>
+            <separator string="ICMS Simples Nacional"/>
             <field name="product_id" invisible="1"/>
             <field name="product_tmpl_id" invisible="1"/>
             <field name="company_id" invisible="1"/>
             <field name="icms_sn_tax_id" options="{'no_create': True, 'no_create_edit': True}" context="{'operation_type': '1'}"/>
             <field name="icms_sn_cst_nfe_code" />
+          </group>
+
+          <group>
+            <separator string="ICMS"/>
             <field name="icms_tax_id" options="{'no_create': True, 'no_create_edit': True}" context="{'operation_type': '1'}"/>
             <field name="icms_cst_nfe_code" />
             <field name="icms_cst_code" invisible="1"/>
@@ -29,6 +33,11 @@
 
 
           </group>
+          <group invisible="not has_icms_own_operation">
+            <separator string="FCP" />
+            <field name="icms_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
+            <field name="icms_fcp_tax_percent" />
+          </group>
 
           <group invisible="not is_icms_st">
             <separator string="ICMS ST"/>
@@ -41,11 +50,8 @@
             <field name="icms_st_fcp_tax_percent" />
           </group>
 
-          <group>
-            <separator string="FCP"/>
-            <field name="icms_fcp_tax_id" options="{'no_create': True, 'no_create_edit': True}" invisible="not has_icms_own_operation"/>
-            <field name="icms_fcp_tax_percent" invisible="not has_icms_own_operation"/>
 
+          <group>
             <separator string="PIS COFINS"/>
             <field name="pis_tax_id" options="{'no_create': True, 'no_create_edit': True}" />
             <field name="cofins_tax_id" options="{'no_create': True, 'no_create_edit': True}" />

@@ -852,7 +852,32 @@ class NFeDocumentLine(models.Model):
         string="Imposto",
         domain="[('tax_group_id', 'in', icms_allowed_tax_group_ids)]",
         required=True,
+        compute="_compute_icms_tax_id",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends(
+        "emission_finality",
+        "is_simples_nacional",
+        "product_taxes_id.icms_sn_tax_id",
+        "product_taxes_id.icms_tax_id",
+    )
+    def _compute_icms_tax_id(self):
+        for record in self:
+            if record.emission_finality == "1":
+                if (
+                    record.is_simples_nacional
+                    and record.product_taxes_id
+                    and record.product_taxes_id.icms_sn_tax_id
+                ):
+                    record.icms_tax_id = record.product_taxes_id.icms_sn_tax_id
+                elif (
+                    not record.is_simples_nacional
+                    and record.product_taxes_id
+                    and record.product_taxes_id.icms_tax_id
+                ):
+                    record.icms_tax_id = record.product_taxes_id.icms_tax_id
 
     @api.constrains("icms_tax_id")
     def _check_icms_tax_id(self):
@@ -1176,9 +1201,22 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("is_icms_base_reduction_allowed")
+    @api.depends(
+        "is_icms_base_reduction_allowed",
+        "product_taxes_id.icms_bc_reduction_percent",
+        "emission_finality",
+    )
     def _compute_icms_bc_reduction_percent(self):
         for record in self:
+            if (
+                record.emission_finality == "1"
+                and record.is_icms_base_reduction_allowed
+                and record.product_taxes_id
+                and record.product_taxes_id.icms_bc_reduction_percent
+            ):
+                record.icms_bc_reduction_percent = (
+                    record.product_taxes_id.icms_bc_reduction_percent
+                )
             if not record.is_icms_base_reduction_allowed:
                 record.icms_bc_reduction_percent = False
 
@@ -1282,10 +1320,23 @@ class NFeDocumentLine(models.Model):
         string="Percentual de Diferimento", digits=(3, 4)
     )
 
-    @api.onchange("icms_cst_code", "icms_deferment_percent")
+    @api.onchange(
+        "is_deferment_cst",
+        "product_taxes_id.icms_deferment_percent",
+        "emission_finality",
+    )
     def _onchange_icms_deferment_percent(self):
         for record in self:
-            if record.icms_cst_code != "51":
+            if (
+                record.is_deferment_cst
+                and record.emission_finality == "1"
+                and record.product_taxes_id
+                and record.product_taxes_id.icms_deferment_percent
+            ):
+                record.icms_deferment_percent = (
+                    record.product_taxes_id.icms_deferment_percent
+                )
+            if not record.is_deferment_cst:
                 record.icms_deferment_percent = False
 
     # 51 tributação com diferimento
@@ -1560,7 +1611,28 @@ class NFeDocumentLine(models.Model):
         comodel_name="l10n_br_fiscal.tax",
         string="FCP",
         domain=_domain_icms_fcp_tax_id,
+        compute="_compute_icms_fcp_tax_id",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends(
+        "can_have_icms_fcp",
+        "emission_finality",
+        "is_simples_nacional",
+        "product_taxes_id.icms_fcp_tax_id",
+    )
+    def _compute_icms_fcp_tax_id(self):
+        for record in self:
+            if not record.can_have_icms_fcp:
+                record.icms_fcp_tax_id = False
+            elif (
+                record.emission_finality == "1"
+                and not record.is_simples_nacional
+                and record.product_taxes_id
+                and record.product_taxes_id.icms_fcp_tax_id
+            ):
+                record.icms_fcp_tax_id = record.product_taxes_id.icms_fcp_tax_id
 
     @api.constrains("icms_fcp_tax_id", "can_have_icms_fcp")
     def _check_icms_fcp_tax_id(self):
@@ -1774,9 +1846,21 @@ class NFeDocumentLine(models.Model):
         store=True,
     )
 
-    @api.depends("icms_cst_code")
+    @api.depends(
+        "icms_cst_code",
+        "emission_finality",
+        "is_icms_st_required",
+        "product_taxes_id.icms_st_modality",
+    )
     def _compute_icms_st_modality(self):
         for record in self:
+            if (
+                record.emission_finality == "1"
+                and record.is_icms_st_required
+                and record.product_taxes_id
+                and record.product_taxes_id.icms_st_modality
+            ):
+                record.icms_st_modality = record.product_taxes_id.icms_st_modality
             if not record.is_icms_st_allowed:
                 record.icms_st_modality = False
 
@@ -1824,9 +1908,21 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("icms_st_modality")
+    @api.depends(
+        "icms_st_modality",
+        "emission_finality",
+        "is_icms_st_required",
+        "product_taxes_id.icms_st_mva_percent",
+    )
     def _compute_icms_st_mva_percent(self):
         for record in self:
+            if (
+                record.emission_finality == "1"
+                and record.is_icms_st_required
+                and record.product_taxes_id
+                and record.product_taxes_id.icms_st_mva_percent
+            ):
+                record.icms_st_mva_percent = record.product_taxes_id.icms_st_mva_percent
             if not record.is_icms_st_allowed or record.icms_st_modality != "4":
                 record.icms_st_mva_percent = False
 
@@ -1850,9 +1946,23 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("icms_st_modality")
+    @api.depends(
+        "icms_st_modality",
+        "emission_finality",
+        "is_icms_st_required",
+        "product_taxes_id.icms_st_reduction_percent",
+    )
     def _compute_icms_st_reduction_percent(self):
         for record in self:
+            if (
+                record.emission_finality == "1"
+                and record.is_icms_st_required
+                and record.product_taxes_id
+                and record.product_taxes_id.icms_st_reduction_percent
+            ):
+                record.icms_st_reduction_percent = (
+                    record.product_taxes_id.icms_st_reduction_percent
+                )
             if not record.is_icms_st_allowed:
                 record.icms_st_reduction_percent = False
 
@@ -1970,7 +2080,7 @@ class NFeDocumentLine(models.Model):
                 record.icms_st_value = False
             elif not record.is_simples_nacional:
                 icms_st = record.icms_st_bc_value * record.icms_st_tax_percent / 100
-                if icms_st == 0:
+                if icms_st == 0 or icms_st <= record.icms_value:
                     record.icms_st_value = 0.00
                 else:
                     record.icms_st_value = icms_st - record.icms_value
@@ -2010,7 +2120,25 @@ class NFeDocumentLine(models.Model):
         comodel_name="l10n_br_fiscal.tax",
         string="FCP ST",
         domain=_domain_icms_st_fcp_tax_id,
+        compute="_compute_icms_st_fcp_tax_id",
+        store=True,
+        readonly=False,
     )
+
+    @api.depends(
+        "emission_finality",
+        "is_icms_st_required",
+        "product_taxes_id.icms_st_fcp_tax_id",
+    )
+    def _compute_icms_st_fcp_tax_id(self):
+        for record in self:
+            if (
+                record.emission_finality == "1"
+                and record.is_icms_st_required
+                and record.product_taxes_id
+                and record.product_taxes_id.icms_st_fcp_tax_id
+            ):
+                record.icms_st_fcp_tax_id = record.product_taxes_id.icms_st_fcp_tax_id
 
     @api.constrains("is_icms_st_allowed", "icms_st_fcp_tax_id")
     def _check_icms_st_fcp_tax_id(self):
@@ -2287,13 +2415,16 @@ class NFeDocumentLine(models.Model):
         readonly=False,
     )
 
-    @api.depends("forced_ipi_tax_id", "product_taxes_id.ipi_tax_id")
+    @api.depends(
+        "forced_ipi_tax_id",
+        "product_taxes_id.ipi_tax_id",
+    )
     def _compute_ipi_tax_id(self):
         for record in self:
             if record.forced_ipi_tax_id:
                 record.ipi_tax_id = record.forced_ipi_tax_id
             elif record.product_taxes_id and record.product_taxes_id.ipi_tax_id:
-                record.ipi_tax_id = record.product_id.ipi_tax_id
+                record.ipi_tax_id = record.product_taxes_id.ipi_tax_id
 
     @api.constrains("ipi_tax_id")
     def _check_ipi_tax_id(self):
@@ -2360,15 +2491,15 @@ class NFeDocumentLine(models.Model):
                 "99",
             )
 
-    is_relugar_ipi = fields.Boolean(
+    is_regular_ipi = fields.Boolean(
         string="É CST com Regulamento do IPI",
-        compute="_compute_is_relugar_ipi",
+        compute="_compute_is_regular_ipi",
     )
 
     @api.depends("ipi_cst_id")
-    def _compute_is_relugar_ipi(self):
+    def _compute_is_regular_ipi(self):
         for record in self:
-            record.is_relugar_ipi = record.ipi_cst_id.code in ("00", "50")
+            record.is_regular_ipi = record.ipi_cst_id.code in ("00", "50")
 
     ipi_tax_percent = fields.Float(
         related="ipi_tax_id.percent_amount",
@@ -2382,7 +2513,7 @@ class NFeDocumentLine(models.Model):
     def _check_ipi_tax_percent(self):
         for record in self:
             if (
-                record.is_relugar_ipi
+                record.is_regular_ipi
                 and not record.is_ipi_qtt
                 and record.ipi_tax_percent <= 0
             ):
@@ -2431,7 +2562,7 @@ class NFeDocumentLine(models.Model):
     def _check_ipi_bc_value(self):
         for record in self:
             if (
-                record.is_relugar_ipi
+                record.is_regular_ipi
                 and not record.is_ipi_qtt
                 and record.ipi_bc_value <= 0
             ):
