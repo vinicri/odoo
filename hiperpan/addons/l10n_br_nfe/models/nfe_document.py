@@ -603,7 +603,117 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
             additional_information = etree.SubElement(det, "infAdProd")
             additional_information.text = item.additional_information
 
+    # grupo W - Total da NF-e
+    buildTotal(infNFe, nfe_document)
+
     return root
+
+
+def buildTotal(infNFe, nfe_document):
+    # grupo W01 - Total da NF-e
+    total = etree.SubElement(infNFe, "total")
+
+    # grupo W02 - Totais referentes ao ICMS
+    ICMSTot = etree.SubElement(total, "ICMSTot")
+
+    # W03 - Base de Cálculo do ICMS
+    vBC = etree.SubElement(ICMSTot, "vBC")
+    vBC.text = f"{nfe_document.total_icms_base:.2f}"
+
+    # W04 - Valor Total do ICMS
+    vICMS = etree.SubElement(ICMSTot, "vICMS")
+    vICMS.text = f"{nfe_document.total_icms:.2f}"
+
+    # W04a - Valor Total do ICMS Desonerado (0-1)
+    vICMSDeson = etree.SubElement(ICMSTot, "vICMSDeson")
+    vICMSDeson.text = f"{nfe_document.total_icms_deson:.2f}"
+
+    # W04c - Valor total do ICMS relativo ao FCP da UF de destino (0-1)
+    if nfe_document.total_fcp_uf_dest:
+        vFCPUFDest = etree.SubElement(ICMSTot, "vFCPUFDest")
+        vFCPUFDest.text = f"{nfe_document.total_fcp_uf_dest:.2f}"
+
+    # W04e - Valor total do ICMS Interestadual para a UF de destino (0-1)
+    if nfe_document.total_icms_uf_dest:
+        vICMSUFDest = etree.SubElement(ICMSTot, "vICMSUFDest")
+        vICMSUFDest.text = f"{nfe_document.total_icms_uf_dest:.2f}"
+
+    # W04g - Valor total do ICMS Interestadual para a UF do remetente (0-1)
+    if nfe_document.total_icms_interestadual:
+        vICMSUFRemet = etree.SubElement(ICMSTot, "vICMSUFRemet")
+        vICMSUFRemet.text = f"{nfe_document.total_icms_interestadual:.2f}"
+
+    # W04h - Valor Total do FCP
+    vFCP = etree.SubElement(ICMSTot, "vFCP")
+    vFCP.text = f"{nfe_document.total_fcp:.2f}"
+
+    # W05 - Base de Cálculo do ICMS ST
+    vBCST = etree.SubElement(ICMSTot, "vBCST")
+    vBCST.text = f"{nfe_document.total_icms_st_base:.2f}"
+
+    # W06 - Valor Total do ICMS ST
+    vST = etree.SubElement(ICMSTot, "vST")
+    vST.text = f"{nfe_document.total_icms_st_value:.2f}"
+
+    # W06a - Valor Total do FCP retido por Substituição Tributária
+    vFCPST = etree.SubElement(ICMSTot, "vFCPST")
+    vFCPST.text = f"{nfe_document.total_icms_st_fcp:.2f}"
+
+    # W06b - Valor Total do FCP retido anteriormente por Substituição Tributária
+    vFCPSTRet = etree.SubElement(ICMSTot, "vFCPSTRet")
+    vFCPSTRet.text = f"{nfe_document.total_icms_fcp_st_retention:.2f}"
+
+    # W07 - Valor Total dos Produtos e Serviços
+    vProd = etree.SubElement(ICMSTot, "vProd")
+    vProd.text = f"{nfe_document.total_products:.2f}"
+
+    # W08 - Valor Total do Frete
+    vFrete = etree.SubElement(ICMSTot, "vFrete")
+    vFrete.text = f"{nfe_document.total_freight:.2f}"
+
+    # W09 - Valor Total do Seguro
+    vSeg = etree.SubElement(ICMSTot, "vSeg")
+    vSeg.text = f"{nfe_document.total_insurance:.2f}"
+
+    # W10 - Valor Total do Desconto
+    vDesc = etree.SubElement(ICMSTot, "vDesc")
+    vDesc.text = f"{nfe_document.total_discount:.2f}"
+
+    # W11 - Valor Total do II
+    vII = etree.SubElement(ICMSTot, "vII")
+    vII.text = f"{nfe_document.total_ii:.2f}"
+
+    # W12 - Valor Total do IPI
+    vIPI = etree.SubElement(ICMSTot, "vIPI")
+    vIPI.text = f"{nfe_document.total_ipi:.2f}"
+
+    # W12a - Valor Total do IPI devolvido (0-1) - apenas para finNFe=4 (devolução)
+    vIPIDevol = etree.SubElement(ICMSTot, "vIPIDevol")
+    if nfe_document.total_ipi_returned and nfe_document.emission_finality == "4":
+        vIPIDevol.text = f"{nfe_document.total_ipi_returned:.2f}"
+    else:
+        vIPIDevol.text = "0.00"
+
+    # W13 - Valor do PIS
+    vPIS = etree.SubElement(ICMSTot, "vPIS")
+    vPIS.text = f"{nfe_document.total_pis:.2f}"
+
+    # W14 - Valor da COFINS
+    vCOFINS = etree.SubElement(ICMSTot, "vCOFINS")
+    vCOFINS.text = f"{nfe_document.total_cofins:.2f}"
+
+    # W15 - Outras Despesas Acessórias
+    vOutro = etree.SubElement(ICMSTot, "vOutro")
+    vOutro.text = f"{nfe_document.total_other_expenses:.2f}"
+
+    # W16 - Valor Total da NF-e
+    vNF = etree.SubElement(ICMSTot, "vNF")
+    vNF.text = f"{nfe_document.total_nfe:.2f}"
+
+    # W16a - Valor aproximado total de tributos federais, estaduais e municipais (0-1)
+    if nfe_document.total_approx_taxes:
+        vTotTrib = etree.SubElement(ICMSTot, "vTotTrib")
+        vTotTrib.text = f"{nfe_document.total_approx_taxes:.2f}"
 
 
 def buildIPIReturned(root, line):
