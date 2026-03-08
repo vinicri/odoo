@@ -9,7 +9,6 @@
         <sheet class="nfe_item">
           <field name="is_debug_mode" invisible="1" />
           <group>
-            <field name="nfe_id" />
             <field name="issuer_id" />
             <field name="operation_nature_id" />
             <field name="operation_type" />

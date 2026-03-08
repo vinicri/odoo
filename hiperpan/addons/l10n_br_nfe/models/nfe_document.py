@@ -118,15 +118,15 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     nfe_document.env["l10n_br_nfe.nfe.document.line"]._reorder_item_numbers(
         nfe_document.id
     )
-    root = etree.Element("Nfe")
+    root = etree.Element("NFe")
 
     # grupo A
-    infNfe = etree.SubElement(root, "infNfe")
-    infNfe.set("versao", nfe_document.nfe_version)
-    infNfe.set("Id", nfe_document.access_key)
+    infNFe = etree.SubElement(root, "infNFe")
+    infNFe.set("versao", nfe_document.nfe_version)
+    infNFe.set("Id", f"NFe{nfe_document.access_key}")
 
     # grupo B
-    ide = etree.SubElement(infNfe, "ide")
+    ide = etree.SubElement(infNFe, "ide")
     cUF = etree.SubElement(ide, "cUF")
     cUF.text = nfe_document.issuer_state_code
 
@@ -206,7 +206,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
             refNFe.text = ref_nfe_number.access_key
 
     # emitente
-    emit = etree.SubElement(root, "emit")
+    emit = etree.SubElement(infNFe, "emit")
 
     if nfe_document.issuer_id.company_type == "company":
         CNPJ = etree.SubElement(emit, "CNPJ")
@@ -274,7 +274,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
     if nfe_document.recipient_id:
         # Grupo E - Destinatário
-        dest = etree.SubElement(root, "dest")
+        dest = etree.SubElement(infNFe, "dest")
 
         if nfe_document.recipient_id.is_foreign:
             idEstrangeiro = etree.SubElement(dest, "idEstrangeiro")
@@ -369,7 +369,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
                     "Erro ao gerar XML: O Local de Retirada é obrigatório quando o local de retirada é diferente do endereço do emitente."
                 )
             )
-        retirada = etree.SubElement(root, "retirada")
+        retirada = etree.SubElement(infNFe, "retirada")
 
         if nfe_document.retrieval_partner_id.company_type == "company":
             rCNPJ = etree.SubElement(retirada, "CNPJ")
@@ -433,7 +433,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
                     "Erro ao gerar XML: O Local de Entrega é obrigatório quando o local de entrega é diferente do endereço do destinatário."
                 )
             )
-        entrega = etree.SubElement(root, "entrega")
+        entrega = etree.SubElement(infNFe, "entrega")
 
         if nfe_document.delivery_partner_id.company_type == "company":
             dCNPJ = etree.SubElement(entrega, "CNPJ")
@@ -491,7 +491,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
             dIE.text = nfe_document.delivery_ie
 
     if nfe_document.authorized_xml_access_ids:
-        autXML = etree.SubElement(root, "autXML")
+        autXML = etree.SubElement(infNFe, "autXML")
         for authorized_xml_access_id in nfe_document.authorized_xml_access_ids:
             if authorized_xml_access_id.company_type == "company":
                 if (
@@ -520,29 +520,13 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
                 autXMLCPF.text = authorized_xml_access_id.vat
 
     for item in nfe_document.invoice_line_ids:
-        det = etree.SubElement(root, "det")
-        det.set("nItem", item.item_number)
+        det = etree.SubElement(infNFe, "det")
+        det.set("nItem", str(item.item_number))
 
         prod = etree.SubElement(det, "prod")
 
         cProd = etree.SubElement(prod, "cProd")
         cProd.text = item.product_code
-
-        # if not item.product_id.no_barcode and not item.product_id.barcode:
-        #     raise ValidationError(
-        #         _(
-        #             "Geração de XML: O produto '%s' não possui código de barras mas não está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
-        #         )
-        #         % item.product_id.name
-        #     )
-        # elif item.product_id.no_barcode and item.product_id.barcode:
-        #     # sera que precisa dessa validação?
-        #     raise ValidationError(
-        #         _(
-        #             "Geração de XML: O produto '%s' possui código de barras mas está marcado como 'Não possui código de barras' no cadastro do produto. Atualize o cadastro do produto da forma correta. Não informar o código de barras na nota fiscal quando o produto possuir código de barras é uma falha de obrigação fiscal acessória e está sujeita a multa."
-        #         )
-        #         % item.product_id.name
-        #     )
 
         cEAN = etree.SubElement(prod, "cEAN")
         cEAN.text = item.gtin
@@ -605,30 +589,19 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
         imposto = etree.SubElement(det, "imposto")
 
-        # Grupo N - ICMS
-        icms = etree.SubElement(imposto, "ICMS")
-        buildICMS(icms, item, nfe_document.final_customer_operation == "1")
+        buildICMS(imposto, item, nfe_document.final_customer_operation == "1")
         buildIPI(imposto, item)
 
         buildPIS(imposto, item)
         buildCOFINS(imposto, item)
 
-        buildIPIReturned(imposto, item)
+        # TODO build Pis Confins ST
+
+        # buildIPIReturned(imposto, item)
 
         if item.additional_information:
             additional_information = etree.SubElement(det, "infAdProd")
             additional_information.text = item.additional_information
-
-    # 101 - Tributada pelo Simples Nacional com permissão de crédito
-    # 102 - Tributada pelo Simples Nacional sem permissão de crédito
-    # 103 - Isenção do ICMS no Simples Nacional para faixa de receita bruta
-    # 201 - Tributada pelo Simples Nacional com permissão de crédito e com cobrança do ICMS por substituição tributária
-    # 202 - Tributada pelo Simples Nacional sem permissão de crédito e com cobrança do ICMS por substituição tributária
-    # 203 - Isenção do ICMS no Simples Nacional para faixa de receita bruta e com cobrança do ICMS por substituição tributária
-    # 300 - Imune
-    # 400 - Não tributada pelo Simples Nacional
-    # 500 - ICMS cobrado anteriormente por substituição tributária (substituído) ou por antecipação
-    # 900 - Outros
 
     return root
 
@@ -674,9 +647,10 @@ def buildIPIReturned(root, line):
 
 def buildIPI(root, line):
     issuer_fiscal_framework = line.nfe_id.issuer_fiscal_framework
+    emission_finality = line.nfe_id.emission_finality
 
-    if issuer_fiscal_framework in ("1", "2"):
-        if not line.product_id.fiscal_type_id.code in ("03", "04", "05", "06"):
+    if issuer_fiscal_framework in ("1", "2") and emission_finality in ("1", "2"):
+        if not line.product_id.fiscal_type_id.code in ("04"):
             # se não for um produto fabricado, o grupo IPI não é informado
             return
 
@@ -685,78 +659,345 @@ def buildIPI(root, line):
         cEnq = etree.SubElement(ipi, "cEnq")
         cEnq.text = "999"
 
-        IPITrib = etree.SubElement(ipi, "IPITrib")
-
-        CST = etree.SubElement(IPITrib, "CST")
-        CST.text = "99"
-
-    else:
-        raise ValidationError(
-            _(
-                f"Geração de XML: (Produto: {line.product_description})"
-                f"Grupo IPI não é suportado ainda para o regime normal."
+        if line.ipi_cst == "99":
+            IPITrib = etree.SubElement(ipi, "IPITrib")
+            CST = etree.SubElement(IPITrib, "CST")
+            CST.text = line.ipi_cst
+        elif line.ipi_cst == "53":
+            IPINT = etree.SubElement(ipi, "IPINT")
+            CST = etree.SubElement(IPINT, "CST")
+            CST.text = line.ipi_cst
+        else:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) CST({line.ipi_cst}) do IPI não é suportado para o Simples Nacional."
             )
-        )
+
+    elif issuer_fiscal_framework in ("3") and emission_finality in ("1", "2"):
+        if not line.product_id.fiscal_type_id.code in ("04"):
+            # se não for um produto fabricado, o grupo IPI não é informado
+            return
+
+        ipi = etree.SubElement(root, "IPI")
+
+        cEnq = etree.SubElement(ipi, "cEnq")
+        cEnq.text = line.ipi_guideline_code
+
+        if line.is_ipi_with_percentage:
+            IPITrib = etree.SubElement(ipi, "IPITrib")
+
+            CST = etree.SubElement(IPITrib, "CST")
+            CST.text = line.ipi_cst
+
+            if line.is_ipi_with_percentage and line.ipi_tax_percent > 0:
+                pIPI = etree.SubElement(IPITrib, "pIPI")
+                pIPI.text = f"{line.ipi_tax_percent:.4f}"
+
+                vBC = etree.SubElement(IPITrib, "vBC")
+                vBC.text = f"{line.ipi_bc_value:.2f}"
+
+            if line.is_ipi_qtt:
+                if not line.ipi_unit_value or not line.ipi_unit_quantity:
+                    raise ValidationError(
+                        _(
+                            f"Geração de XML: (Produto: {line.product_description})"
+                            f"Grupo IPI Quantidade deve ser informado com todos os campos: Valor na Unidade Tributável e Quantidade na Unidade Tributável."
+                        )
+                    )
+
+                qUnid = etree.SubElement(IPITrib, "qUnid")
+                qUnid.text = f"{line.ipi_unit_quantity:.4f}"
+
+                vUnid = etree.SubElement(IPITrib, "vUnid")
+                vUnid.text = f"{line.ipi_unit_value:.4f}"
+
+            vIPI = etree.SubElement(IPITrib, "vIPI")
+            vIPI.text = f"{line.ipi_value:.2f}"
+        else:
+            IPINTrib = etree.SubElement(ipi, "IPINT")
+
+            CST = etree.SubElement(IPINTrib, "CST")
+            CST.text = line.ipi_cst
 
 
 def buildPIS(root, line):
     issuer_fiscal_framework = line.nfe_id.issuer_fiscal_framework
+    emission_finality = line.nfe_id.emission_finality
 
-    if issuer_fiscal_framework in ("1", "2"):
+    if issuer_fiscal_framework in ("1", "2") and emission_finality in ("1", "2"):
+        if (
+            line.pis_cst != "99"
+            or line.pis_bc_value != 0.00
+            or line.pis_tax_percent != 0.00
+            or line.pis_value != 0.00
+        ):
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) CST({line.pis_cst}) do PIS não é suportado para o Simples Nacional."
+            )
         pis = etree.SubElement(root, "PIS")
 
         PISOutr = etree.SubElement(pis, "PISOutr")
 
         CST = etree.SubElement(PISOutr, "CST")
-        CST.text = "99"
+        CST.text = line.pis_cst
 
-        qBCProd = etree.SubElement(PISOutr, "qBCProd")
-        qBCProd.text = "0.0000"
+        vBC = etree.SubElement(PISOutr, "vBC")
+        vBC.text = f"{line.pis_bc_value:.2f}"
 
-        vAliqProd = etree.SubElement(PISOutr, "vAliqProd")
-        vAliqProd.text = "0.0000"
+        pPIS = etree.SubElement(PISOutr, "pPIS")
+        pPIS.text = f"{line.pis_tax_percent:.4f}"
 
         vPIS = etree.SubElement(PISOutr, "vPIS")
-        vPIS.text = "0.00"
+        vPIS.text = f"{line.pis_value:.2f}"
 
-    else:
-        raise ValidationError(
-            _(
-                f"Geração de XML: (Produto: {line.product_description})"
-                f"Grupo PIS não é suportado ainda para o regime normal."
-            )
-        )
+    elif issuer_fiscal_framework in ("3") and emission_finality in ("1", "2"):
+        pis = etree.SubElement(root, "PIS")
+        pis_cst = line.pis_cst
+
+        if pis_cst in ("01", "02"):
+            PISAliq = etree.SubElement(pis, "PISAliq")
+            CST = etree.SubElement(PISAliq, "CST")
+            CST.text = line.pis_cst
+
+            vBC = etree.SubElement(PISAliq, "vBC")
+            vBC.text = f"{line.pis_bc_value:.2f}"
+
+            pPIS = etree.SubElement(PISAliq, "pPIS")
+            pPIS.text = f"{line.pis_tax_percent:.4f}"
+
+            vPIS = etree.SubElement(PISAliq, "vPIS")
+            vPIS.text = f"{line.pis_value:.2f}"
+
+        elif pis_cst in ("03"):
+            PISQtde = etree.SubElement(pis, "PISQtde")
+            CST = etree.SubElement(PISQtde, "CST")
+            CST.text = line.pis_cst
+
+            qBCProd = etree.SubElement(PISQtde, "qBCProd")
+            qBCProd.text = f"{line.pis_bc_quantity:.4f}"
+
+            vAliqProd = etree.SubElement(PISQtde, "vAliqProd")
+            vAliqProd.text = f"{line.pis_tax_quantity:.4f}"
+
+            vPIS = etree.SubElement(PISQtde, "vPIS")
+            vPIS.text = f"{line.pis_value:.2f}"
+
+        elif pis_cst in ("04", "05", "06", "07", "08", "09"):
+            PISNT = etree.SubElement(pis, "PISNT")
+            CST = etree.SubElement(PISNT, "CST")
+            CST.text = line.pis_cst
+
+        elif pis_cst in (
+            "49",  # Outras Operações de Saída
+            "50",  # Operação com Direito a Crédito - Vinculada Exclusivamente a Receita Tributada no Mercado Interno
+            "51",  # Operação com Direito a Crédito - Vinculada Exclusivamente a Receita Não Tributada no Mercado Interno
+            "52",  # Operação com Direito a Crédito – Vinculada Exclusivamente a Receita de Exportação
+            "53",  # Operação com Direito a Crédito - Vinculada a Receitas Tributadas e Não-Tributadas no Mercado Interno
+            "54",  # Operação com Direito a Crédito - Vinculada a Receitas Tributadas no Mercado Interno e de Exportação
+            "55",  # Operação com Direito a Crédito - Vinculada a Receitas Não-Tributadas no Mercado Interno e de Exportação
+            "56",  # Operação com Direito a Crédito - Vinculada a Receitas Tributadas e Não-Tributadas no Mercado Interno, e de Exportação
+            "60",  # Crédito Presumido - Operação de Aquisição Vinculada Exclusivamente a Receita Tributada no Mercado Interno
+            "61",  # Crédito Presumido - Operação de Aquisição Vinculada Exclusivamente a Receita Não-Tributada no Mercado Interno
+            "62",  # Crédito Presumido - Operação de Aquisição Vinculada Exclusivamente a Receita de Exportação
+            "63",  # Crédito Presumido - Operação de Aquisição Vinculada a Receitas Tributadas e Não-Tributadas no Mercado Interno
+            "64",  # Crédito Presumido - Operação de Aquisição Vinculada a Receitas Tributadas no Mercado Interno e de Exportação
+            "65",  # Crédito Presumido - Operação de Aquisição Vinculada a Receitas Não-Tributadas no Mercado Interno e de Exportação
+            "66",  # Crédito Presumido - Operação de Aquisição Vinculada a Receitas Tributadas e Não-Tributadas no Mercado Interno, e de Exportação
+            "67",  # Crédito Presumido - Outras Operações
+            "70",  # Operação de Aquisição sem Direito a Crédito
+            "71",  # Operação de Aquisição com Isenção
+            "72",  # Operação de Aquisição com Suspensão
+            "73",  # Operação de Aquisição a Alíquota Zero
+            "74",  # Operação de Aquisição sem Incidência da Contribuição
+            "75",  # Operação de Aquisição por Substituição Tributária
+            "98",  # Outras Operações de Entrada
+            "99",  # Outras Operações
+        ):
+            PISOutr = etree.SubElement(pis, "PISOutr")
+            CST = etree.SubElement(PISOutr, "CST")
+            CST.text = line.pis_cst
+
+            pis_perc_fields = [
+                line.pis_bc_value,
+                line.pis_tax_percent,
+            ]
+
+            is_pis_perc_required = any(pis_perc_fields) and not all(pis_perc_fields)
+            if is_pis_perc_required:
+                raise ValidationError(
+                    f"Geração de XML: (Produto: {line.product_description}) Se o grupo do PIS Percentual for informado, é obrigatório informar todos os campos do grupo."
+                )
+
+            if is_pis_perc_required:
+                vBC = etree.SubElement(PISOutr, "vBC")
+                vBC.text = f"{line.pis_bc_value:.2f}"
+
+                pPIS = etree.SubElement(PISOutr, "pPIS")
+                pPIS.text = f"{line.pis_tax_percent:.4f}"
+
+            pis_qtt_fields = [
+                line.pis_bc_quantity,
+                line.pis_tax_quantity,
+            ]
+
+            is_pis_qtt_required = any(pis_qtt_fields) and not all(pis_qtt_fields)
+            if is_pis_qtt_required:
+                raise ValidationError(
+                    f"Geração de XML: (Produto: {line.product_description}) Se o grupo do PIS Quantidade for informado, é obrigatório informar todos os campos do grupo."
+                )
+
+            if is_pis_qtt_required:
+                qBCProd = etree.SubElement(PISOutr, "qBCProd")
+                qBCProd.text = f"{line.pis_bc_quantity:.4f}"
+
+                vAliqProd = etree.SubElement(PISOutr, "vAliqProd")
+                vAliqProd.text = f"{line.pis_tax_quantity:.4f}"
+
+            vPIS = etree.SubElement(PISOutr, "vPIS")
+            vPIS.text = f"{line.pis_value:.2f}"
 
 
 def buildCOFINS(root, line):
     issuer_fiscal_framework = line.nfe_id.issuer_fiscal_framework
+    emission_finality = line.nfe_id.emission_finality
 
-    if issuer_fiscal_framework in ("1", "2"):
+    if issuer_fiscal_framework in ("1", "2") and emission_finality in ("1", "2"):
+        if (
+            line.cofins_cst != "99"
+            or line.cofins_bc_value != 0.00
+            or line.cofins_tax_percent != 0.00
+            or line.cofins_value != 0.00
+        ):
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) CST({line.cofins_cst}) do COFINS não é suportado para o Simples Nacional."
+            )
         cofins = etree.SubElement(root, "COFINS")
 
         COFINSOutr = etree.SubElement(cofins, "COFINSOutr")
 
         CST = etree.SubElement(COFINSOutr, "CST")
-        CST.text = "99"
+        CST.text = line.cofins_cst
 
-        qBCProd = etree.SubElement(COFINSOutr, "qBCProd")
-        qBCProd.text = "0.0000"
+        vBC = etree.SubElement(COFINSOutr, "vBC")
+        vBC.text = f"{line.cofins_bc_value:.2f}"
 
-        vAliqProd = etree.SubElement(COFINSOutr, "vAliqProd")
-        vAliqProd.text = "0.0000"
+        pCOFINS = etree.SubElement(COFINSOutr, "pCOFINS")
+        pCOFINS.text = f"{line.cofins_tax_percent:.4f}"
 
         vCOFINS = etree.SubElement(COFINSOutr, "vCOFINS")
-        vCOFINS.text = "0.00"
-    else:
-        raise ValidationError(
-            _(
-                f"Geração de XML: (Produto: {line.product_description})"
-                f"Grupo COFINS não é suportado ainda para o regime normal."
+        vCOFINS.text = f"{line.cofins_value:.2f}"
+
+    elif issuer_fiscal_framework in ("3") and emission_finality in ("1", "2"):
+        cofins = etree.SubElement(root, "COFINS")
+        cofins_cst = line.cofins_cst
+
+        if cofins_cst in ("01", "02"):
+            COFINSAliq = etree.SubElement(cofins, "COFINSAliq")
+            CST = etree.SubElement(COFINSAliq, "CST")
+            CST.text = line.cofins_cst
+
+            vBC = etree.SubElement(COFINSAliq, "vBC")
+            vBC.text = f"{line.cofins_bc_value:.2f}"
+
+            pCOFINS = etree.SubElement(COFINSAliq, "pCOFINS")
+            pCOFINS.text = f"{line.cofins_tax_percent:.4f}"
+
+            vCOFINS = etree.SubElement(COFINSAliq, "vCOFINS")
+            vCOFINS.text = f"{line.cofins_value:.2f}"
+
+        elif cofins_cst in ("03"):
+            COFINSQtde = etree.SubElement(cofins, "COFINSQtde")
+            CST = etree.SubElement(COFINSQtde, "CST")
+            CST.text = line.cofins_cst
+
+            qBCProd = etree.SubElement(COFINSQtde, "qBCProd")
+            qBCProd.text = f"{line.cofins_bc_quantity:.4f}"
+
+            vAliqProd = etree.SubElement(COFINSQtde, "vAliqProd")
+            vAliqProd.text = f"{line.cofins_tax_quantity:.4f}"
+
+            vCOFINS = etree.SubElement(COFINSQtde, "vCOFINS")
+            vCOFINS.text = f"{line.cofins_value:.2f}"
+
+        elif cofins_cst in ("04", "05", "06", "07", "08", "09"):
+            COFINSNT = etree.SubElement(cofins, "COFINSNT")
+            CST = etree.SubElement(COFINSNT, "CST")
+            CST.text = line.cofins_cst
+
+        elif cofins_cst in (
+            "49",  # Outras Operações de Saída
+            "50",  # Operação com Direito a Crédito - Vinculada Exclusivamente a Receita Tributada no Mercado Interno
+            "51",  # Operação com Direito a Crédito - Vinculada Exclusivamente a Receita Não Tributada no Mercado Interno
+            "52",  # Operação com Direito a Crédito – Vinculada Exclusivamente a Receita de Exportação
+            "53",  # Operação com Direito a Crédito - Vinculada a Receitas Tributadas e Não-Tributadas no Mercado Interno
+            "54",  # Operação com Direito a Crédito - Vinculada a Receitas Tributadas no Mercado Interno e de Exportação
+            "55",  # Operação com Direito a Crédito - Vinculada a Receitas Não-Tributadas no Mercado Interno e de Exportação
+            "56",  # Operação com Direito a Crédito - Vinculada a Receitas Tributadas e Não-Tributadas no Mercado Interno, e de Exportação
+            "60",  # Crédito Presumido - Operação de Aquisição Vinculada Exclusivamente a Receita Tributada no Mercado Interno
+            "61",  # Crédito Presumido - Operação de Aquisição Vinculada Exclusivamente a Receita Não-Tributada no Mercado Interno
+            "62",  # Crédito Presumido - Operação de Aquisição Vinculada Exclusivamente a Receita de Exportação
+            "63",  # Crédito Presumido - Operação de Aquisição Vinculada a Receitas Tributadas e Não-Tributadas no Mercado Interno
+            "64",  # Crédito Presumido - Operação de Aquisição Vinculada a Receitas Tributadas no Mercado Interno e de Exportação
+            "65",  # Crédito Presumido - Operação de Aquisição Vinculada a Receitas Não-Tributadas no Mercado Interno e de Exportação
+            "66",  # Crédito Presumido - Operação de Aquisição Vinculada a Receitas Tributadas e Não-Tributadas no Mercado Interno, e de Exportação
+            "67",  # Crédito Presumido - Outras Operações
+            "70",  # Operação de Aquisição sem Direito a Crédito
+            "71",  # Operação de Aquisição com Isenção
+            "72",  # Operação de Aquisição com Suspensão
+            "73",  # Operação de Aquisição a Alíquota Zero
+            "74",  # Operação de Aquisição sem Incidência da Contribuição
+            "75",  # Operação de Aquisição por Substituição Tributária
+            "98",  # Outras Operações de Entrada
+            "99",  # Outras Operações
+        ):
+            COFINSOutr = etree.SubElement(cofins, "COFINSOutr")
+            CST = etree.SubElement(COFINSOutr, "CST")
+            CST.text = line.cofins_cst
+
+            cofins_perc_fields = [
+                line.cofins_bc_value,
+                line.cofins_tax_percent,
+            ]
+
+            is_cofins_perc_required = any(cofins_perc_fields) and not all(
+                cofins_perc_fields
             )
-        )
+            if is_cofins_perc_required:
+                raise ValidationError(
+                    f"Geração de XML: (Produto: {line.product_description}) Se o grupo do COFINS Percentual for informado, é obrigatório informar todos os campos do grupo."
+                )
+
+            if is_cofins_perc_required:
+                vBC = etree.SubElement(COFINSOutr, "vBC")
+                vBC.text = f"{line.cofins_bc_value:.2f}"
+
+                pCOFINS = etree.SubElement(COFINSOutr, "pCOFINS")
+                pCOFINS.text = f"{line.cofins_tax_percent:.4f}"
+
+            cofins_qtt_fields = [
+                line.cofins_bc_quantity,
+                line.cofins_tax_quantity,
+            ]
+
+            is_cofins_qtt_required = any(cofins_qtt_fields) and not all(
+                cofins_qtt_fields
+            )
+            if is_cofins_qtt_required:
+                raise ValidationError(
+                    f"Geração de XML: (Produto: {line.product_description}) Se o grupo do COFINS Quantidade for informado, é obrigatório informar todos os campos do grupo."
+                )
+
+            if is_cofins_qtt_required:
+                qBCProd = etree.SubElement(COFINSOutr, "qBCProd")
+                qBCProd.text = f"{line.cofins_bc_quantity:.4f}"
+
+                vAliqProd = etree.SubElement(COFINSOutr, "vAliqProd")
+                vAliqProd.text = f"{line.cofins_tax_quantity:.4f}"
+
+            vCOFINS = etree.SubElement(COFINSOutr, "vCOFINS")
+            vCOFINS.text = f"{line.cofins_value:.2f}"
 
 
-def buildICMS(icms_root, nfe_document_line, is_final_customer):
+def buildICMS(imposto, nfe_document_line, is_final_customer):
     """
     Constrói o XML do ICMS conforme layout NFe 4.00
 
@@ -767,21 +1008,73 @@ def buildICMS(icms_root, nfe_document_line, is_final_customer):
     # Determina se é Simples Nacional (CSOSN) ou Regime Normal (CST)
     icms_cst_code = nfe_document_line.icms_cst_code
     icms_origin = nfe_document_line.icms_origin
-    issuer_fiscal_framework = nfe_document_line.nfe_id.issuer_fiscal_framework
 
     # Simples Nacional - CSOSN (101, 102, 103, 201, 202, 203, 300, 400, 500, 900)
-    if issuer_fiscal_framework in ("1", "2"):
+    if icms_cst_code in (
+        "101",
+        "102",
+        "103",
+        "201",
+        "202",
+        "203",
+        "300",
+        "400",
+        "500",
+        "900",
+    ):
         _buildICMSSN(
-            icms_root, nfe_document_line, icms_origin, icms_cst_code, is_final_customer
+            imposto, nfe_document_line, icms_origin, icms_cst_code, is_final_customer
         )
-    # Regime Normal - CST (00, 10, 20, 30, 40, 41, 50, 51, 60, 70, 90)
-    # else:
-    #    #  TODO: Implementar
-    #    #  _buildICMSRegimeNormal(icms_root, nfe_document_line, icms_origin, icms_cst_code)
+    elif icms_cst_code in (
+        "00",
+        "10",
+        "20",
+        "30",
+        "40",
+        "41",
+        "50",
+        "51",
+        "60",
+        "70",
+        "90",
+    ):
+        _buildICMSRegimeNormal(imposto, nfe_document_line, icms_origin, icms_cst_code)
+    else:
+        raise ValidationError(
+            f"Geração de XML: (Produto: {nfe_document_line.product_description}) CST({icms_cst_code}) do ICMS não é suportado."
+        )
 
 
-def _buildICMSRegimeNormal(icms_root, line, origin, cst):
+def _build_icms_deson(parent, line):
+    """Appends vICMSDeson and motDesICMS sub-elements to *parent* when the
+    ICMS desoneração group is present on *line*.
+
+    Raises ValidationError when only one of the two required fields is set.
+    """
+    icms_deson_fields = [
+        line.icms_deson_value,
+        line.icms_deson_reason,
+    ]
+
+    if not any(icms_deson_fields):
+        return
+
+    if not all(icms_deson_fields):
+        raise ValidationError(
+            f"Geração de XML: (Produto: {line.product_description}) Se o grupo do ICMS Desoneração for informado, é obrigatório informar o Valor do ICMS Desoneração e o Motivo da Desoneração do ICMS."
+        )
+
+    vICMSDeson = etree.SubElement(parent, "vICMSDeson")
+    vICMSDeson.text = f"{line.icms_deson_value:.2f}"
+
+    motDesICMS = etree.SubElement(parent, "motDesICMS")
+    motDesICMS.text = line.icms_deson_reason.code
+
+
+def _buildICMSRegimeNormal(imposto, line, origin, cst):
     """Constrói XML ICMS para Regime Normal conforme Manual NFe 4.00"""
+    # Grupo N - ICMS
+    icms_root = etree.SubElement(imposto, "ICMS")
 
     if cst == "00":
         # N02 - Tributada integralmente
@@ -797,7 +1090,7 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
 
         # N13 - Modalidade BC (obrigatório)
         modBC = etree.SubElement(icms00, "modBC")
-        modBC.text = line.icms_bc_modality or "3"
+        modBC.text = line.icms_bc_modality
 
         # N15 - Valor BC (obrigatório)
         vBC = etree.SubElement(icms00, "vBC")
@@ -812,19 +1105,14 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         vICMS.text = f"{line.icms_value:.2f}"
 
         # N17b - Base FCP (opcional)
-        if line.icms_fcp_bc_value:
-            vBCFCP = etree.SubElement(icms00, "vBCFCP")
-            vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
-
+        if line.icms_fcp_tax_id:
             # N17c - Percentual FCP (opcional)
-            if line.icms_fcp_tax_percent:
-                pFCP = etree.SubElement(icms00, "pFCP")
-                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+            pFCP = etree.SubElement(icms00, "pFCP")
+            pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
 
             # N17d - Valor FCP (opcional)
-            if line.icms_fcp_value:
-                vFCP = etree.SubElement(icms00, "vFCP")
-                vFCP.text = f"{line.icms_fcp_value:.2f}"
+            vFCP = etree.SubElement(icms00, "vFCP")
+            vFCP.text = f"{line.icms_fcp_value:.2f}"
 
     elif cst == "10":
         # N03 - Tributada com cobrança de ICMS por ST
@@ -838,7 +1126,7 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
 
         # N13 - Modalidade BC
         modBC = etree.SubElement(icms10, "modBC")
-        modBC.text = line.icms_bc_modality or "3"
+        modBC.text = line.icms_bc_modality
 
         # N15 - Valor BC
         vBC = etree.SubElement(icms10, "vBC")
@@ -853,24 +1141,26 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         vICMS.text = f"{line.icms_value:.2f}"
 
         # N17b-d - FCP (opcional)
-        if line.icms_fcp_bc_value:
+        if line.icms_fcp_tax_id:
             vBCFCP = etree.SubElement(icms10, "vBCFCP")
             vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
 
-            if line.icms_fcp_tax_percent:
-                pFCP = etree.SubElement(icms10, "pFCP")
-                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+            pFCP = etree.SubElement(icms10, "pFCP")
+            pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
 
-            if line.icms_fcp_value:
-                vFCP = etree.SubElement(icms10, "vFCP")
-                vFCP.text = f"{line.icms_fcp_value:.2f}"
+            vFCP = etree.SubElement(icms10, "vFCP")
+            vFCP.text = f"{line.icms_fcp_value:.2f}"
 
         # N18 - Modalidade BC ST (obrigatório)
         modBCST = etree.SubElement(icms10, "modBCST")
-        modBCST.text = line.icms_st_modality or "4"
+        modBCST.text = line.icms_st_modality
 
-        # N19 - MVA ST (opcional)
-        if line.icms_st_mva_percent:
+        if line.icms_st_modality == "4" and not line.icms_st_mva_percent:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) MVA ICMS ST é obrigatório para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%)."
+            )
+        # N19 - MVA ST
+        if line.icms_st_mva_percent and line.icms_st_modality == "4":
             pMVAST = etree.SubElement(icms10, "pMVAST")
             pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
 
@@ -916,7 +1206,7 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
 
         # N13 - Modalidade BC
         modBC = etree.SubElement(icms20, "modBC")
-        modBC.text = line.icms_bc_modality or "3"
+        modBC.text = line.icms_bc_modality
 
         # N14 - Percentual redução BC (obrigatório para CST 20)
         pRedBC = etree.SubElement(icms20, "pRedBC")
@@ -935,20 +1225,18 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         vICMS.text = f"{line.icms_value:.2f}"
 
         # N17b-d - FCP (opcional)
-        if line.icms_fcp_bc_value:
+        if line.icms_fcp_tax_id:
             vBCFCP = etree.SubElement(icms20, "vBCFCP")
             vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
 
-            if line.icms_fcp_tax_percent:
-                pFCP = etree.SubElement(icms20, "pFCP")
-                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+            pFCP = etree.SubElement(icms20, "pFCP")
+            pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
 
-            if line.icms_fcp_value:
-                vFCP = etree.SubElement(icms20, "vFCP")
-                vFCP.text = f"{line.icms_fcp_value:.2f}"
+            vFCP = etree.SubElement(icms20, "vFCP")
+            vFCP.text = f"{line.icms_fcp_value:.2f}"
 
-        # TODO: N27a - vICMSDeson (desoneração) - não implementado
-        # TODO: N28 - motDesICMS (motivo desoneração) - não implementado
+        # N17c-d - ICMS Desoneração (opcional)
+        _build_icms_deson(icms20, line)
 
     elif cst == "30":
         # N05 - Isenta ou não tributada com cobrança de ICMS por ST
@@ -960,12 +1248,17 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         CST = etree.SubElement(icms30, "CST")
         CST.text = cst
 
+        if line.icms_st_modality == "4" and not line.icms_st_mva_percent:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) MVA ICMS ST é obrigatório para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%)."
+            )
+
         # N18 - Modalidade BC ST (obrigatório)
         modBCST = etree.SubElement(icms30, "modBCST")
-        modBCST.text = line.icms_st_modality or "4"
+        modBCST.text = line.icms_st_modality
 
         # N19 - MVA ST (opcional)
-        if line.icms_st_mva_percent:
+        if line.icms_st_mva_percent and line.icms_st_modality == "4":
             pMVAST = etree.SubElement(icms30, "pMVAST")
             pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
 
@@ -987,20 +1280,17 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         vICMSST.text = f"{line.icms_st_value:.2f}"
 
         # N23a-c - FCP ST (opcional)
-        if line.icms_st_fcp_bc_value:
+        if line.icms_fcp_tax_id:
             vBCFCPST = etree.SubElement(icms30, "vBCFCPST")
             vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
 
-            if line.icms_st_fcp_tax_percent:
-                pFCPST = etree.SubElement(icms30, "pFCPST")
-                pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+            pFCPST = etree.SubElement(icms30, "pFCPST")
+            pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
 
-            if line.icms_st_fcp_value:
-                vFCPST = etree.SubElement(icms30, "vFCPST")
-                vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+            vFCPST = etree.SubElement(icms30, "vFCPST")
+            vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
 
-        # TODO: N27a - vICMSDeson (desoneração) - não implementado
-        # TODO: N28 - motDesICMS (motivo desoneração) - não implementado
+        _build_icms_deson(icms30, line)
 
     elif cst in ("40", "41", "50"):
         # N06 - Isenta (40) / Não tributada (41) / Suspensão (50)
@@ -1012,8 +1302,7 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         CST = etree.SubElement(icms40, "CST")
         CST.text = cst
 
-        # TODO: N27a - vICMSDeson (desoneração) - não implementado
-        # TODO: N28 - motDesICMS (motivo desoneração) - não implementado
+        _build_icms_deson(icms40, line)
 
     elif cst == "51":
         # N07 - Diferimento
@@ -1025,56 +1314,68 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         CST = etree.SubElement(icms51, "CST")
         CST.text = cst
 
-        # N13 - Modalidade BC (opcional para CST 51)
-        if line.icms_bc_modality:
+        icms_deferment_fields = [
+            line.icms_bc_modality,
+            line.icms_bc_reduction_percent,
+            line.icms_bc_value,
+            line.icms_tax_percent,
+            line.icms_value,
+            line.icms_deferment_percent,
+            line.icms_deferment_value,
+            line.icms_deferment_payable,
+        ]
+
+        is_deferment_required = any(icms_deferment_fields) and not all(
+            icms_deferment_fields
+        )
+        if is_deferment_required:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) Se o grupo do ICMS Diferimento for informado, é obrigatório informar todos os campos do grupo."
+            )
+
+        if is_deferment_required:
+            # N13 - Modalidade BC
             modBC = etree.SubElement(icms51, "modBC")
             modBC.text = line.icms_bc_modality
 
-        # N14 - Redução BC (opcional)
-        if line.icms_bc_reduction_percent:
+            # N14 - Redução BC
             pRedBC = etree.SubElement(icms51, "pRedBC")
             pRedBC.text = f"{line.icms_bc_reduction_percent:.4f}"
 
-        # N15 - Valor BC (opcional)
-        if line.icms_bc_value:
+            # N15 - Valor BC
             vBC = etree.SubElement(icms51, "vBC")
             vBC.text = f"{line.icms_bc_value:.2f}"
 
-        # N16 - Alíquota (opcional)
-        if line.icms_tax_percent:
+            # N16 - Alíquota
             pICMS = etree.SubElement(icms51, "pICMS")
             pICMS.text = f"{line.icms_tax_percent:.2f}"
 
-        # N17 - Valor ICMS Operação (opcional)
-        if line.icms_value:
+            # N17 - Valor ICMS Operação - como se nao tivesse diferimento
             vICMSOp = etree.SubElement(icms51, "vICMSOp")
             vICMSOp.text = f"{line.icms_value:.2f}"
 
-        # N26 - Percentual diferimento (obrigatório para CST 51)
-        pDif = etree.SubElement(icms51, "pDif")
-        pDif.text = f"{line.icms_deferment_percent:.4f}"
+            # N26 - Percentual diferimento
+            pDif = etree.SubElement(icms51, "pDif")
+            pDif.text = f"{line.icms_deferment_percent:.4f}"
 
-        # N27 - Valor ICMS diferido (obrigatório)
-        vICMSDif = etree.SubElement(icms51, "vICMSDif")
-        vICMSDif.text = f"{line.icms_deferment_value:.2f}"
+            # N27 - Valor ICMS diferido
+            vICMSDif = etree.SubElement(icms51, "vICMSDif")
+            vICMSDif.text = f"{line.icms_deferment_value:.2f}"
 
-        # N17 - Valor ICMS (calculado: vICMSOp - vICMSDif)
-        if line.icms_value and line.icms_deferment_value:
+            # N17 - Valor ICMS
             vICMS = etree.SubElement(icms51, "vICMS")
-            vICMS.text = f"{(line.icms_value - line.icms_deferment_value):.2f}"
+            vICMS.text = f"{line.icms_deferment_payable:.2f}"
 
         # N17b-d - FCP (opcional)
-        if line.icms_fcp_bc_value:
+        if line.icms_fcp_tax_id:
             vBCFCP = etree.SubElement(icms51, "vBCFCP")
             vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
 
-            if line.icms_fcp_tax_percent:
-                pFCP = etree.SubElement(icms51, "pFCP")
-                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+            pFCP = etree.SubElement(icms51, "pFCP")
+            pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
 
-            if line.icms_fcp_value:
-                vFCP = etree.SubElement(icms51, "vFCP")
-                vFCP.text = f"{line.icms_fcp_value:.2f}"
+            vFCP = etree.SubElement(icms51, "vFCP")
+            vFCP.text = f"{line.icms_fcp_value:.2f}"
 
     elif cst == "60":
         # N08 - ICMS cobrado anteriormente por ST
@@ -1109,7 +1410,7 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
 
         # N13 - Modalidade BC
         modBC = etree.SubElement(icms70, "modBC")
-        modBC.text = line.icms_bc_modality or "3"
+        modBC.text = line.icms_bc_modality
 
         # N14 - Percentual redução BC (obrigatório para CST 70)
         pRedBC = etree.SubElement(icms70, "pRedBC")
@@ -1128,24 +1429,27 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         vICMS.text = f"{line.icms_value:.2f}"
 
         # N17b-d - FCP (opcional)
-        if line.icms_fcp_bc_value:
+        if line.icms_fcp_tax_id:
             vBCFCP = etree.SubElement(icms70, "vBCFCP")
             vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
 
-            if line.icms_fcp_tax_percent:
-                pFCP = etree.SubElement(icms70, "pFCP")
-                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+            pFCP = etree.SubElement(icms70, "pFCP")
+            pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
 
-            if line.icms_fcp_value:
-                vFCP = etree.SubElement(icms70, "vFCP")
-                vFCP.text = f"{line.icms_fcp_value:.2f}"
+            vFCP = etree.SubElement(icms70, "vFCP")
+            vFCP.text = f"{line.icms_fcp_value:.2f}"
 
         # N18 - Modalidade BC ST (obrigatório)
         modBCST = etree.SubElement(icms70, "modBCST")
-        modBCST.text = line.icms_st_modality or "4"
+        modBCST.text = line.icms_st_modality
+
+        if line.icms_st_modality == "4" and not line.icms_st_mva_percent:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) MVA ICMS ST é obrigatório para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%)."
+            )
 
         # N19 - MVA ST (opcional)
-        if line.icms_st_mva_percent:
+        if line.icms_st_mva_percent and line.icms_st_modality == "4":
             pMVAST = etree.SubElement(icms70, "pMVAST")
             pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
 
@@ -1167,20 +1471,17 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         vICMSST.text = f"{line.icms_st_value:.2f}"
 
         # N23a-c - FCP ST (opcional)
-        if line.icms_st_fcp_bc_value:
+        if line.icms_fcp_tax_id:
             vBCFCPST = etree.SubElement(icms70, "vBCFCPST")
             vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
 
-            if line.icms_st_fcp_tax_percent:
-                pFCPST = etree.SubElement(icms70, "pFCPST")
-                pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+            pFCPST = etree.SubElement(icms70, "pFCPST")
+            pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
 
-            if line.icms_st_fcp_value:
-                vFCPST = etree.SubElement(icms70, "vFCPST")
-                vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+            vFCPST = etree.SubElement(icms70, "vFCPST")
+            vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
 
-        # TODO: N27a - vICMSDeson
-        # TODO: N28 - motDesICMS
+        _build_icms_deson(icms70, line)
 
     elif cst == "90":
         # N10 - Outros
@@ -1192,80 +1493,100 @@ def _buildICMSRegimeNormal(icms_root, line, origin, cst):
         CST = etree.SubElement(icms90, "CST")
         CST.text = cst
 
-        # Para CST 90, os campos são opcionais dependendo da situação
-        if line.icms_bc_modality:
+        icms_fields = [
+            line.modBC,
+            line.vBC,
+            line.pRedBC,
+            line.pICMS,
+            line.vICMS,
+        ]
+
+        is_icms_required = any(icms_fields) and not all(icms_fields)
+        if is_icms_required:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) Se o grupo do ICMS for informado, é obrigatório informar todos os campos do grupo."
+            )
+
+        if is_icms_required:
             modBC = etree.SubElement(icms90, "modBC")
             modBC.text = line.icms_bc_modality
 
-        if line.icms_bc_value:
             vBC = etree.SubElement(icms90, "vBC")
             vBC.text = f"{line.icms_bc_value:.2f}"
 
-        if line.icms_bc_reduction_percent:
             pRedBC = etree.SubElement(icms90, "pRedBC")
             pRedBC.text = f"{line.icms_bc_reduction_percent:.4f}"
 
-        if line.icms_tax_percent:
             pICMS = etree.SubElement(icms90, "pICMS")
             pICMS.text = f"{line.icms_tax_percent:.2f}"
 
-        if line.icms_value:
             vICMS = etree.SubElement(icms90, "vICMS")
             vICMS.text = f"{line.icms_value:.2f}"
 
         # FCP (opcional)
-        if line.icms_fcp_bc_value:
+        if line.icms_fcp_tax_id:
             vBCFCP = etree.SubElement(icms90, "vBCFCP")
             vBCFCP.text = f"{line.icms_fcp_bc_value:.2f}"
 
-            if line.icms_fcp_tax_percent:
-                pFCP = etree.SubElement(icms90, "pFCP")
-                pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
+            pFCP = etree.SubElement(icms90, "pFCP")
+            pFCP.text = f"{line.icms_fcp_tax_percent:.2f}"
 
-            if line.icms_fcp_value:
-                vFCP = etree.SubElement(icms90, "vFCP")
-                vFCP.text = f"{line.icms_fcp_value:.2f}"
+            vFCP = etree.SubElement(icms90, "vFCP")
+            vFCP.text = f"{line.icms_fcp_value:.2f}"
 
-        # ICMS ST (opcional)
-        if line.icms_st_modality:
+        icms_st_fields = [
+            line.modBCST,
+            line.pMVAST,
+            line.pRedBCST,
+            line.vBCST,
+            line.pICMSST,
+            line.vICMSST,
+        ]
+
+        is_icms_st_required = any(icms_st_fields) and not all(icms_st_fields)
+        if is_icms_st_required:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) Se o grupo do ICMS ST for informado, é obrigatório informar todos os campos do grupo."
+            )
+
+        if is_icms_st_required:
             modBCST = etree.SubElement(icms90, "modBCST")
             modBCST.text = line.icms_st_modality
 
-        if line.icms_st_mva_percent:
-            pMVAST = etree.SubElement(icms90, "pMVAST")
-            pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
+            if line.icms_st_modality == "4" and not line.icms_st_mva_percent:
+                raise ValidationError(
+                    f"Geração de XML: (Produto: {line.product_description}) MVA ICMS ST é obrigatório para a modalidade da Base de Calculo do ICMS ST Margem Valor Agregado (%)."
+                )
 
-        if line.icms_st_reduction_percent:
-            pRedBCST = etree.SubElement(icms90, "pRedBCST")
-            pRedBCST.text = f"{line.icms_st_reduction_percent:.4f}"
+            if line.icms_st_mva_percent and line.icms_st_modality == "4":
+                pMVAST = etree.SubElement(icms90, "pMVAST")
+                pMVAST.text = f"{line.icms_st_mva_percent:.4f}"
 
-        if line.icms_st_bc_value:
+            if line.icms_st_reduction_percent:
+                pRedBCST = etree.SubElement(icms90, "pRedBCST")
+                pRedBCST.text = f"{line.icms_st_reduction_percent:.4f}"
+
             vBCST = etree.SubElement(icms90, "vBCST")
             vBCST.text = f"{line.icms_st_bc_value:.2f}"
 
-        if line.icms_st_tax_percent:
             pICMSST = etree.SubElement(icms90, "pICMSST")
             pICMSST.text = f"{line.icms_st_tax_percent:.2f}"
 
-        if line.icms_st_value:
             vICMSST = etree.SubElement(icms90, "vICMSST")
             vICMSST.text = f"{line.icms_st_value:.2f}"
 
         # FCP ST (opcional)
-        if line.icms_st_fcp_bc_value:
+        if line.icms_fcp_tax_id:
             vBCFCPST = etree.SubElement(icms90, "vBCFCPST")
             vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
 
-            if line.icms_st_fcp_tax_percent:
-                pFCPST = etree.SubElement(icms90, "pFCPST")
-                pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+            pFCPST = etree.SubElement(icms90, "pFCPST")
+            pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
 
-            if line.icms_st_fcp_value:
-                vFCPST = etree.SubElement(icms90, "vFCPST")
-                vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+            vFCPST = etree.SubElement(icms90, "vFCPST")
+            vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
 
-        # TODO: N27a - vICMSDeson
-        # TODO: N28 - motDesICMS
+        _build_icms_deson(icms90, line)
 
 
 def _buildICMSSN(icms_root, line, origin, csosn, is_final_customer):
@@ -1319,19 +1640,9 @@ def _buildICMSSN(icms_root, line, origin, csosn, is_final_customer):
 
         _buildICMSSNST(icmssn201, line)
 
-        if not line.icms_sn_credit_percent or line.icms_sn_credit_percent <= 0:
-            raise ValidationError(
-                "Geração de XML: Aliquota de Crédito do ICMS SN é obrigatório pro CST SN 201."
-            )
-
         # N29 - Alíquota de crédito (obrigatório)
         pCredSN = etree.SubElement(icmssn201, "pCredSN")
         pCredSN.text = f"{line.icms_sn_credit_percent:.4f}"
-
-        if not line.icms_sn_credit_value or line.icms_sn_credit_value <= 0:
-            raise ValidationError(
-                "Geração de XML: Valor de Crédito do ICMS SN é obrigatório pro CST SN 201."
-            )
 
         # N30 - Valor de crédito (obrigatório)
         vCredICMSSN = etree.SubElement(icmssn201, "vCredICMSSN")
@@ -1501,7 +1812,7 @@ def _buildICMSSNST(icmssn_root, line):
     # N18 - Modalidade BC ST (obrigatório)
     if not line.icms_st_modality:
         raise ValidationError(
-            f"Geração de XML: (Produto: {line.product_description}) Modalidade da Base de Calculo do ICMS ST é obrigatório pro CST SN 201."
+            f"Geração de XML: (Produto: {line.product_description}) Modalidade da Base de Calculo do ICMS ST é obrigatório dentro do grupo do ICMS ST."
         )
     modBCST = etree.SubElement(icmssn_root, "modBCST")
     modBCST.text = line.icms_st_modality
@@ -1523,7 +1834,7 @@ def _buildICMSSNST(icmssn_root, line):
     # N21 - Valor BC ST (obrigatório)
     if not line.icms_st_bc_value or line.icms_st_bc_value <= 0:
         raise ValidationError(
-            f"Geração de XML: (Produto: {line.product_description}) Valor da Base de Calculo do ICMS ST é obrigatório pro CST SN 201."
+            f"Geração de XML: (Produto: {line.product_description}) Valor da Base de Calculo do ICMS ST é obrigatório dentro do grupo do ICMS ST."
         )
     vBCST = etree.SubElement(icmssn_root, "vBCST")
     vBCST.text = f"{line.icms_st_bc_value:.2f}"
@@ -1531,42 +1842,43 @@ def _buildICMSSNST(icmssn_root, line):
     # N22 - Alíquota ICMS ST (obrigatório)
     if not line.icms_st_tax_percent or line.icms_st_tax_percent <= 0:
         raise ValidationError(
-            f"Geração de XML: (Produto: {line.product_description}) Alíquota do ICMS ST é obrigatório pro CST SN 201."
+            f"Geração de XML: (Produto: {line.product_description}) Alíquota do ICMS ST é obrigatório dentro do grupo do ICMS ST."
         )
     pICMSST = etree.SubElement(icmssn_root, "pICMSST")
     pICMSST.text = f"{line.icms_st_tax_percent:.2f}"
 
     # N23 - Valor ICMS ST (obrigatório)
-    if not line.icms_st_value or line.icms_st_value <= 0:
+    if not line.icms_st_value or line.icms_st_value < 0:
         raise ValidationError(
-            f"Geração de XML: (Produto: {line.product_description}) Valor do ICMS ST é obrigatório pro CST SN 201."
+            f"Geração de XML: (Produto: {line.product_description}) Valor do ICMS ST é obrigatório dentro do grupo do ICMS ST."
         )
     vICMSST = etree.SubElement(icmssn_root, "vICMSST")
     vICMSST.text = f"{line.icms_st_value:.2f}"
 
-    if not line.icms_st_fcp_bc_value or line.icms_st_fcp_bc_value <= 0:
-        raise ValidationError(
-            f"Geração de XML: (Produto: {line.product_description}) Valor da Base de Calculo do FCP ST é obrigatório pro CST SN 201."
-        )
+    if line.icms_st_fcp_tax_id:
+        if not line.icms_st_fcp_bc_value or line.icms_st_fcp_bc_value <= 0:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) Valor da Base de Calculo do FCP ST é obrigatório quando o FCP ST está sendo informado."
+            )
 
-    vBCFCPST = etree.SubElement(icmssn_root, "vBCFCPST")
-    vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
+        vBCFCPST = etree.SubElement(icmssn_root, "vBCFCPST")
+        vBCFCPST.text = f"{line.icms_st_fcp_bc_value:.2f}"
 
-    if not line.icms_st_fcp_tax_percent or line.icms_st_fcp_tax_percent <= 0:
-        raise ValidationError(
-            f"Geração de XML: (Produto: {line.product_description}) Aliquota do FCP ST é obrigatório pro CST SN 201."
-        )
+        if not line.icms_st_fcp_tax_percent or line.icms_st_fcp_tax_percent <= 0:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) Aliquota do FCP ST é obrigatório quando o FCP ST está sendo informado."
+            )
 
-    pFCPST = etree.SubElement(icmssn_root, "pFCPST")
-    pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
+        pFCPST = etree.SubElement(icmssn_root, "pFCPST")
+        pFCPST.text = f"{line.icms_st_fcp_tax_percent:.2f}"
 
-    if not line.icms_st_fcp_value or line.icms_st_fcp_value <= 0:
-        raise ValidationError(
-            f"Geração de XML: (Produto: {line.product_description}) Valor do FCP ST é obrigatório pro CST SN 201."
-        )
+        if not line.icms_st_fcp_value or line.icms_st_fcp_value <= 0:
+            raise ValidationError(
+                f"Geração de XML: (Produto: {line.product_description}) Valor do FCP ST é obrigatório quando o FCP ST está sendo informado."
+            )
 
-    vFCPST = etree.SubElement(icmssn_root, "vFCPST")
-    vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
+        vFCPST = etree.SubElement(icmssn_root, "vFCPST")
+        vFCPST.text = f"{line.icms_st_fcp_value:.2f}"
 
 
 def printNfeXml(nfe_document):
@@ -2764,6 +3076,7 @@ class NFeDocument(models.Model):
         compute="_compute_recipient_ie_indicator",
     )
 
+    # TODO revisar
     @api.depends(
         "recipient_id",
         "document_model",
@@ -4142,7 +4455,9 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.depends("invoice_line_ids", "invoice_line_ids.total_ipi_returned", "emission_finality")
+    @api.depends(
+        "invoice_line_ids", "invoice_line_ids.total_ipi_returned", "emission_finality"
+    )
     def _compute_total_ipi_returned(self):
         for record in self:
             total_ipi_returned = sum(

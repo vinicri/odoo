@@ -1742,7 +1742,7 @@ class NFeDocumentLine(models.Model):
     @api.constrains("icms_sn_credit_percent", "icms_sn_credit_value")
     def _check_icms_sn_credit_required(self):
         for record in self:
-            if record.icms_cst_code not in ("101", "201", "900"):
+            if record.icms_cst_code not in ("101", "201"):
                 continue
 
             icms_sn_credit_fields = [
