@@ -611,6 +611,8 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
     buildBilling(infNFe, nfe_document)
 
+    buildPayment(infNFe, nfe_document)
+
     return root
 
 
@@ -921,6 +923,57 @@ def buildBilling(infNFe, nfe_document):
         # Y10 - Valor da Parcela (1-1)
         vDup = etree.SubElement(dup, "vDup")
         vDup.text = f"{installment.value:.2f}"
+
+
+def buildPayment(infNFe, nfe_document):
+    # grupo YA01 - Grupo de Informações de Pagamento (1-1)
+    pag = etree.SubElement(infNFe, "pag")
+
+    # grupo YA01a - Grupo Detalhamento do Pagamento (1-100)
+    for payment in nfe_document.payment_detail_ids:
+        detPag = etree.SubElement(pag, "detPag")
+
+        # YA01b - Indicador da Forma de Pagamento (0-1)
+        if payment.type:
+            indPag = etree.SubElement(detPag, "indPag")
+            indPag.text = payment.type
+
+        # YA02 - Meio de pagamento (1-1)
+        tPag = etree.SubElement(detPag, "tPag")
+        tPag.text = payment.payment_method
+
+        # YA03 - Valor do Pagamento (1-1)
+        vPag = etree.SubElement(detPag, "vPag")
+        vPag.text = f"{payment.payment_value:.2f}"
+
+        # grupo YA04 - Grupo de Cartões (0-1)
+        if payment.is_card_payment:
+            card = etree.SubElement(detPag, "card")
+
+            # YA04a - Tipo de Integração para pagamento (1-1)
+            tpIntegra = etree.SubElement(card, "tpIntegra")
+            tpIntegra.text = payment.card_integration_type
+
+            # YA05 - CNPJ da instituição de pagamento (0-1)
+            if payment.card_processor_cnpj:
+                CNPJ = etree.SubElement(card, "CNPJ")
+                CNPJ.text = payment.card_processor_cnpj
+
+            # YA06 - Bandeira da operadora de cartão (0-1)
+            if payment.card_brand:
+                tBand = etree.SubElement(card, "tBand")
+                tBand.text = payment.card_brand
+
+            # YA07 - Número de autorização da operação cartão (0-1)
+            if payment.card_authorization_number:
+                cAut = etree.SubElement(card, "cAut")
+                cAut.text = payment.card_authorization_number
+
+    # YA09 - Valor do troco (0-1)
+    total_change = sum(nfe_document.payment_detail_ids.mapped("change_value"))
+    if total_change:
+        vTroco = etree.SubElement(pag, "vTroco")
+        vTroco.text = f"{total_change:.2f}"
 
 
 def buildIPIReturned(root, line):
@@ -5393,9 +5446,13 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
-    @api.constrains("marketplace_id")
+    @api.constrains("marketplace_id", "is_marketplace_transaction")
     def _check_marketplace_id(self):
         for record in self:
+            if record.is_marketplace_transaction and not record.marketplace_id:
+                raise ValidationError(
+                    "O Marketplace é obrigatório para transações com Marketplace."
+                )
             if record.marketplace_id:
                 if (
                     not record.marketplace_id.provider_id.vat
