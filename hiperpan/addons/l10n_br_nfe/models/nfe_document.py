@@ -609,6 +609,9 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     # grupo X - Informações do Transporte da NF-e
     buildTransp(infNFe, nfe_document)
 
+
+    buildBilling(infNFe, nfe_document)
+
     return root
 
 
@@ -866,6 +869,63 @@ def buildTransp(infNFe, nfe_document):
                 # X34 - Número do Lacre
                 nLacre = etree.SubElement(lacres, "nLacre")
                 nLacre.text = lacre.number
+
+
+def buildBilling(infNFe, nfe_document):
+    # grupo Y01 - Dados da Cobrança (0-1)
+    has_fat = (
+        nfe_document.billing_number
+        or nfe_document.billing_original_value
+        or nfe_document.billing_discount_value
+    )
+    has_dup = bool(nfe_document.billing_installment_ids)
+
+    if not has_fat and not has_dup:
+        return
+
+    cobr = etree.SubElement(infNFe, "cobr")
+
+    # grupo Y02 - Dados da Fatura (0-1)
+    if has_fat:
+        fat = etree.SubElement(cobr, "fat")
+
+        # Y03 - Número da Fatura (0-1)
+        if nfe_document.billing_number:
+            nFat = etree.SubElement(fat, "nFat")
+            nFat.text = nfe_document.billing_number
+
+        # Y04 - Valor Original da Fatura (0-1)
+        if nfe_document.billing_original_value:
+            vOrig = etree.SubElement(fat, "vOrig")
+            vOrig.text = f"{nfe_document.billing_original_value:.2f}"
+
+        # Y05 - Valor do Desconto da Fatura (0-1)
+        if nfe_document.billing_discount_value:
+            vDesc = etree.SubElement(fat, "vDesc")
+            vDesc.text = f"{nfe_document.billing_discount_value:.2f}"
+
+        # Y06 - Valor Líquido da Fatura (0-1)
+        if nfe_document.billing_liquid_value:
+            vLiq = etree.SubElement(fat, "vLiq")
+            vLiq.text = f"{nfe_document.billing_liquid_value:.2f}"
+
+    # grupo Y07 - Duplicatas / Parcelas (0-120)
+    for installment in nfe_document.billing_installment_ids:
+        dup = etree.SubElement(cobr, "dup")
+
+        # Y08 - Número da Parcela (0-1)
+        if installment.installment_number:
+            nDup = etree.SubElement(dup, "nDup")
+            nDup.text = installment.installment_number
+
+        # Y09 - Data de Vencimento (0-1)
+        if installment.due_date:
+            dVenc = etree.SubElement(dup, "dVenc")
+            dVenc.text = str(installment.due_date)
+
+        # Y10 - Valor da Parcela (1-1)
+        vDup = etree.SubElement(dup, "vDup")
+        vDup.text = f"{installment.value:.2f}"
 
 
 def buildIPIReturned(root, line):
