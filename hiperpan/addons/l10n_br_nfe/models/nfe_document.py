@@ -609,7 +609,6 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     # grupo X - Informações do Transporte da NF-e
     buildTransp(infNFe, nfe_document)
 
-
     buildBilling(infNFe, nfe_document)
 
     return root
@@ -873,11 +872,7 @@ def buildTransp(infNFe, nfe_document):
 
 def buildBilling(infNFe, nfe_document):
     # grupo Y01 - Dados da Cobrança (0-1)
-    has_fat = (
-        nfe_document.billing_number
-        or nfe_document.billing_original_value
-        or nfe_document.billing_discount_value
-    )
+    has_fat = bool(nfe_document.billing_number)
     has_dup = bool(nfe_document.billing_installment_ids)
 
     if not has_fat and not has_dup:
