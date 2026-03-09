@@ -21,3 +21,7 @@
 "l10n_br_nfe_nfe_document_vehicle_traillers_manager","NFE Document Vehicle Trailers Manager","model_l10n_br_nfe_nfe_document_vehicle_traillers","l10n_br_nfe.group_nfe_manager",1,1,1,1
 "l10n_br_nfe_company_marketplace_user","Company Marketplace User","model_l10n_br_nfe_company_marketplace","l10n_br_nfe.group_user_nfe",1,0,0,0
 "l10n_br_nfe_company_marketplace_manager","Company Marketplace Manager","model_l10n_br_nfe_company_marketplace","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_carrier_volume_user","NFE Carrier Volume User","model_l10n_br_nfe_nfe_carrier_volume","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_carrier_volume_manager","NFE Carrier Volume Manager","model_l10n_br_nfe_nfe_carrier_volume","l10n_br_nfe.group_nfe_manager",1,1,1,1
+"l10n_br_nfe_nfe_carrier_volume_lacre_user","NFE Carrier Volume Lacre User","model_l10n_br_nfe_nfe_carrier_volume_lacre","l10n_br_nfe.group_user_nfe",1,0,0,0
+"l10n_br_nfe_nfe_carrier_volume_lacre_manager","NFE Carrier Volume Lacre Manager","model_l10n_br_nfe_nfe_carrier_volume_lacre","l10n_br_nfe.group_nfe_manager",1,1,1,1

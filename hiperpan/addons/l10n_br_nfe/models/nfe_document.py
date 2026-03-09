@@ -606,6 +606,9 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     # grupo W - Total da NF-e
     buildTotal(infNFe, nfe_document)
 
+    # grupo X - Informações do Transporte da NF-e
+    buildTransp(infNFe, nfe_document)
+
     return root
 
 
@@ -714,6 +717,155 @@ def buildTotal(infNFe, nfe_document):
     if nfe_document.total_approx_taxes:
         vTotTrib = etree.SubElement(ICMSTot, "vTotTrib")
         vTotTrib.text = f"{nfe_document.total_approx_taxes:.2f}"
+
+
+def buildTransp(infNFe, nfe_document):
+    # grupo X01 - Informações do Transporte da NF-e
+    transp = etree.SubElement(infNFe, "transp")
+
+    # X02 - Modalidade do Frete
+    modFrete = etree.SubElement(transp, "modFrete")
+    modFrete.text = nfe_document.freight_modality
+
+    if nfe_document.freight_modality != "9":
+        transporta = etree.SubElement(transp, "transporta")
+
+        if not nfe_document.freight_partner_id.is_foreign:
+            # X04 - CNPJ do Transportador (CE com X05)
+            if nfe_document.freight_carrier_cnpj:
+                CNPJ = etree.SubElement(transporta, "CNPJ")
+                CNPJ.text = nfe_document.freight_carrier_cnpj
+            # X05 - CPF do Transportador (CE com X04)
+            elif nfe_document.freight_carrier_cpf:
+                CPF = etree.SubElement(transporta, "CPF")
+                CPF.text = nfe_document.freight_carrier_cpf
+
+        # X06 - Razão Social ou nome (0-1)
+        if nfe_document.freight_carrier_legal_name:
+            xNome = etree.SubElement(transporta, "xNome")
+            xNome.text = nfe_document.freight_carrier_legal_name
+
+        # X07 - Inscrição Estadual do Transportador (0-1)
+        if nfe_document.freight_carrier_ie:
+            IE = etree.SubElement(transporta, "IE")
+            IE.text = nfe_document.freight_carrier_ie
+
+        # X08 - Endereço Completo (0-1)
+        if nfe_document.freight_carrier_address:
+            xEnder = etree.SubElement(transporta, "xEnder")
+            xEnder.text = nfe_document.freight_carrier_address
+
+        # X09 - Nome do Município (0-1)
+        if nfe_document.freight_carrier_city_name:
+            xMun = etree.SubElement(transporta, "xMun")
+            xMun.text = nfe_document.freight_carrier_city_name
+
+        # X10 - Sigla da UF (0-1)
+        if nfe_document.freight_carrier_state:
+            UF = etree.SubElement(transporta, "UF")
+            if nfe_document.freight_partner_id.is_foreign:
+                UF.text = "EX"
+            else:
+                UF.text = nfe_document.freight_carrier_state
+
+        # X11 - Grupo Retenção ICMS transporte (0-1)
+        # TODO: adicionar campos ret_transp_vserv, ret_transp_vbcret,
+        #       ret_transp_picmsret, ret_transp_vicmsret, ret_transp_cfop,
+        #       ret_transp_cmunfg ao modelo para habilitar este bloco.
+
+        # X17.1 / X18 - Grupo Veículo de Transporte (0-1)
+        if nfe_document.freight_carrier_vehicle_license_plate:
+            veicTransp = etree.SubElement(transp, "veicTransp")
+
+            # X19 - Placa do Veículo
+            placa = etree.SubElement(veicTransp, "placa")
+            placa.text = nfe_document.freight_carrier_vehicle_license_plate
+
+            # X20 - Sigla da UF
+            UF = etree.SubElement(veicTransp, "UF")
+            if nfe_document.freight_partner_id.is_foreign:
+                UF.text = "EX"
+            else:
+                UF.text = nfe_document.freight_carrier_vehicle_licence_plate_state_code
+
+            # X21 - RNTC (0-1)
+            if nfe_document.freight_carrier_vehicle_rntrc:
+                RNTC = etree.SubElement(veicTransp, "RNTC")
+                RNTC.text = nfe_document.freight_carrier_vehicle_rntrc
+
+        # X22 - Grupo Reboque (0-5)
+        for trailer in nfe_document.freight_carrier_trailers_ids:
+            if not trailer.freight_carrier_vehicle_license_plate:
+                continue
+
+            reboque = etree.SubElement(transp, "reboque")
+
+            # X23 - Placa do Veículo
+            placa = etree.SubElement(reboque, "placa")
+            placa.text = trailer.freight_carrier_vehicle_license_plate
+
+            # X24 - Sigla da UF
+            UF = etree.SubElement(reboque, "UF")
+            if nfe_document.freight_partner_id.is_foreign:
+                UF.text = "EX"
+            else:
+                UF.text = trailer.freight_carrier_vehicle_licence_plate_state_code
+
+            # X25 - RNTC (0-1)
+            if trailer.freight_carrier_vehicle_rntrc:
+                RNTC = etree.SubElement(reboque, "RNTC")
+                RNTC.text = trailer.freight_carrier_vehicle_rntrc
+
+            # X25a - Identificação do Vagão (0-1)
+            if trailer.freight_carrier_vehicle_wagon_identification:
+                vagao = etree.SubElement(reboque, "vagao")
+                vagao.text = trailer.freight_carrier_vehicle_wagon_identification
+
+            # X25b - Identificação da Balsa (0-1)
+            if trailer.freight_carrier_vehicle_barge_identification:
+                balsa = etree.SubElement(reboque, "balsa")
+                balsa.text = trailer.freight_carrier_vehicle_barge_identification
+
+        # X26 - Grupo Volumes (0-5000)
+        for volume in nfe_document.carrier_volume_ids:
+            vol = etree.SubElement(transp, "vol")
+
+            # X27 - Quantidade de volumes (0-1)
+            if volume.quantity:
+                qVol = etree.SubElement(vol, "qVol")
+                qVol.text = str(volume.quantity)
+
+            # X28 - Espécie dos volumes (0-1)
+            if volume.species:
+                esp = etree.SubElement(vol, "esp")
+                esp.text = volume.species
+
+            # X29 - Marca dos volumes (0-1)
+            if volume.brand:
+                marca = etree.SubElement(vol, "marca")
+                marca.text = volume.brand
+
+            # X30 - Numeração dos volumes (0-1)
+            if volume.numbering:
+                nVol = etree.SubElement(vol, "nVol")
+                nVol.text = volume.numbering
+
+            # X31 - Peso Líquido em kg (0-1)
+            if volume.net_weight:
+                pesoL = etree.SubElement(vol, "pesoL")
+                pesoL.text = f"{volume.net_weight:.3f}"
+
+            # X32 - Peso Bruto em kg (0-1)
+            if volume.gross_weight:
+                pesoB = etree.SubElement(vol, "pesoB")
+                pesoB.text = f"{volume.gross_weight:.3f}"
+
+            # X33 - Grupo Lacres (0-5000)
+            for lacre in volume.lacre_ids:
+                lacres = etree.SubElement(vol, "lacres")
+                # X34 - Número do Lacre
+                nLacre = etree.SubElement(lacres, "nLacre")
+                nLacre.text = lacre.number
 
 
 def buildIPIReturned(root, line):
@@ -4921,7 +5073,9 @@ class NFeDocument(models.Model):
     def _check_freight_carrier_cnpj_cpf(self):
         for record in self:
             if record.freight_partner_id:
-                if (
+                if record.freight_partner_id.is_foreign:
+                    continue
+                elif (
                     record.freight_partner_id.company_type == "company"
                     and not record.freight_carrier_cnpj
                 ):
@@ -4940,14 +5094,32 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
+    @api.constrains("freight_carrier_legal_name")
+    def _check_freight_carrier_legal_name(self):
+        for record in self:
+            if record.freight_partner_id and not record.freight_carrier_legal_name:
+                raise ValidationError(
+                    _("A Razão Social da Transportadora é obrigatória.")
+                )
+
     # Literal “ISENTO” para transportador isento de inscrição no cadastro de contribuintes ICMS;
     freight_carrier_ie = fields.Char(
         related="freight_partner_id.inscr_est",
         string="Inscrição Estadual da Transportadora",
-        store=True,
         size=14,
         readonly=True,
+        store=True,
+        compute="_compute_freight_carrier_ie",
     )
+
+    @api.depends("freight_partner_id.no_inscr_est", "freight_partner_id.inscr_est")
+    def _compute_freight_carrier_ie(self):
+        if self.freight_partner_id.no_inscr_est:
+            self.freight_carrier_ie = "ISENTO"
+        elif self.freight_partner_id.inscr_est:
+            self.freight_carrier_ie = self.freight_partner_id.inscr_est
+        else:
+            self.freight_carrier_ie = False
 
     freight_carrier_address = fields.Char(
         compute="_compute_freight_carrier_address",
@@ -4998,7 +5170,7 @@ class NFeDocument(models.Model):
                 if record.freight_carrier_ie and not record.freight_carrier_state:
                     raise ValidationError(
                         _(
-                            "A UF da Transportadora é obrigatória quando a Inscrição Estadual é informada."
+                            "A UF da Transportadora é obrigatória quando a Inscrição Estadual é informada ou for isenta."
                         )
                     )
 
@@ -5034,6 +5206,13 @@ class NFeDocument(models.Model):
         comodel_name="l10n_br_nfe.nfe.document.vehicle.traillers",
         inverse_name="nfe_document_id",
         string="Reboques do veículo de transporte",
+    )
+
+    # X26 - Grupo Volumes (0-5000)
+    carrier_volume_ids = fields.One2many(
+        comodel_name="l10n_br_nfe.nfe.carrier.volume",
+        inverse_name="nfe_document_id",
+        string="Volumes Transportados",
     )
 
     # === Grupo Y. Dados da Cobrança  ===
