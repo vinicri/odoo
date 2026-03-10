@@ -5929,22 +5929,24 @@ class NFeDocument(models.Model):
             )
 
         try:
-            # Obter certificado instanciado da empresa
             cert = self.company_id.get_nfe_certificate()
-
-            # Converter XML element para string
-            xml_string = etree.tostring(
-                xml_element, encoding="unicode", pretty_print=False
-            )
-
-            # Criar instância de assinatura
             assinador = Assinatura(cert)
 
-            # Assinar o XML
-            # A assinatura deve ser feita no elemento infNFe identificado pela chave de acesso
-            xml_signed = assinador.assina_xml(xml_string)
+            nfe_root = xml_element.getparent() if xml_element.getparent() is not None else xml_element
+            reference = f"NFe{self.access_key}"
+            xml_signed = assinador.assina_xml2(nfe_root, reference)
 
-            return xml_signed
+            # signxml inserts line breaks/spaces in base64 fields — SEFAZ rejects that
+            signed_tree = etree.fromstring(
+                xml_signed.encode("utf-8") if isinstance(xml_signed, str) else xml_signed
+            )
+            ns = {"ds": "http://www.w3.org/2000/09/xmldsig#"}
+            for tag in ("ds:SignatureValue", "ds:DigestValue", "ds:X509Certificate"):
+                for elem in signed_tree.findall(f".//{tag}", ns):
+                    if elem.text:
+                        elem.text = elem.text.replace("\n", "").replace("\r", "").replace(" ", "")
+
+            return etree.tostring(signed_tree, encoding="unicode")
 
         except Exception as e:
             raise ValidationError(_("Erro ao assinar XML da NF-e: %s") % str(e))
