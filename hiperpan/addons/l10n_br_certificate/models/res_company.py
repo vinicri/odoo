@@ -1,4 +1,3 @@
-
 from erpbrasil.assinatura import certificado as cert
 
 from odoo import _, api, fields, models
@@ -25,7 +24,6 @@ class ResCompany(models.Model):
         compute="_compute_certificate",
     )
 
-
     def _compute_certificate(self):
         for record in self:
             certificate = False
@@ -44,17 +42,32 @@ class ResCompany(models.Model):
 
             record.certificate_id = certificate
 
+    # @api.model
+    # def _get_br_ecertificate(self, only_ecnpj=False):
+    #     certificate = self.l10n_br_certificate_id
+    #     if only_ecnpj:
+    #         if certificate != self.sudo().l10n_br_certificate_ecnpj_id:
+    #             certificate = self.sudo().l10n_br_certificate_ecnpj_id
+    #             if not certificate:
+    #                 raise ValidationError(
+    #                     _("Only e-CNPJ Certicate can be used for this case.")
+    #                 )
+    #     return cert.Certificado(
+    #         arquivo=certificate.file,
+    #         senha=certificate.password,
+    #     )
 
     @api.model
-    def _get_br_ecertificate(self, only_ecnpj=False):
-        certificate = self.l10n_br_certificate_id
-        if only_ecnpj:
-            if certificate != self.sudo().l10n_br_certificate_ecnpj_id:
-                certificate = self.sudo().l10n_br_certificate_ecnpj_id
-                if not certificate:
-                    raise ValidationError(
-                        _("Only e-CNPJ Certicate can be used for this case.")
-                    )
+    def get_nfe_certificate(self):
+        certificate = self.certificate_nfe_id
+        if not certificate:
+            raise ValidationError(
+                _(
+                    "Nenhum certificado NF-e configurado para a empresa %s."
+                    "Configure um certificado A1 nas configurações da empresa."
+                )
+                % self.name
+            )
         return cert.Certificado(
             arquivo=certificate.file,
             senha=certificate.password,

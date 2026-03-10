@@ -4,7 +4,7 @@
     "category": "Localization",
     "description": "Nfe module for Brazil",
     "author": "Hiperpan",
-    "depends": ["l10n_br_fiscal"],
+    "depends": ["l10n_br_fiscal", "l10n_br_certificate"],
     "license": "LGPL-3",
     "data": [
         # security
@@ -30,7 +30,7 @@
         "views/nfe_menus.xml",
     ],
     "external_dependencies": {
-        "python": ["erpbrasil.base"],
+        "python": ["erpbrasil.base", "erpbrasil.assinatura"],
     },
     "assets": {
         "web.assets_backend": [

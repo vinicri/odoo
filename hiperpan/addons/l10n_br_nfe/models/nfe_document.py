@@ -5,6 +5,8 @@ import random
 import pytz
 from .constants import DESTINATION_ID, NFE_EMISSION_FINALITY
 import lxml.etree as etree
+from erpbrasil.assinatura.assinatura import Assinatura
+import base64
 
 
 def format_partner_address(street, number, complement, max_length=60):
@@ -617,7 +619,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
     buildAdditionalInformation(infNFe, nfe_document)
 
-    return root
+    return infNFe
 
 
 def buildTotal(infNFe, nfe_document):
@@ -5692,7 +5694,18 @@ class NFeDocument(models.Model):
 
     qr_code = fields.Text(string="QR Code", size=600)
 
-    # signature = fields.Binary(string="Assinatura Digital", attachment=True)
+    # Campos para armazenar XML assinado
+    xml_signed = fields.Binary(
+        string="XML Assinado",
+        attachment=True,
+        help="XML da NF-e com assinatura digital",
+    )
+
+    xml_signed_filename = fields.Char(
+        string="Nome do Arquivo XML",
+        compute="_compute_xml_signed_filename",
+        store=True,
+    )
 
     # === Outros Campos e Métodos ===
 
@@ -5708,6 +5721,15 @@ class NFeDocument(models.Model):
         copy=False,
     )
     # Status de controle interno do documento na Odoo.
+
+    @api.depends("access_key")
+    def _compute_xml_signed_filename(self):
+        """Computa o nome do arquivo XML baseado na chave de acesso"""
+        for record in self:
+            if record.access_key:
+                record.xml_signed_filename = f"{record.access_key}-nfe.xml"
+            else:
+                record.xml_signed_filename = "nfe.xml"
 
     @api.constrains("series_id", "nfe_number", "emission_type")
     def _check_unique_nfe_natural_key(self):
@@ -5872,12 +5894,99 @@ class NFeDocument(models.Model):
 
         return dv
 
+    def _sign_nfe_xml(self, xml_element):
+        """
+        Assina o XML da NF-e usando o certificado digital A1 da empresa.
+
+        Args:
+            xml_element: Elemento lxml.etree contendo o XML da NF-e
+
+        Returns:
+            String contendo o XML assinado
+
+        Raises:
+            ValidationError: Se não houver certificado válido ou erro na assinatura
+        """
+        self.ensure_one()
+
+        # Validar se existe certificado configurado na empresa
+        if not self.company_id.certificate_nfe_id:
+            raise ValidationError(
+                _(
+                    "Nenhum certificado NF-e configurado para a empresa %s. "
+                    "Configure um certificado A1 nas configurações da empresa."
+                )
+                % self.company_id.name
+            )
+
+        certificate = self.company_id.certificate_nfe_id
+
+        # Validar se o certificado está válido
+        if not certificate.is_valid:
+            raise ValidationError(
+                _("O certificado NF-e da empresa %s está expirado. " "Validade: %s")
+                % (self.company_id.name, certificate.date_expiration)
+            )
+
+        try:
+            # Obter certificado instanciado da empresa
+            cert = self.company_id.get_nfe_certificate()
+
+            # Converter XML element para string
+            xml_string = etree.tostring(
+                xml_element, encoding="unicode", pretty_print=False
+            )
+
+            # Criar instância de assinatura
+            assinador = Assinatura(cert)
+
+            # Assinar o XML
+            # A assinatura deve ser feita no elemento infNFe identificado pela chave de acesso
+            xml_signed = assinador.assina_xml(xml_string)
+
+            return xml_signed
+
+        except Exception as e:
+            raise ValidationError(_("Erro ao assinar XML da NF-e: %s") % str(e))
+
     def action_generate_nfe(self):
+        """
+        Gera e assina o XML da NF-e.
+        O XML assinado é armazenado no campo xml_signed.
+        """
+        self.ensure_one()
+
         # Fetch IBPT taxes for all lines before generating NFe
         self._fetch_all_ibpt_taxes()
 
-        printNfeXml(self)
-        print("action", self)
+        # Gerar XML da NF-e
+        root = buildNfeXmlFromNfeDocumentModel(self)
+
+        # Assinar o XML
+        xml_signed_string = self._sign_nfe_xml(root)
+
+        # Converter para base64 e salvar no campo
+        xml_signed_base64 = base64.b64encode(xml_signed_string.encode("utf-8"))
+        self.write(
+            {
+                "xml_signed": xml_signed_base64,
+            }
+        )
+
+        # Imprimir XML assinado para debug (opcional)
+        print("XML da NF-e gerado e assinado com sucesso!")
+        print(xml_signed_string)
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Sucesso"),
+                "message": _("XML da NF-e gerado e assinado com sucesso!"),
+                "type": "success",
+                "sticky": False,
+            },
+        }
 
     def _fetch_all_ibpt_taxes(self):
         """
