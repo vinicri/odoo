@@ -613,6 +613,10 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
     buildPayment(infNFe, nfe_document)
 
+    buildIntermediator(infNFe, nfe_document)
+
+    buildAdditionalInformation(infNFe, nfe_document)
+
     return root
 
 
@@ -974,6 +978,73 @@ def buildPayment(infNFe, nfe_document):
     if total_change:
         vTroco = etree.SubElement(pag, "vTroco")
         vTroco.text = f"{total_change:.2f}"
+
+
+def buildIntermediator(infNFe, nfe_document):
+    # grupo YB - Informações do Intermediador da Transação (0-1)
+    # Obrigatório quando intermediator_indicator = "1" (operação com intermediador/marketplace)
+    if nfe_document.intermediator_indicator != "1":
+        return
+
+    infIntermed = etree.SubElement(infNFe, "infIntermed")
+
+    # YB02 - CNPJ do Intermediador da Transação (1-1)
+    CNPJ = etree.SubElement(infIntermed, "CNPJ")
+    CNPJ.text = nfe_document.marketplace_cnpj
+
+    # YB03 - Identificador cadastrado no intermediador (1-1)
+    idCadIntTran = etree.SubElement(infIntermed, "idCadIntTran")
+    idCadIntTran.text = nfe_document.marketplace_username
+
+
+def buildAdditionalInformation(infNFe, nfe_document):
+    # grupo Z - Informações Adicionais da NF-e (0-1)
+
+    # Z03 - infCpl: combinação de informações obrigatórias + informações do emitente
+    inf_fisco_parts = list(
+        filter(
+            None,
+            [
+                nfe_document.mandatory_additional_information,
+                nfe_document.issuer_additional_information,
+            ],
+        )
+    )
+    inf_fisco = "\n".join(inf_fisco_parts) if inf_fisco_parts else None
+
+    inf_issuer = nfe_document.issuer_additional_information
+
+    if not inf_fisco and not inf_issuer:
+        return
+    else:
+        if len(inf_fisco) > 2000:
+            raise ValidationError(
+                "O tamanho máximo de informações adicionais de interesse do fisco é de 2000 caracteres."
+            )
+        if len(inf_issuer) > 5000:
+            raise ValidationError(
+                "O tamanho máximo de informações adicionais do emitente é de 5000 caracteres."
+            )
+
+    infAdic = etree.SubElement(infNFe, "infAdic")
+
+    # Z02 - Informações Adicionais de Interesse do Fisco (0-1, 1-2000)
+    if inf_fisco:
+        infAdFisco = etree.SubElement(infAdic, "infAdFisco")
+        infAdFisco.text = inf_fisco
+
+    if inf_issuer:
+        infCpl = etree.SubElement(infAdic, "infCpl")
+        infCpl.text = inf_issuer
+
+    # Z04 - obsCont: Grupo Campo de uso livre do contribuinte (0-10)
+    # Não há campos no modelo atualmente para obsCont
+
+    # Z07 - obsFisco: Grupo Campo de uso livre do Fisco (0-10)
+    # Não há campos no modelo atualmente para obsFisco
+
+    # Z10 - procRef: Grupo Processo referenciado (0-100)
+    # Não há campos no modelo atualmente para procRef
 
 
 def buildIPIReturned(root, line):
@@ -5523,6 +5594,10 @@ class NFeDocument(models.Model):
                 record.mandatory_additional_information_ids = self.env[
                     "l10n_br_nfe.nfe.additional_information"
                 ]
+
+    issuer_additional_information = fields.Text(
+        string="Informações Adicionais", size=5000
+    )
 
     ibpt_keys = fields.Text(
         string="Chaves do IBPT",
