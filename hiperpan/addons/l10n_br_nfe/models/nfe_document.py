@@ -1012,16 +1012,16 @@ def buildAdditionalInformation(infNFe, nfe_document):
     )
     inf_fisco = "\n".join(inf_fisco_parts) if inf_fisco_parts else None
 
-    inf_issuer = nfe_document.issuer_additional_information
+    inf_issuer = nfe_document.issuer_additional_information or None
 
     if not inf_fisco and not inf_issuer:
         return
     else:
-        if len(inf_fisco) > 2000:
+        if inf_fisco and len(inf_fisco) > 2000:
             raise ValidationError(
                 "O tamanho máximo de informações adicionais de interesse do fisco é de 2000 caracteres."
             )
-        if len(inf_issuer) > 5000:
+        if inf_issuer and len(inf_issuer) > 5000:
             raise ValidationError(
                 "O tamanho máximo de informações adicionais do emitente é de 5000 caracteres."
             )
