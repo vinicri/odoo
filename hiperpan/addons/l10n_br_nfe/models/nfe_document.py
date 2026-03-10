@@ -2,11 +2,36 @@ from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError, UserError
 from .utils import is_valid_phone, format_number
 import random
+import re
 import pytz
 from .constants import DESTINATION_ID, NFE_EMISSION_FINALITY
 import lxml.etree as etree
 from erpbrasil.assinatura.assinatura import Assinatura
 import base64
+
+_INVALID_XML_CHARS_RE = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]"
+)
+
+
+def sanitize_xml_text(text):
+    """Remove invalid XML 1.0 characters (control chars except TAB, LF, CR).
+
+    Standard entity escaping (&amp; &lt; &gt; &quot; &#39;) is handled
+    automatically by lxml when the value is assigned to element.text.
+    """
+    if not text:
+        return text
+    return _INVALID_XML_CHARS_RE.sub("", text)
+
+
+def sanitize_xml_tree(root):
+    """Walk an entire lxml tree and sanitize every text node."""
+    for elem in root.iter():
+        if elem.text:
+            elem.text = sanitize_xml_text(elem.text)
+        if elem.tail:
+            elem.tail = sanitize_xml_text(elem.tail)
 
 
 def format_partner_address(street, number, complement, max_length=60):
@@ -618,6 +643,8 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
     buildIntermediator(infNFe, nfe_document)
 
     buildAdditionalInformation(infNFe, nfe_document)
+
+    sanitize_xml_tree(root)
 
     return root
 
