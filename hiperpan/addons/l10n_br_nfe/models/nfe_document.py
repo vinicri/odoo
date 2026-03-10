@@ -619,7 +619,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
     buildAdditionalInformation(infNFe, nfe_document)
 
-    return infNFe
+    return root
 
 
 def buildTotal(infNFe, nfe_document):
@@ -5932,19 +5932,24 @@ class NFeDocument(models.Model):
             cert = self.company_id.get_nfe_certificate()
             assinador = Assinatura(cert)
 
-            nfe_root = xml_element.getparent() if xml_element.getparent() is not None else xml_element
             reference = f"NFe{self.access_key}"
-            xml_signed = assinador.assina_xml2(nfe_root, reference)
+            xml_signed = assinador.assina_xml2(xml_element, reference)
 
             # signxml inserts line breaks/spaces in base64 fields — SEFAZ rejects that
             signed_tree = etree.fromstring(
-                xml_signed.encode("utf-8") if isinstance(xml_signed, str) else xml_signed
+                xml_signed.encode("utf-8")
+                if isinstance(xml_signed, str)
+                else xml_signed
             )
             ns = {"ds": "http://www.w3.org/2000/09/xmldsig#"}
             for tag in ("ds:SignatureValue", "ds:DigestValue", "ds:X509Certificate"):
                 for elem in signed_tree.findall(f".//{tag}", ns):
                     if elem.text:
-                        elem.text = elem.text.replace("\n", "").replace("\r", "").replace(" ", "")
+                        elem.text = (
+                            elem.text.replace("\n", "")
+                            .replace("\r", "")
+                            .replace(" ", "")
+                        )
 
             return etree.tostring(signed_tree, encoding="unicode")
 
