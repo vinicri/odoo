@@ -30,6 +30,11 @@ class Company(models.Model):
         help="Número de dias para considerar os dados do IBPT desatualizados.",
     )
 
+    tech_contact_id = fields.Many2one(
+        comodel_name="l10n_br_nfe.nfe.tech.contact",
+        string="Responsável Técnico",
+    )
+
     @api.model
     def _get_timezone_list(self):
         """

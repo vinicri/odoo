@@ -11,11 +11,6 @@ class ProductProduct(models.Model):
 
     default_code = fields.Integer("Internal Reference", index=True)
 
-    no_barcode = fields.Boolean(
-        "Não possui código de barras",
-        default=False,
-    )
-
     ncm_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.ncm",
         string="NCM",

@@ -40,8 +40,8 @@ class NFeTechContact(models.Model):
     @api.onchange("cnpj")
     def _check_cnpj(self):
         for record in self:
-            if record.cnpj and len(record.cnpj) != 14:
-                raise ValidationError("O CNPJ deve ter 14 caracteres.")
+            if record.cnpj and not cnpj_cpf.validar(record.cnpj):
+                raise ValidationError("O CNPJ informado não é válido.")
 
     phone = fields.Char(string="Telefone", size=14, required=True)
 

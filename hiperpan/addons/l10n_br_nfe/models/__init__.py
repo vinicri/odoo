@@ -13,3 +13,4 @@ from . import nfe_additional_information
 from . import nfe_document_vehicle_traillers
 from . import nfe_carrier_volumes
 from . import company_marketplace
+from . import nfe_xml_validator

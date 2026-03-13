@@ -7,11 +7,12 @@ import pytz
 from .constants import DESTINATION_ID, NFE_EMISSION_FINALITY
 import lxml.etree as etree
 from erpbrasil.assinatura.assinatura import Assinatura
+from .nfe_xml_validator import validate_nfe_xml
 import base64
 
-_INVALID_XML_CHARS_RE = re.compile(
-    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]"
-)
+NFE_NS = "http://www.portalfiscal.inf.br/nfe"
+
+_INVALID_XML_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 
 def sanitize_xml_text(text):
@@ -146,6 +147,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         nfe_document.id
     )
     root = etree.Element("NFe")
+    root.set("xmlns", NFE_NS)
 
     # grupo A
     infNFe = etree.SubElement(root, "infNFe")
@@ -644,6 +646,8 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
     buildAdditionalInformation(infNFe, nfe_document)
 
+    buildTechContact(infNFe, nfe_document)
+
     sanitize_xml_tree(root)
 
     return root
@@ -1026,6 +1030,12 @@ def buildIntermediator(infNFe, nfe_document):
     idCadIntTran.text = nfe_document.marketplace_username
 
 
+def removeDoubleSpaces(text):
+    text = re.sub(r"[\r\n\t]+", " ", text)
+    text = re.sub(r" {2,}", " ", text)
+    return text.strip()
+
+
 def buildAdditionalInformation(infNFe, nfe_document):
     # grupo Z - Informações Adicionais da NF-e (0-1)
 
@@ -1060,11 +1070,11 @@ def buildAdditionalInformation(infNFe, nfe_document):
     # Z02 - Informações Adicionais de Interesse do Fisco (0-1, 1-2000)
     if inf_fisco:
         infAdFisco = etree.SubElement(infAdic, "infAdFisco")
-        infAdFisco.text = inf_fisco
+        infAdFisco.text = removeDoubleSpaces(inf_fisco)
 
     if inf_issuer:
         infCpl = etree.SubElement(infAdic, "infCpl")
-        infCpl.text = inf_issuer
+        infCpl.text = removeDoubleSpaces(inf_issuer)
 
     # Z04 - obsCont: Grupo Campo de uso livre do contribuinte (0-10)
     # Não há campos no modelo atualmente para obsCont
@@ -1074,6 +1084,41 @@ def buildAdditionalInformation(infNFe, nfe_document):
 
     # Z10 - procRef: Grupo Processo referenciado (0-100)
     # Não há campos no modelo atualmente para procRef
+
+
+def buildTechContact(infNFe, nfe_document):
+    # grupo ZD01 - Informações do Responsável Técnico pela emissão do DF-e (0-1)
+    tech = nfe_document.tech_contact_id
+
+    if not tech:
+        return
+
+    infRespTec = etree.SubElement(infNFe, "infRespTec")
+
+    # ZD02 - CNPJ da pessoa jurídica responsável (1-1, N, 14)
+    CNPJ = etree.SubElement(infRespTec, "CNPJ")
+    CNPJ.text = nfe_document.tech_contact_cnpj
+
+    # ZD04 - Nome da pessoa a ser contatada (1-1, C, 2-60)
+    xContato = etree.SubElement(infRespTec, "xContato")
+    xContato.text = nfe_document.tech_contact_name
+
+    # ZD05 - E-mail da pessoa jurídica a ser contatada (1-1, C, 6-60)
+    email = etree.SubElement(infRespTec, "email")
+    email.text = nfe_document.tech_contact_email
+
+    # ZD06 - Telefone da pessoa jurídica/física a ser contatada (1-1, N, 6-14)
+    fone = etree.SubElement(infRespTec, "fone")
+    fone.text = nfe_document.tech_contact_phone
+
+    if tech.csrt_identifier and tech.csrt_hash:
+        # ZD08 - Identificador do CSRT (N, 2)
+        idCSRT = etree.SubElement(infRespTec, "idCSRT")
+        idCSRT.text = tech.csrt_identifier
+
+        # ZD09 - Hash SHA-1 Base64 do CSRT + chave de acesso (C, 28)
+        hashCSRT = etree.SubElement(infRespTec, "hashCSRT")
+        hashCSRT.text = tech.csrt_hash
 
 
 def buildIPIReturned(root, line):
@@ -1159,11 +1204,11 @@ def buildIPI(root, line):
             CST.text = line.ipi_cst
 
             if line.is_ipi_with_percentage and line.ipi_tax_percent > 0:
-                pIPI = etree.SubElement(IPITrib, "pIPI")
-                pIPI.text = f"{line.ipi_tax_percent:.4f}"
-
                 vBC = etree.SubElement(IPITrib, "vBC")
                 vBC.text = f"{line.ipi_bc_value:.2f}"
+
+                pIPI = etree.SubElement(IPITrib, "pIPI")
+                pIPI.text = f"{line.ipi_tax_percent:.4f}"
 
             if line.is_ipi_qtt:
                 if not line.ipi_unit_value or not line.ipi_unit_quantity:
@@ -5682,6 +5727,21 @@ class NFeDocument(models.Model):
     tech_contact_id = fields.Many2one(
         comodel_name="l10n_br_nfe.nfe.tech.contact",
         string="Responsável Técnico",
+        compute="_compute_tech_contact_id",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("company_id")
+    def _compute_tech_contact_id(self):
+        for record in self:
+            record.tech_contact_id = record.company_id.tech_contact_id
+
+    tech_contact_name = fields.Char(
+        related="tech_contact_id.name",
+        string="Nome do Responsável Técnico",
+        store=True,
+        readonly=True,
     )
 
     tech_contact_cnpj = fields.Char(
@@ -5691,12 +5751,40 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
+    @api.constrains("tech_contact_id", "tech_contact_cnpj")
+    def _check_tech_contact_cnpj(self):
+        for record in self:
+            if record.tech_contact_id and not record.tech_contact_cnpj:
+                raise ValidationError(
+                    f"Nenhum CNPJ configurado para o responsável técnico {record.tech_contact_id.name}."
+                    "Configure um CNPJ nas configurações do responsável técnico."
+                )
+
     tech_contact_phone = fields.Char(
-        related="tech_contact_id.phone",
         string="Telefone do Responsável Técnico",
         store=True,
         readonly=True,
+        compute="_compute_tech_contact_phone",
     )
+
+    @api.depends("tech_contact_id.phone")
+    def _compute_tech_contact_phone(self):
+        for record in self:
+            if record.tech_contact_id and record.tech_contact_id.phone:
+                record.tech_contact_phone = "".join(
+                    c for c in record.tech_contact_id.phone if c.isdigit()
+                )
+            else:
+                record.tech_contact_phone = False
+
+    @api.constrains("tech_contact_id", "tech_contact_phone")
+    def _check_tech_contact_phone(self):
+        for record in self:
+            if record.tech_contact_id and not record.tech_contact_phone:
+                raise ValidationError(
+                    f"Nenhum telefone configurado para o responsável técnico {record.tech_contact_id.name}."
+                    "Configure um telefone nas configurações do responsável técnico."
+                )
 
     tech_contact_email = fields.Char(
         related="tech_contact_id.email",
@@ -5705,19 +5793,45 @@ class NFeDocument(models.Model):
         readonly=True,
     )
 
+    @api.constrains("tech_contact_id", "tech_contact_email")
+    def _check_tech_contact_email(self):
+        for record in self:
+            if record.tech_contact_id and not record.tech_contact_email:
+                raise ValidationError(
+                    f"Nenhum email configurado para o responsável técnico {record.tech_contact_id.name}."
+                    "Configure um email nas configurações do responsável técnico."
+                )
+
     tech_contact_csrt_identifier = fields.Char(
         related="tech_contact_id.csrt_identifier",
         string="CSRT do Responsável Técnico",
-        store=True,
         readonly=True,
     )
 
     tech_contact_csrt_hash = fields.Char(
         related="tech_contact_id.csrt_hash",
         string="Hash CSRT do Responsável Técnico",
-        store=True,
         readonly=True,
     )
+
+    @api.constrains(
+        "tech_contact_csrt_identifier", "tech_contact_id", "tech_contact_csrt_hash"
+    )
+    def _check_tech_contact_csrt_identifier(self):
+        for record in self:
+            if not record.tech_contact_id:
+                return
+
+            csrt_fields = [
+                "tech_contact_csrt_identifier",
+                "tech_contact_csrt_hash",
+            ]
+
+            if any(csrt_fields) and not all(csrt_fields):
+                raise ValidationError(
+                    f"Nenhum CSRT configurado para o responsável técnico {record.tech_contact_id.name}."
+                    f"Configure um CSRT nas configurações do responsável técnico."
+                )
 
     qr_code = fields.Text(string="QR Code", size=600)
 
@@ -5998,6 +6112,10 @@ class NFeDocument(models.Model):
 
         # Assinar o XML
         xml_signed_string = self._sign_nfe_xml(root)
+
+        # Validar XML assinado contra o XSD oficial (Signature é obrigatório no schema)
+        signed_tree = etree.fromstring(xml_signed_string.encode("utf-8"))
+        validate_nfe_xml(signed_tree, version=self.nfe_version)
 
         # Converter para base64 e salvar no campo
         xml_signed_base64 = base64.b64encode(xml_signed_string.encode("utf-8"))

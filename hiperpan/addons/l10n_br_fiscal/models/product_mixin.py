@@ -2,6 +2,7 @@
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
 
 from odoo import api, models, fields, _
+from odoo.exceptions import ValidationError
 
 
 class ProductMixin(models.AbstractModel):
@@ -18,6 +19,11 @@ class ProductMixin(models.AbstractModel):
         comodel_name="l10n_br_fiscal.product.fiscal.type",
         string="Fiscal Type",
         required=True,
+    )
+
+    no_barcode = fields.Boolean(
+        "Não possui código de barras",
+        default=False,
     )
 
     @api.model_create_multi
@@ -66,6 +72,26 @@ class ProductMixin(models.AbstractModel):
 
     def product_taxes_domain(self):
         return [("company_id", "=", self.env.company.id)]
+
+    @api.constrains("barcode", "no_barcode")
+    def _check_barcode(self):
+        for record in self:
+            if record.no_barcode and record.barcode:
+                raise ValidationError(
+                    _(
+                        "O produto foi marcado como 'Não possui código de barras' "
+                        "mas o código de barras foi informado: %s"
+                    )
+                    % record.barcode
+                )
+            if record.barcode and not record.barcode.isdigit():
+                raise ValidationError(
+                    _("O código de barras deve conter apenas dígitos.")
+                )
+            if record.barcode and len(record.barcode) not in (8, 12, 13, 14):
+                raise ValidationError(
+                    _("O código de barras deve ter 8, 12, 13 ou 14 digitos.")
+                )
 
     product_taxes_ids = fields.One2many(
         comodel_name="l10n_br_fiscal.product.taxes",

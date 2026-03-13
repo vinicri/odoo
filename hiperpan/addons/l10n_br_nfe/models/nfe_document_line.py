@@ -174,7 +174,11 @@ class NFeDocumentLine(models.Model):
                 )
             if record.gtin and len(record.gtin) not in (8, 12, 13, 14):
                 record._raise_validation_error(
-                    _("O Código de Barras deve ter 8, 12, 13 ou 14 caracteres.")
+                    _("O Código de Barras deve ter 8, 12, 13 ou 14 digitos.")
+                )
+            if record.gtin and not record.gtin.isdigit():
+                record._raise_validation_error(
+                    _("O Código de Barras deve conter apenas dígitos.")
                 )
 
     # Descrição do produto ou serviço.
@@ -2617,11 +2621,11 @@ class NFeDocumentLine(models.Model):
         for record in self:
             if record.is_ipi_qtt and not record.ipi_unit_quantity:
                 record._raise_validation_error(
-                    _("A Quantidade na Unidade Tributável é obrigatória.")
+                    _("A Quantidade na Unidade Tributável do IPI é obrigatória.")
                 )
             elif record.is_ipi_qtt and record.ipi_unit_quantity <= 0:
                 record._raise_validation_error(
-                    _("A Quantidade na Unidade Tributável deve ser maior que 0.")
+                    _("A Quantidade na Unidade Tributável do IPI deve ser maior que 0.")
                 )
 
     ipi_value = fields.Float(
