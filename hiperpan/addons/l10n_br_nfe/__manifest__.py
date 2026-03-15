@@ -30,7 +30,7 @@
         "views/nfe_menus.xml",
     ],
     "external_dependencies": {
-        "python": ["erpbrasil.base", "erpbrasil.assinatura", "requests", "OpenSSL"],
+        "python": ["erpbrasil.base", "erpbrasil.assinatura", "requests", "cryptography"],
     },
     "assets": {
         "web.assets_backend": [

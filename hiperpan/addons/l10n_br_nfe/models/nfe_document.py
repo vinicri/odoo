@@ -2603,13 +2603,13 @@ class NFeDocument(models.Model):
     )
     # Código numérico que compõe a Chave de Acesso. Número aleatório gerado pelo emitente para cada NF-e para evitar acessos indevidos da NF-e. (v2.0)
     random_number = fields.Char(
-        string="Número Aleatório", size=8, compute="_compute_random_number"
+        string="Número Aleatório",
+        size=8,
+        default=lambda self: str(random.randint(0, 99999999)).zfill(8),
+        required=True,
+        readonly=True,
+        copy=False,
     )
-
-    def _compute_random_number(self):
-        for record in self:
-            random_number = random.randint(00000000, 99999999)
-            record.random_number = str(random_number).zfill(8)
 
     # Série do Documento Fiscal. Preencher com zeros se a NF-e não possuir série.
     # Faixas de série 1-889 para Aplicativo do Contribuinte (CNPJ).
@@ -6119,25 +6119,82 @@ class NFeDocument(models.Model):
         return nfe_number
 
     def generate_access_key(self):
+        """
+        Gera a chave de acesso da NFe seguindo o padrão:
+        UF(2) + AAMM(4) + CNPJ(14) + Mod(2) + Serie(3) + NNF(9) + TpEmis(1) + cNF(8) + DV(1) = 44 dígitos
+        """
         uf_code = self.issuer_state_code
-        year_month_day = fields.Datetime.from_string(self.issue_datetime).strftime(
-            "%y%m"
-        )  # vals.get("issue_datetime").strftime("%y%m")
+        if not uf_code or len(uf_code) != 2:
+            raise ValidationError(
+                _("Código UF inválido: '%s'. Deve ter 2 dígitos.") % uf_code
+            )
+
+        # AAMM - Ano e Mês de emissão
+        year_month = fields.Datetime.from_string(self.issue_datetime).strftime("%y%m")
+
+        # CNPJ do emitente (14 dígitos)
         issuer_document = self.issuer_cnpj or self.issuer_cpf
-        padded_issuer_document = issuer_document.zfill(14)
+        if not issuer_document:
+            raise ValidationError(_("CNPJ/CPF do emitente não informado"))
+        padded_issuer_document = (
+            issuer_document.replace(".", "").replace("-", "").replace("/", "").zfill(14)
+        )
+
+        # Modelo do documento (2 dígitos: 55=NFe, 65=NFCe)
         document_model = self.document_model
+        if not document_model or len(document_model) != 2:
+            raise ValidationError(
+                _("Modelo do documento inválido: '%s'. Deve ter 2 dígitos.")
+                % document_model
+            )
+
+        # Série (3 dígitos)
         series = str(self.nfe_series)
         padded_series = series.zfill(3)
+
+        # Número da NFe (9 dígitos)
         nfe_number = str(self.nfe_number)
         padded_nfe_number = nfe_number.zfill(9)
+
+        # Tipo de emissão (1 dígito)
         emission_type = self.emission_type
+        if not emission_type or len(emission_type) != 1:
+            raise ValidationError(
+                _("Tipo de emissão inválido: '%s'. Deve ter 1 dígito.") % emission_type
+            )
+
+        # Código numérico (8 dígitos)
         random_number = self.random_number
+        if not random_number or len(random_number) != 8:
+            raise ValidationError(
+                _("Código numérico inválido: '%s'. Deve ter 8 dígitos.") % random_number
+            )
 
-        number_without_dv = f"{uf_code}{year_month_day}{padded_issuer_document}{document_model}{padded_series}{padded_nfe_number}{emission_type}{random_number}"
+        # Montar chave sem DV (43 dígitos)
+        number_without_dv = f"{uf_code}{year_month}{padded_issuer_document}{document_model}{padded_series}{padded_nfe_number}{emission_type}{random_number}"
 
+        _logger.debug(
+            f"Gerando chave de acesso:\n"
+            f"  UF: {uf_code} (2)\n"
+            f"  AAMM: {year_month} (4)\n"
+            f"  CNPJ: {padded_issuer_document} (14)\n"
+            f"  Mod: {document_model} (2)\n"
+            f"  Serie: {padded_series} (3)\n"
+            f"  NNF: {padded_nfe_number} (9)\n"
+            f"  TpEmis: {emission_type} (1)\n"
+            f"  cNF: {random_number} (8)\n"
+            f"  Chave sem DV: {number_without_dv} ({len(number_without_dv)} dígitos)"
+        )
+
+        # Calcular DV
         dv = self._calculate_mod11_dv(number_without_dv)
 
-        return f"{number_without_dv}{dv}"
+        access_key = f"{number_without_dv}{dv}"
+        _logger.info(
+            f"Chave de acesso gerada: {access_key} ({len(access_key)} dígitos)"
+        )
+
+        return access_key
 
     def _calculate_mod11_dv(self, key_without_dv):
         """
@@ -6315,7 +6372,12 @@ class NFeDocument(models.Model):
 
         import tempfile
         import os
-        from OpenSSL import crypto
+        from cryptography.hazmat.primitives.serialization import (
+            Encoding,
+            PrivateFormat,
+            NoEncryption,
+            pkcs12,
+        )
 
         cert_file_path = None
         key_file_path = None
@@ -6324,49 +6386,90 @@ class NFeDocument(models.Model):
             # Decodificar certificado de base64 para bytes
             cert_bytes = base64.b64decode(certificado["cert_file"])
 
-            # Carregar certificado PFX/PKCS12
-            p12 = crypto.load_pkcs12(
-                cert_bytes, certificado["password"].encode("utf-8")
+            # Carregar certificado PKCS12 usando cryptography
+            private_key, certificate, additional_certs = pkcs12.load_key_and_certificates(
+                cert_bytes,
+                certificado["password"].encode("utf-8"),
             )
 
-            # Extrair certificado e chave privada
-            certificate = crypto.dump_certificate(
-                crypto.FILETYPE_PEM, p12.get_certificate()
-            )
-            private_key = crypto.dump_privatekey(
-                crypto.FILETYPE_PEM, p12.get_privatekey()
+            # Serializar certificado para PEM
+            cert_pem = certificate.public_bytes(Encoding.PEM)
+
+            # Serializar chave privada para PEM
+            key_pem = private_key.private_bytes(
+                encoding=Encoding.PEM,
+                format=PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=NoEncryption(),
             )
 
             # Criar arquivos temporários para certificado e chave
             with tempfile.NamedTemporaryFile(
                 mode="wb", suffix=".pem", delete=False
             ) as cert_file:
-                cert_file.write(certificate)
+                cert_file.write(cert_pem)
                 cert_file_path = cert_file.name
 
             with tempfile.NamedTemporaryFile(
                 mode="wb", suffix=".pem", delete=False
             ) as key_file:
-                key_file.write(private_key)
+                key_file.write(key_pem)
                 key_file_path = key_file.name
 
             # Fazer requisição SOAP com certificado em PEM
-            response = requests.post(
-                url,
-                data=soap_envelope.encode("utf-8"),
-                headers=headers,
-                cert=(cert_file_path, key_file_path),
-                timeout=60,
-            )
+            _logger.info(f"Enviando requisição SOAP para {url}")
+            _logger.debug(f"Certificado PEM: {cert_file_path}")
+            _logger.debug(f"Chave privada PEM: {key_file_path}")
 
-            response.raise_for_status()
-            return response.text
+            try:
+                response = requests.post(
+                    url,
+                    data=soap_envelope.encode("utf-8"),
+                    headers=headers,
+                    cert=(cert_file_path, key_file_path),
+                    timeout=60,
+                    verify=True,  # Verificar certificado SSL do servidor
+                )
 
-        except requests.exceptions.RequestException as e:
-            _logger.error(f"Erro na comunicação com SEFAZ: {str(e)}")
-            raise ValidationError(_("Erro na comunicação com SEFAZ: %s") % str(e))
+                _logger.info(f"Resposta recebida da SEFAZ: Status {response.status_code}")
+                response.raise_for_status()
+                return response.text
+
+            except requests.exceptions.SSLError as e:
+                _logger.error(f"Erro SSL/TLS na comunicação com SEFAZ: {str(e)}")
+                raise ValidationError(
+                    _("Erro SSL/TLS ao comunicar com SEFAZ: %s\n\n"
+                      "Verifique se o certificado digital está correto e não expirado.")
+                    % str(e)
+                )
+            except requests.exceptions.Timeout as e:
+                _logger.error(f"Timeout na comunicação com SEFAZ: {str(e)}")
+                raise ValidationError(
+                    _("Timeout ao aguardar resposta da SEFAZ (60s). "
+                      "A SEFAZ pode estar instável. Tente novamente.")
+                )
+            except requests.exceptions.ConnectionError as e:
+                _logger.error(f"Erro de conexão com SEFAZ: {str(e)}")
+                raise ValidationError(
+                    _("Erro ao conectar com SEFAZ: %s\n\n"
+                      "Verifique sua conexão com a internet e se o endpoint está correto.")
+                    % str(e)
+                )
+            except requests.exceptions.HTTPError as e:
+                _logger.error(f"Erro HTTP da SEFAZ: {str(e)}")
+                _logger.error(f"Resposta: {response.text if response else 'N/A'}")
+                raise ValidationError(
+                    _("Erro HTTP %s da SEFAZ: %s")
+                    % (response.status_code if response else 'N/A', str(e))
+                )
+            except requests.exceptions.RequestException as e:
+                _logger.error(f"Erro na comunicação com SEFAZ: {str(e)}")
+                raise ValidationError(_("Erro na comunicação com SEFAZ: %s") % str(e))
+
+        except ValidationError:
+            raise  # Re-raise ValidationErrors
         except Exception as e:
             _logger.error(f"Erro ao processar certificado: {str(e)}")
+            _logger.exception("Stack trace completo:")
             raise ValidationError(_("Erro ao processar certificado: %s") % str(e))
         finally:
             # Limpar arquivos temporários
@@ -6621,6 +6724,15 @@ class NFeDocument(models.Model):
 
         # Fetch IBPT taxes for all lines before generating NFe
         self._fetch_all_ibpt_taxes()
+
+        # Regenerar chave de acesso para garantir consistência
+        # (caso algum campo tenha sido alterado)
+        new_access_key = self.generate_access_key()
+        if self.access_key != new_access_key:
+            _logger.warning(
+                f"Chave de acesso atualizada: {self.access_key} -> {new_access_key}"
+            )
+            self.access_key = new_access_key
 
         # Gerar XML da NF-e
         root = buildNfeXmlFromNfeDocumentModel(self)
