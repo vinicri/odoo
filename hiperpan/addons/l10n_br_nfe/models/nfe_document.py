@@ -334,7 +334,10 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
             dCPF.text = nfe_document.recipient_cpf
 
         dXNome = etree.SubElement(dest, "xNome")
-        dXNome.text = nfe_document.recipient_legal_name
+        if nfe_document.document_model == "55" and nfe_document.env_emission == "2":
+            dXNome.text = "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"
+        else:
+            dXNome.text = nfe_document.recipient_legal_name
 
         dEnderDest = etree.SubElement(dest, "enderDest")
 
@@ -643,6 +646,10 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         indTot.text = item.include_in_total
 
         imposto = etree.SubElement(det, "imposto")
+
+        if item.approximate_tax_amount:
+            vTotTrib = etree.SubElement(imposto, "vTotTrib")
+            vTotTrib.text = f"{item.approximate_tax_amount:.2f}"
 
         buildICMS(imposto, item, nfe_document.final_customer_operation == "1")
         buildIPI(imposto, item)
@@ -6387,9 +6394,11 @@ class NFeDocument(models.Model):
             cert_bytes = base64.b64decode(certificado["cert_file"])
 
             # Carregar certificado PKCS12 usando cryptography
-            private_key, certificate, additional_certs = pkcs12.load_key_and_certificates(
-                cert_bytes,
-                certificado["password"].encode("utf-8"),
+            private_key, certificate, additional_certs = (
+                pkcs12.load_key_and_certificates(
+                    cert_bytes,
+                    certificado["password"].encode("utf-8"),
+                )
             )
 
             # Serializar certificado para PEM
@@ -6430,28 +6439,36 @@ class NFeDocument(models.Model):
                     verify=True,  # Verificar certificado SSL do servidor
                 )
 
-                _logger.info(f"Resposta recebida da SEFAZ: Status {response.status_code}")
+                _logger.info(
+                    f"Resposta recebida da SEFAZ: HTTP Status Code {response.status_code}"
+                )
                 response.raise_for_status()
                 return response.text
 
             except requests.exceptions.SSLError as e:
                 _logger.error(f"Erro SSL/TLS na comunicação com SEFAZ: {str(e)}")
                 raise ValidationError(
-                    _("Erro SSL/TLS ao comunicar com SEFAZ: %s\n\n"
-                      "Verifique se o certificado digital está correto e não expirado.")
+                    _(
+                        "Erro SSL/TLS ao comunicar com SEFAZ: %s\n\n"
+                        "Verifique se o certificado digital está correto e não expirado."
+                    )
                     % str(e)
                 )
             except requests.exceptions.Timeout as e:
                 _logger.error(f"Timeout na comunicação com SEFAZ: {str(e)}")
                 raise ValidationError(
-                    _("Timeout ao aguardar resposta da SEFAZ (60s). "
-                      "A SEFAZ pode estar instável. Tente novamente.")
+                    _(
+                        "Timeout ao aguardar resposta da SEFAZ (60s). "
+                        "A SEFAZ pode estar instável. Tente novamente."
+                    )
                 )
             except requests.exceptions.ConnectionError as e:
                 _logger.error(f"Erro de conexão com SEFAZ: {str(e)}")
                 raise ValidationError(
-                    _("Erro ao conectar com SEFAZ: %s\n\n"
-                      "Verifique sua conexão com a internet e se o endpoint está correto.")
+                    _(
+                        "Erro ao conectar com SEFAZ: %s\n\n"
+                        "Verifique sua conexão com a internet e se o endpoint está correto."
+                    )
                     % str(e)
                 )
             except requests.exceptions.HTTPError as e:
@@ -6459,7 +6476,7 @@ class NFeDocument(models.Model):
                 _logger.error(f"Resposta: {response.text if response else 'N/A'}")
                 raise ValidationError(
                     _("Erro HTTP %s da SEFAZ: %s")
-                    % (response.status_code if response else 'N/A', str(e))
+                    % (response.status_code if response else "N/A", str(e))
                 )
             except requests.exceptions.RequestException as e:
                 _logger.error(f"Erro na comunicação com SEFAZ: {str(e)}")
@@ -6710,7 +6727,7 @@ class NFeDocument(models.Model):
                             .replace(" ", "")
                         )
 
-            return etree.tostring(signed_tree, encoding="unicode")
+            return signed_tree
 
         except Exception as e:
             raise ValidationError(_("Erro ao assinar XML da NF-e: %s") % str(e))
@@ -6738,7 +6755,9 @@ class NFeDocument(models.Model):
         root = buildNfeXmlFromNfeDocumentModel(self)
 
         # Assinar o XML
-        xml_signed_string = self._sign_nfe_xml(root)
+        signed_tree = self._sign_nfe_xml(root)
+
+        xml_signed_string = etree.tostring(signed_tree, encoding="unicode")
 
         # Validar XML assinado contra o XSD oficial (Signature é obrigatório no schema)
         signed_tree = etree.fromstring(xml_signed_string.encode("utf-8"))
@@ -6765,10 +6784,20 @@ class NFeDocument(models.Model):
 
             # Se autorizada com sucesso (código 100)
             if sefaz_result.get("status_code") == "100":
+                # Converte data ISO 8601 (ex: 2026-03-15T16:56:03-03:00) para formato Odoo Datetime (UTC)
+                auth_date_raw = sefaz_result.get("date")
+                auth_date_odoo = None
+                if auth_date_raw:
+                    dt = datetime.fromisoformat(
+                        auth_date_raw.replace("Z", "+00:00")
+                    )
+                    if dt.tzinfo:
+                        dt = dt.astimezone(pytz.UTC).replace(tzinfo=None)
+                    auth_date_odoo = dt.strftime("%Y-%m-%d %H:%M:%S")
                 vals.update(
                     {
                         "authorization_protocol": sefaz_result.get("protocol"),
-                        "authorization_date": sefaz_result.get("date"),
+                        "authorization_date": auth_date_odoo,
                         "state": "done",  # Atualizar estado para validado
                     }
                 )
