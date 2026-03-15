@@ -8,6 +8,7 @@ from .constants import DESTINATION_ID, NFE_EMISSION_FINALITY
 import lxml.etree as etree
 from erpbrasil.assinatura.assinatura import Assinatura
 from .nfe_xml_validator import validate_nfe_xml
+from .nfe_batch_validator import NfeBatchValidator
 import base64
 import requests
 from datetime import datetime
@@ -6316,9 +6317,12 @@ class NFeDocument(models.Model):
         key_file_path = None
 
         try:
+            # Decodificar certificado de base64 para bytes
+            cert_bytes = base64.b64decode(certificado["cert_file"])
+
             # Carregar certificado PFX/PKCS12
             p12 = crypto.load_pkcs12(
-                certificado["cert_file"], certificado["password"].encode("utf-8")
+                cert_bytes, certificado["password"].encode("utf-8")
             )
 
             # Extrair certificado e chave privada
@@ -6379,71 +6383,108 @@ class NFeDocument(models.Model):
         """
         try:
             # Parse do XML de resposta
-            # Remove envelope SOAP se houver
-            if "soap:" in response_xml or "SOAP:" in response_xml:
-                root = etree.fromstring(response_xml.encode("utf-8"))
-                # Procurar pelo elemento de retorno dentro do SOAP
-                ns_soap = {"soap": "http://www.w3.org/2003/05/soap-envelope"}
-                body = root.find(".//soap:Body", namespaces=ns_soap)
-                if body is not None:
-                    # Pegar o primeiro filho do Body
-                    ret_element = list(body)[0] if len(body) > 0 else None
-                    if ret_element is not None:
-                        response_xml = etree.tostring(ret_element, encoding="unicode")
-
             root = etree.fromstring(response_xml.encode("utf-8"))
 
-            # Namespace da NFe
-            ns = {"nfe": "http://www.portalfiscal.inf.br/nfe"}
+            # Definir namespaces
+            namespaces = {
+                "soap": "http://www.w3.org/2003/05/soap-envelope",
+                "S": "http://www.w3.org/2003/05/soap-envelope",
+                "nfe": "http://www.portalfiscal.inf.br/nfe",
+                "wsdl": "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4",
+            }
 
-            # Extrair informações do retorno
+            # Extrair o Body do SOAP
+            body = root.find(".//S:Body", namespaces=namespaces)
+            if body is None:
+                body = root.find(".//soap:Body", namespaces=namespaces)
+
+            if body is None:
+                # Se não encontrar envelope SOAP, assumir que é XML direto
+                body = root
+
+            # Buscar retEnviNFe (resposta de envio do lote)
+            ret_envi_nfe = body.find(".//nfe:retEnviNFe", namespaces=namespaces)
+            if ret_envi_nfe is None:
+                ret_envi_nfe = body.find(".//retEnviNFe")
+
             result = {}
 
-            # Buscar pelo protocolo (retConsSitNFe, retEnviNFe, protNFe)
-            prot_nfe = root.find(".//nfe:protNFe", namespaces=ns)
-            if prot_nfe is None:
-                # Tentar sem namespace
-                prot_nfe = root.find(".//protNFe")
+            # Se encontrou retEnviNFe, extrair informações do lote
+            if ret_envi_nfe is not None:
+                # Código de status do lote
+                c_stat = ret_envi_nfe.find("nfe:cStat", namespaces=namespaces)
+                if c_stat is None:
+                    c_stat = ret_envi_nfe.find("cStat")
+                if c_stat is not None:
+                    result["status_code"] = c_stat.text
 
-            if prot_nfe is not None:
-                # Buscar informações do protocolo
-                inf_prot = prot_nfe.find(".//nfe:infProt", namespaces=ns)
-                if inf_prot is None:
-                    inf_prot = prot_nfe.find(".//infProt")
+                # Mensagem de status do lote
+                x_motivo = ret_envi_nfe.find("nfe:xMotivo", namespaces=namespaces)
+                if x_motivo is None:
+                    x_motivo = ret_envi_nfe.find("xMotivo")
+                if x_motivo is not None:
+                    result["status_message"] = x_motivo.text
 
-                if inf_prot is not None:
-                    # Número do protocolo
-                    n_prot = inf_prot.find(".//nfe:nProt", namespaces=ns)
-                    if n_prot is None:
-                        n_prot = inf_prot.find(".//nProt")
-                    if n_prot is not None:
-                        result["protocol"] = n_prot.text
+                # Data/hora de recebimento
+                dh_recbto = ret_envi_nfe.find("nfe:dhRecbto", namespaces=namespaces)
+                if dh_recbto is None:
+                    dh_recbto = ret_envi_nfe.find("dhRecbto")
+                if dh_recbto is not None:
+                    result["date"] = dh_recbto.text
 
-                    # Data/hora de autorização
-                    dh_rec_bto = inf_prot.find(".//nfe:dhRecbto", namespaces=ns)
-                    if dh_rec_bto is None:
-                        dh_rec_bto = inf_prot.find(".//dhRecbto")
-                    if dh_rec_bto is not None:
-                        result["date"] = dh_rec_bto.text
+                # Número do recibo do lote (diferente do protocolo de autorização)
+                n_rec = ret_envi_nfe.find("nfe:nRec", namespaces=namespaces)
+                if n_rec is None:
+                    n_rec = ret_envi_nfe.find("nRec")
+                if n_rec is not None:
+                    result["receipt"] = n_rec.text
 
-                    # Código de status
-                    c_stat = inf_prot.find(".//nfe:cStat", namespaces=ns)
-                    if c_stat is None:
-                        c_stat = inf_prot.find(".//cStat")
-                    if c_stat is not None:
-                        result["status_code"] = c_stat.text
+                # Buscar protNFe dentro do retEnviNFe (quando autorizado)
+                prot_nfe = ret_envi_nfe.find(".//nfe:protNFe", namespaces=namespaces)
+                if prot_nfe is None:
+                    prot_nfe = ret_envi_nfe.find(".//protNFe")
 
-                    # Mensagem de status
-                    x_motivo = inf_prot.find(".//nfe:xMotivo", namespaces=ns)
-                    if x_motivo is None:
-                        x_motivo = inf_prot.find(".//xMotivo")
-                    if x_motivo is not None:
-                        result["status_message"] = x_motivo.text
+                # Se encontrou protNFe, extrair protocolo de autorização
+                if prot_nfe is not None:
+                    inf_prot = prot_nfe.find("nfe:infProt", namespaces=namespaces)
+                    if inf_prot is None:
+                        inf_prot = prot_nfe.find("infProt")
 
+                    if inf_prot is not None:
+                        # Número do protocolo de autorização
+                        n_prot = inf_prot.find("nfe:nProt", namespaces=namespaces)
+                        if n_prot is None:
+                            n_prot = inf_prot.find("nProt")
+                        if n_prot is not None:
+                            result["protocol"] = n_prot.text
+
+                        # Código de status da NFe (pode ser diferente do lote)
+                        c_stat_nfe = inf_prot.find("nfe:cStat", namespaces=namespaces)
+                        if c_stat_nfe is None:
+                            c_stat_nfe = inf_prot.find("cStat")
+                        if c_stat_nfe is not None:
+                            result["status_code"] = c_stat_nfe.text
+
+                        # Mensagem de status da NFe
+                        x_motivo_nfe = inf_prot.find("nfe:xMotivo", namespaces=namespaces)
+                        if x_motivo_nfe is None:
+                            x_motivo_nfe = inf_prot.find("xMotivo")
+                        if x_motivo_nfe is not None:
+                            result["status_message"] = x_motivo_nfe.text
+
+                        # Data/hora de autorização
+                        dh_recbto_nfe = inf_prot.find("nfe:dhRecbto", namespaces=namespaces)
+                        if dh_recbto_nfe is None:
+                            dh_recbto_nfe = inf_prot.find("dhRecbto")
+                        if dh_recbto_nfe is not None:
+                            result["date"] = dh_recbto_nfe.text
+
+            _logger.info(f"Resposta SEFAZ parseada: {result}")
             return result
 
         except Exception as e:
             _logger.error(f"Erro ao processar resposta da SEFAZ: {str(e)}")
+            _logger.error(f"XML de resposta: {response_xml}")
             raise ValidationError(_("Erro ao processar resposta da SEFAZ: %s") % str(e))
 
     def _send_nfe_to_sefaz(self, xml_signed):
@@ -6464,6 +6505,12 @@ class NFeDocument(models.Model):
 
             # Criar XML do lote
             batch_xml = self._build_nfe_batch_xml(xml_signed)
+
+            # Validar lote contra XSD antes de enviar
+            _logger.info(f"Validando lote NFe {self.access_key} contra XSD...")
+            validator = NfeBatchValidator(version=self.nfe_version)
+            validator.validate_batch_xml(batch_xml)
+            _logger.info(f"Lote NFe {self.access_key} validado com sucesso!")
 
             # Obter endpoint de autorização
             endpoint = self._get_sefaz_endpoint("NFeAutorizacao")
