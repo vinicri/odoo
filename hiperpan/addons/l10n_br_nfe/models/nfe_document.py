@@ -21,6 +21,11 @@ _ADDITIONAL_INFO_ALLOWED_PLACEHOLDERS = {
 _ADDITIONAL_INFO_PLACEHOLDER_RE = re.compile(r"%\((?P<key>[a-zA-Z_][a-zA-Z0-9_]*)\)s")
 _PERCENT_ESCAPE_TOKEN = "__PERCENT_LITERAL__"
 
+# NFC-e em ambiente de homologação: descrição do primeiro item (xProd) conforme NT 2015.002
+NFCE_HOMOLOGATION_FIRST_ITEM_DESCRIPTION = (
+    "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"
+)
+
 
 def sanitize_xml_text(text):
     """Remove invalid XML 1.0 characters (control chars except TAB, LF, CR).
@@ -568,7 +573,15 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         cEAN.text = item.gtin
 
         xProd = etree.SubElement(prod, "xProd")
-        xProd.text = item.product_description
+        # NFC-e em homologação (tpAmb=2): primeiro item com descrição fixa (NT 2015.002)
+        if (
+            nfe_document.document_model == "65"
+            and nfe_document.env_emission == "1"
+            and item.item_number == 1
+        ):
+            xProd.text = NFCE_HOMOLOGATION_FIRST_ITEM_DESCRIPTION
+        else:
+            xProd.text = item.product_description
 
         NCM = etree.SubElement(prod, "NCM")
         NCM.text = item.product_id.ncm_id.code_unmasked
