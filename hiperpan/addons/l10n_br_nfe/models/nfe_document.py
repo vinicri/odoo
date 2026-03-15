@@ -14,6 +14,13 @@ NFE_NS = "http://www.portalfiscal.inf.br/nfe"
 
 _INVALID_XML_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
+_ADDITIONAL_INFO_ALLOWED_PLACEHOLDERS = {
+    "icms_credit_value",
+    "icms_credit_percent",
+}
+_ADDITIONAL_INFO_PLACEHOLDER_RE = re.compile(r"%\((?P<key>[a-zA-Z_][a-zA-Z0-9_]*)\)s")
+_PERCENT_ESCAPE_TOKEN = "__PERCENT_LITERAL__"
+
 
 def sanitize_xml_text(text):
     """Remove invalid XML 1.0 characters (control chars except TAB, LF, CR).
@@ -1178,10 +1185,27 @@ def buildIPI(root, line):
             IPITrib = etree.SubElement(ipi, "IPITrib")
             CST = etree.SubElement(IPITrib, "CST")
             CST.text = line.ipi_cst
-        elif line.ipi_cst == "53":
-            IPINT = etree.SubElement(ipi, "IPINT")
-            CST = etree.SubElement(IPINT, "CST")
-            CST.text = line.ipi_cst
+
+            if line.ipi_bc_value or line.ipi_tax_percent or line.ipi_value:
+                raise ValidationError(
+                    _(
+                        f"Geração de XML: (Produto: {line.product_description})"
+                        f"Para o produto de produção própria o IPI com CST 99 não pode ter valor de base de calculo, aliquota ou valor do IPI."
+                    )
+                )
+
+            vBC = etree.SubElement(IPITrib, "vBC")
+            vBC.text = f"{line.ipi_bc_value:.2f}"
+
+            pIPI = etree.SubElement(IPITrib, "pIPI")
+            pIPI.text = f"{line.ipi_tax_percent:.4f}"
+
+            vIPI = etree.SubElement(IPITrib, "vIPI")
+            vIPI.text = f"{line.ipi_value:.2f}"
+        # elif line.ipi_cst == "53":
+        #     IPINT = etree.SubElement(ipi, "IPINT")
+        #     CST = etree.SubElement(IPINT, "CST")
+        #     CST.text = line.ipi_cst
         else:
             raise ValidationError(
                 f"Geração de XML: (Produto: {line.product_description}) CST({line.ipi_cst}) do IPI não é suportado para o Simples Nacional."
@@ -2104,8 +2128,9 @@ def _buildICMSRegimeNormal(imposto, line, origin, cst):
         _build_icms_deson(icms90, line)
 
 
-def _buildICMSSN(icms_root, line, origin, csosn, is_final_customer):
+def _buildICMSSN(imposto, line, origin, csosn, is_final_customer):
     """Constrói XML ICMS para Simples Nacional (CSOSN) conforme Manual NFe 4.00"""
+    icms_root = etree.SubElement(imposto, "ICMS")
 
     if csosn == "101":
         # N10c - Tributada SN com permissão de crédito
@@ -5635,6 +5660,66 @@ class NFeDocument(models.Model):
     # Para as operações que permita o crédito de ICMS, será acrescentada a seguinte expressão:
     # • "PERMITE O APROVEITAMENTO DO CRÉDITO DE ICMS NO VALOR DE R$ ...;
     # CORRESPONDENTE À ALÍQUOTA DE .%, NOS TERMOS DO ART. 23, DA LC 123/2006".
+    # TODO Emissão de NF-e na devolução de mercadorias para contribuinte não optante pelo
+    # Simples Nacional
+    #     "DOCUMENTO EMITIDO POR ME OU EPP OPTANTE PELO SIMPLES NACIONAL";
+    #     "NÃO GERA DIREITO A CRÉDITO FISCAL DE IPI.”;
+
+    def _get_icms_sn_credit_information(self, nfe_document):
+        credit_value = sum(nfe_document.invoice_line_ids.mapped("icms_sn_credit_value"))
+
+        credit_percents = [
+            value
+            for value in nfe_document.invoice_line_ids.mapped("icms_sn_credit_percent")
+            if value and value > 0
+        ]
+        if credit_percents:
+            distinct_percents = {p for p in credit_percents}
+            if len(distinct_percents) > 1:
+                raise ValidationError(
+                    _(
+                        "Todas as produtos com aliquota de crédito de ICMS SN informada devem ter "
+                        "a mesma aliquota. Valores encontrados: %s"
+                    )
+                    % sorted(distinct_percents)
+                )
+        credit_percent = credit_percents[0] if credit_percents else 0.0
+
+        fields = [credit_value, credit_percent]
+
+        if any(fields) and not all(fields):
+            raise ValidationError(
+                _(
+                    "Se existe crédito de ICMS SN, deve ser informado o valor e a aliquota do credito."
+                )
+            )
+
+        if not credit_value and not credit_percent:
+            return False
+
+        return {
+            "icms_credit_value": format_number(credit_value),
+            "icms_credit_percent": format_number(credit_percent),
+        }
+
+    def _render_additional_information_template(self, template, template_context):
+        if not template:
+            return template
+
+        safe_template = template.replace("%%", _PERCENT_ESCAPE_TOKEN)
+
+        def _replace_placeholder(match):
+            key = match.group("key")
+            if key not in _ADDITIONAL_INFO_ALLOWED_PLACEHOLDERS:
+                return ""
+            value = template_context.get(key, "")
+            return sanitize_xml_text(str(value)) if value is not None else ""
+
+        rendered = _ADDITIONAL_INFO_PLACEHOLDER_RE.sub(
+            _replace_placeholder, safe_template
+        )
+        return rendered.replace(_PERCENT_ESCAPE_TOKEN, "%")
+
     additional_information = fields.Text(string="Informações Adicionais", size=2000)
 
     mandatory_additional_information_ids = fields.Many2many(
@@ -5653,10 +5738,17 @@ class NFeDocument(models.Model):
                 "1",
                 "2",
             ):
+                icms_sn_credit_information = record._get_icms_sn_credit_information(
+                    record
+                )
                 external_ids = [
                     "l10n_br_nfe.add_info_simples_nacional",
                     "l10n_br_nfe.add_info_nao_gera_credito_fiscal_ipi",
                 ]
+                if icms_sn_credit_information:
+                    external_ids.append(
+                        "l10n_br_nfe.add_info_permite_aproveitamento_do_credito_de_icms_no_valor_de_r"
+                    )
 
             if external_ids:
                 records = self.env["l10n_br_nfe.nfe.additional_information"].browse()
@@ -5712,12 +5804,20 @@ class NFeDocument(models.Model):
     )
     def _compute_mandatory_additional_information(self):
         for record in self:
-            # Filter out empty/False values
-            info_values = record.mandatory_additional_information_ids.mapped(
-                "additional_information"
-            )
+            template_context = record._get_icms_sn_credit_information(record)
+            if template_context is False:
+                template_context = {}
+            info_values = []
+            for info in record.mandatory_additional_information_ids:
+                text = info.additional_information
+                if not text:
+                    continue
+                if _ADDITIONAL_INFO_PLACEHOLDER_RE.search(text):
+                    text = record._render_additional_information_template(
+                        text, template_context
+                    )
+                info_values.append(text)
             info_values.append(record.total_approx_taxes_information)
-            # Join only non-empty strings
             record.mandatory_additional_information = "\n".join(
                 filter(None, info_values)
             )
@@ -6115,6 +6215,9 @@ class NFeDocument(models.Model):
 
         # Validar XML assinado contra o XSD oficial (Signature é obrigatório no schema)
         signed_tree = etree.fromstring(xml_signed_string.encode("utf-8"))
+
+        print(etree.tostring(signed_tree, pretty_print=True).decode("utf-8"))
+
         validate_nfe_xml(signed_tree, version=self.nfe_version)
 
         # Converter para base64 e salvar no campo
