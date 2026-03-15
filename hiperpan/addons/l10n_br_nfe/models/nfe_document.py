@@ -9,6 +9,11 @@ import lxml.etree as etree
 from erpbrasil.assinatura.assinatura import Assinatura
 from .nfe_xml_validator import validate_nfe_xml
 import base64
+import requests
+from datetime import datetime
+import logging
+
+_logger = logging.getLogger(__name__)
 
 NFE_NS = "http://www.portalfiscal.inf.br/nfe"
 
@@ -576,7 +581,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
         # NFC-e em homologação (tpAmb=2): primeiro item com descrição fixa (NT 2015.002)
         if (
             nfe_document.document_model == "65"
-            and nfe_document.env_emission == "1"
+            and nfe_document.env_emission == "2"
             and item.item_number == 1
         ):
             xProd.text = NFCE_HOMOLOGATION_FIRST_ITEM_DESCRIPTION
@@ -5961,6 +5966,34 @@ class NFeDocument(models.Model):
         store=True,
     )
 
+    # Campos de protocolo e retorno da SEFAZ
+    authorization_protocol = fields.Char(
+        string="Protocolo de Autorização",
+        readonly=True,
+        help="Número do protocolo de autorização da SEFAZ",
+    )
+    authorization_date = fields.Datetime(
+        string="Data de Autorização",
+        readonly=True,
+        help="Data e hora da autorização pela SEFAZ",
+    )
+    authorization_status_code = fields.Char(
+        string="Código de Status",
+        readonly=True,
+        help="Código do status de retorno da SEFAZ",
+    )
+    authorization_status_message = fields.Text(
+        string="Mensagem de Status",
+        readonly=True,
+        help="Mensagem de retorno da SEFAZ",
+    )
+    sefaz_response_xml = fields.Binary(
+        string="XML de Resposta SEFAZ",
+        attachment=True,
+        readonly=True,
+        help="XML completo de resposta da SEFAZ",
+    )
+
     # === Outros Campos e Métodos ===
 
     state = fields.Selection(
@@ -6148,6 +6181,320 @@ class NFeDocument(models.Model):
 
         return dv
 
+    def _get_sefaz_endpoint(self, service_name):
+        """
+        Obtém o endpoint da SEFAZ de acordo com o estado e ambiente.
+
+        Args:
+            service_name: Nome do serviço (ex: 'NFeAutorizacao', 'NFeRetAutorizacao')
+
+        Returns:
+            Dict com 'url' e 'version' do endpoint
+
+        Raises:
+            ValidationError: Se não encontrar endpoint para o estado
+        """
+        self.ensure_one()
+
+        # Importar a função de endpoints
+        from ..utils.endpoints import get_nfe_endpoint_by_state
+
+        # Obter UF do emitente
+        uf = self.issuer_state
+        if not uf:
+            raise ValidationError(
+                _(
+                    "Estado do emitente não encontrado. "
+                    "Verifique o cadastro do emitente."
+                )
+            )
+
+        # Determinar ambiente (production ou homologation)
+        # env_emission: "1" = Produção, "2" = Homologação
+        environment = "production" if self.env_emission == "1" else "homologation"
+
+        # Buscar endpoints do estado
+        state_endpoints = get_nfe_endpoint_by_state(uf)
+        if not state_endpoints:
+            raise ValidationError(
+                _(
+                    "Endpoints não configurados para o estado %s. "
+                    "Configure os endpoints em utils/endpoints.py"
+                )
+                % uf
+            )
+
+        # Buscar endpoint específico do serviço
+        env_endpoints = state_endpoints.get(environment, {})
+        service_endpoint = env_endpoints.get(service_name)
+
+        if not service_endpoint:
+            raise ValidationError(
+                _("Endpoint %s não encontrado para %s em ambiente %s")
+                % (service_name, uf, environment)
+            )
+
+        return service_endpoint
+
+    def _build_nfe_batch_xml(self, nfe_signed_xml):
+        """
+        Cria o XML do lote para envio à SEFAZ.
+
+        Args:
+            nfe_signed_xml: String contendo o XML da NFe assinado
+
+        Returns:
+            String contendo o XML do lote (enviNFe)
+        """
+        self.ensure_one()
+
+        # Namespace da NFe
+        ns = "http://www.portalfiscal.inf.br/nfe"
+
+        # Criar elemento raiz enviNFe
+        root = etree.Element("enviNFe", versao="4.00")
+
+        # idLote - identificador do lote
+        id_lote = etree.SubElement(root, "idLote")
+        id_lote.text = str(self.id)
+
+        # indSinc - indicador de processamento síncrono (1=sim, 0=não)
+        ind_sinc = etree.SubElement(root, "indSinc")
+        ind_sinc.text = "1"  # Síncrono para obter resposta imediata
+
+        # Parse do XML assinado e adicionar ao lote
+        nfe_element = etree.fromstring(nfe_signed_xml.encode("utf-8"))
+        root.append(nfe_element)
+
+        return etree.tostring(root, encoding="unicode", pretty_print=False)
+
+    def _send_soap_request(self, url, soap_action, xml_content, certificado):
+        """
+        Envia requisição SOAP para a SEFAZ.
+
+        Args:
+            url: URL do webservice
+            soap_action: Ação SOAP
+            xml_content: Conteúdo XML a ser enviado
+            certificado: Objeto certificado com arquivo e senha
+
+        Returns:
+            String com a resposta XML da SEFAZ
+
+        Raises:
+            ValidationError: Em caso de erro na comunicação
+        """
+        # Envelope SOAP
+        soap_envelope = f"""<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <soap:Body>
+        <nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4">
+            {xml_content}
+        </nfeDadosMsg>
+    </soap:Body>
+</soap:Envelope>"""
+
+        # <soap:Header>
+        #     <nfeCabecMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4">
+        #         <cUF>{self.issuer_state_code}</cUF>
+        #         <versaoDados>4.00</versaoDados>
+        #     </nfeCabecMsg>
+        # </soap:Header>
+
+        headers = {
+            "Content-Type": "application/soap+xml; charset=utf-8",
+            "SOAPAction": soap_action,
+        }
+
+        import tempfile
+        import os
+        from OpenSSL import crypto
+
+        cert_file_path = None
+        key_file_path = None
+
+        try:
+            # Carregar certificado PFX/PKCS12
+            p12 = crypto.load_pkcs12(
+                certificado["cert_file"], certificado["password"].encode("utf-8")
+            )
+
+            # Extrair certificado e chave privada
+            certificate = crypto.dump_certificate(
+                crypto.FILETYPE_PEM, p12.get_certificate()
+            )
+            private_key = crypto.dump_privatekey(
+                crypto.FILETYPE_PEM, p12.get_privatekey()
+            )
+
+            # Criar arquivos temporários para certificado e chave
+            with tempfile.NamedTemporaryFile(
+                mode="wb", suffix=".pem", delete=False
+            ) as cert_file:
+                cert_file.write(certificate)
+                cert_file_path = cert_file.name
+
+            with tempfile.NamedTemporaryFile(
+                mode="wb", suffix=".pem", delete=False
+            ) as key_file:
+                key_file.write(private_key)
+                key_file_path = key_file.name
+
+            # Fazer requisição SOAP com certificado em PEM
+            response = requests.post(
+                url,
+                data=soap_envelope.encode("utf-8"),
+                headers=headers,
+                cert=(cert_file_path, key_file_path),
+                timeout=60,
+            )
+
+            response.raise_for_status()
+            return response.text
+
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"Erro na comunicação com SEFAZ: {str(e)}")
+            raise ValidationError(_("Erro na comunicação com SEFAZ: %s") % str(e))
+        except Exception as e:
+            _logger.error(f"Erro ao processar certificado: {str(e)}")
+            raise ValidationError(_("Erro ao processar certificado: %s") % str(e))
+        finally:
+            # Limpar arquivos temporários
+            if cert_file_path and os.path.exists(cert_file_path):
+                os.unlink(cert_file_path)
+            if key_file_path and os.path.exists(key_file_path):
+                os.unlink(key_file_path)
+
+    def _process_sefaz_response(self, response_xml):
+        """
+        Processa a resposta XML da SEFAZ.
+
+        Args:
+            response_xml: String contendo o XML de resposta
+
+        Returns:
+            Dict com informações extraídas da resposta
+        """
+        try:
+            # Parse do XML de resposta
+            # Remove envelope SOAP se houver
+            if "soap:" in response_xml or "SOAP:" in response_xml:
+                root = etree.fromstring(response_xml.encode("utf-8"))
+                # Procurar pelo elemento de retorno dentro do SOAP
+                ns_soap = {"soap": "http://www.w3.org/2003/05/soap-envelope"}
+                body = root.find(".//soap:Body", namespaces=ns_soap)
+                if body is not None:
+                    # Pegar o primeiro filho do Body
+                    ret_element = list(body)[0] if len(body) > 0 else None
+                    if ret_element is not None:
+                        response_xml = etree.tostring(ret_element, encoding="unicode")
+
+            root = etree.fromstring(response_xml.encode("utf-8"))
+
+            # Namespace da NFe
+            ns = {"nfe": "http://www.portalfiscal.inf.br/nfe"}
+
+            # Extrair informações do retorno
+            result = {}
+
+            # Buscar pelo protocolo (retConsSitNFe, retEnviNFe, protNFe)
+            prot_nfe = root.find(".//nfe:protNFe", namespaces=ns)
+            if prot_nfe is None:
+                # Tentar sem namespace
+                prot_nfe = root.find(".//protNFe")
+
+            if prot_nfe is not None:
+                # Buscar informações do protocolo
+                inf_prot = prot_nfe.find(".//nfe:infProt", namespaces=ns)
+                if inf_prot is None:
+                    inf_prot = prot_nfe.find(".//infProt")
+
+                if inf_prot is not None:
+                    # Número do protocolo
+                    n_prot = inf_prot.find(".//nfe:nProt", namespaces=ns)
+                    if n_prot is None:
+                        n_prot = inf_prot.find(".//nProt")
+                    if n_prot is not None:
+                        result["protocol"] = n_prot.text
+
+                    # Data/hora de autorização
+                    dh_rec_bto = inf_prot.find(".//nfe:dhRecbto", namespaces=ns)
+                    if dh_rec_bto is None:
+                        dh_rec_bto = inf_prot.find(".//dhRecbto")
+                    if dh_rec_bto is not None:
+                        result["date"] = dh_rec_bto.text
+
+                    # Código de status
+                    c_stat = inf_prot.find(".//nfe:cStat", namespaces=ns)
+                    if c_stat is None:
+                        c_stat = inf_prot.find(".//cStat")
+                    if c_stat is not None:
+                        result["status_code"] = c_stat.text
+
+                    # Mensagem de status
+                    x_motivo = inf_prot.find(".//nfe:xMotivo", namespaces=ns)
+                    if x_motivo is None:
+                        x_motivo = inf_prot.find(".//xMotivo")
+                    if x_motivo is not None:
+                        result["status_message"] = x_motivo.text
+
+            return result
+
+        except Exception as e:
+            _logger.error(f"Erro ao processar resposta da SEFAZ: {str(e)}")
+            raise ValidationError(_("Erro ao processar resposta da SEFAZ: %s") % str(e))
+
+    def _send_nfe_to_sefaz(self, xml_signed):
+        """
+        Envia a NF-e assinada para autorização na SEFAZ.
+
+        Args:
+            xml_signed: String contendo o XML da NFe assinado
+
+        Returns:
+            Dict com informações do protocolo de autorização
+        """
+        self.ensure_one()
+
+        try:
+            # Obter certificado
+            cert = self.company_id.get_nfe_certificate_pkcs12()
+
+            # Criar XML do lote
+            batch_xml = self._build_nfe_batch_xml(xml_signed)
+
+            # Obter endpoint de autorização
+            endpoint = self._get_sefaz_endpoint("NFeAutorizacao")
+
+            _logger.info(f"Enviando NF-e {self.access_key} para SEFAZ...")
+
+            # Enviar requisição SOAP
+            response_xml = self._send_soap_request(
+                url=endpoint["url"],
+                soap_action="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4",
+                xml_content=batch_xml,
+                certificado=cert,
+            )
+
+            # Processar resposta
+            result = self._process_sefaz_response(response_xml)
+
+            # Salvar XML de resposta
+            result["response_xml"] = response_xml
+
+            _logger.info(
+                f"NF-e {self.access_key} - Status: {result.get('status_code')} - "
+                f"{result.get('status_message')}"
+            )
+
+            return result
+
+        except Exception as e:
+            _logger.error(f"Erro ao enviar NF-e para SEFAZ: {str(e)}")
+            raise ValidationError(_("Erro ao enviar NF-e para SEFAZ: %s") % str(e))
+
     def _sign_nfe_xml(self, xml_element):
         """
         Assina o XML da NF-e usando o certificado digital A1 da empresa.
@@ -6235,26 +6582,74 @@ class NFeDocument(models.Model):
 
         # Converter para base64 e salvar no campo
         xml_signed_base64 = base64.b64encode(xml_signed_string.encode("utf-8"))
-        self.write(
-            {
+
+        # Enviar para SEFAZ
+        try:
+            _logger.info(f"Iniciando envio da NF-e {self.access_key} para SEFAZ...")
+
+            sefaz_result = self._send_nfe_to_sefaz(xml_signed_string)
+
+            # Preparar valores para atualização
+            vals = {
                 "xml_signed": xml_signed_base64,
+                "authorization_status_code": sefaz_result.get("status_code"),
+                "authorization_status_message": sefaz_result.get("status_message"),
             }
-        )
 
-        # Imprimir XML assinado para debug (opcional)
-        print("XML da NF-e gerado e assinado com sucesso!")
-        print(xml_signed_string)
+            # Se autorizada com sucesso (código 100)
+            if sefaz_result.get("status_code") == "100":
+                vals.update(
+                    {
+                        "authorization_protocol": sefaz_result.get("protocol"),
+                        "authorization_date": sefaz_result.get("date"),
+                        "state": "done",  # Atualizar estado para validado
+                    }
+                )
 
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": _("Sucesso"),
-                "message": _("XML da NF-e gerado e assinado com sucesso!"),
-                "type": "success",
-                "sticky": False,
-            },
-        }
+            # Salvar XML de resposta da SEFAZ
+            if sefaz_result.get("response_xml"):
+                vals["sefaz_response_xml"] = base64.b64encode(
+                    sefaz_result["response_xml"].encode("utf-8")
+                )
+
+            self.write(vals)
+
+            # Verificar se foi autorizada
+            if sefaz_result.get("status_code") == "100":
+                message = _(
+                    "NF-e autorizada com sucesso! Protocolo: %s"
+                ) % sefaz_result.get("protocol")
+                message_type = "success"
+                _logger.info(
+                    f"NF-e {self.access_key} autorizada. Protocolo: {sefaz_result.get('protocol')}"
+                )
+            else:
+                message = _("NF-e rejeitada pela SEFAZ.\nCódigo: %s\nMotivo: %s") % (
+                    sefaz_result.get("status_code"),
+                    sefaz_result.get("status_message"),
+                )
+                message_type = "warning"
+                _logger.warning(
+                    f"NF-e {self.access_key} rejeitada. "
+                    f"Código: {sefaz_result.get('status_code')} - {sefaz_result.get('status_message')}"
+                )
+
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Retorno da SEFAZ"),
+                    "message": message,
+                    "type": message_type,
+                    "sticky": True,
+                },
+            }
+
+        except Exception as e:
+            # Em caso de erro, salvar apenas o XML assinado
+            self.write({"xml_signed": xml_signed_base64})
+            _logger.error(f"Erro ao enviar NF-e {self.access_key} para SEFAZ: {str(e)}")
+            raise
 
     def _fetch_all_ibpt_taxes(self):
         """

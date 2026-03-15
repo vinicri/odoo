@@ -2,7 +2,7 @@ from odoo import models, fields, api
 import pytz
 from datetime import datetime
 
-ENV_EMISSION = [("0", "Produção"), ("1", "Homologação")]
+ENV_EMISSION = [("1", "Produção"), ("2", "Homologação")]
 
 
 class Company(models.Model):
