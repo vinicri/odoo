@@ -68,11 +68,15 @@ class NfeBatchValidator:
             )
 
         try:
+            # Criar um parser que resolva imports/includes relativos ao diretório
+            parser = etree.XMLParser()
+
             # Parse do schema XSD
             with open(schema_path, "rb") as schema_file:
-                schema_doc = etree.parse(schema_file)
+                schema_doc = etree.parse(schema_file, parser)
 
-            # Criar XMLSchema
+            # Criar XMLSchema com resolução de schemas importados
+            # O lxml vai procurar schemas referenciados no mesmo diretório
             schema = etree.XMLSchema(schema_doc)
 
             # Adicionar ao cache

@@ -2550,7 +2550,7 @@ class NFeDocument(models.Model):
     # O DV garante a integridade da chave.
     access_key = fields.Char(
         string="Chave de Acesso",
-        size=47,
+        size=44,
         copy=False,
         readonly=True,
         index=True,
@@ -6252,15 +6252,19 @@ class NFeDocument(models.Model):
         # Namespace da NFe
         ns = "http://www.portalfiscal.inf.br/nfe"
 
-        # Criar elemento raiz enviNFe
-        root = etree.Element("enviNFe", versao="4.00")
+        # Criar elemento raiz enviNFe com namespace correto
+        root = etree.Element(
+            "{%s}enviNFe" % ns,
+            versao="4.00",
+            nsmap={None: ns},  # Define namespace padrão
+        )
 
         # idLote - identificador do lote
-        id_lote = etree.SubElement(root, "idLote")
+        id_lote = etree.SubElement(root, "{%s}idLote" % ns)
         id_lote.text = str(self.id)
 
         # indSinc - indicador de processamento síncrono (1=sim, 0=não)
-        ind_sinc = etree.SubElement(root, "indSinc")
+        ind_sinc = etree.SubElement(root, "{%s}indSinc" % ns)
         ind_sinc.text = "1"  # Síncrono para obter resposta imediata
 
         # Parse do XML assinado e adicionar ao lote
@@ -6466,14 +6470,18 @@ class NFeDocument(models.Model):
                             result["status_code"] = c_stat_nfe.text
 
                         # Mensagem de status da NFe
-                        x_motivo_nfe = inf_prot.find("nfe:xMotivo", namespaces=namespaces)
+                        x_motivo_nfe = inf_prot.find(
+                            "nfe:xMotivo", namespaces=namespaces
+                        )
                         if x_motivo_nfe is None:
                             x_motivo_nfe = inf_prot.find("xMotivo")
                         if x_motivo_nfe is not None:
                             result["status_message"] = x_motivo_nfe.text
 
                         # Data/hora de autorização
-                        dh_recbto_nfe = inf_prot.find("nfe:dhRecbto", namespaces=namespaces)
+                        dh_recbto_nfe = inf_prot.find(
+                            "nfe:dhRecbto", namespaces=namespaces
+                        )
                         if dh_recbto_nfe is None:
                             dh_recbto_nfe = inf_prot.find("dhRecbto")
                         if dh_recbto_nfe is not None:
