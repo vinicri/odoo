@@ -21,8 +21,6 @@ class PartyMixin(models.AbstractModel):
     fiscal_framework = fields.Selection(
         string="Fiscal Framework",
         selection=TAX_FRAMEWORK,
-        default="3",
-        required=True,
         tracking=True,
         help="Fiscal Framework of the company.",
     )

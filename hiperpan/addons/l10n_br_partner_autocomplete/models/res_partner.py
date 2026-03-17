@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 class ResPartner(models.Model):
     _inherit = "res.partner"
 
-    search_cnpj_cpf = fields.Char(string="CNPJ/CPF para procurar", size=14)
+    search_cnpj_cpf = fields.Char(string="CNPJ/CPF para procurar")
 
     @api.onchange("search_cnpj_cpf")
     def _onchange_search_cnpj_cpf(self):
@@ -36,7 +36,7 @@ class ResPartner(models.Model):
             return
 
         # Remove caracteres não numéricos
-        clean_number = re.sub(r"\D", "", self.search_cnpj_cpf)
+        clean_number = "".join(ch for ch in str(self.search_cnpj_cpf) if ch.isdigit())
 
         cnpj = clean_number if cnpj_cpf_module.validar_cnpj(clean_number) else False
         cpf = clean_number if cnpj_cpf_module.validar_cpf(clean_number) else False
@@ -83,17 +83,17 @@ class ResPartner(models.Model):
         try:
             partner_data = self._consult_sefaz_cadastro(clean_number)
             _logger.info(f"Dados obtidos da SEFAZ: {partner_data}")
-            # if partner_data:
-            #     # Atualiza os campos do parceiro
-            #     self.update(partner_data)
-            #     return {
-            #         "warning": {
-            #             "title": _("Consulta realizada com sucesso"),
-            #             "message": _(
-            #                 "Dados obtidos da SEFAZ. Verifique as informações antes de salvar."
-            #             ),
-            #         }
-            #     }
+            if partner_data:
+                # Atualiza os campos do parceiro
+                self.update(partner_data)
+                # return {
+                #     "warning": {
+                #         "title": _("Consulta realizada com sucesso"),
+                #         "message": _(
+                #             "Dados obtidos da SEFAZ. Verifique as informações antes de salvar."
+                #         ),
+                #     }
+                # }
         except UserError as e:
             return {"warning": {"title": _("Erro na consulta"), "message": str(e)}}
         except Exception as e:
@@ -193,7 +193,10 @@ class ResPartner(models.Model):
             cpf = etree.SubElement(inf_cons, "CPF")
             cpf.text = document_number
 
-        xml_string = etree.tostring(root, encoding="unicode")
+        # Não incluir declaração XML pois vai dentro do SOAP
+        xml_string = etree.tostring(
+            root, encoding="unicode", pretty_print=False, xml_declaration=False
+        )
 
         return xml_string
 
@@ -247,25 +250,30 @@ class ResPartner(models.Model):
             key_path = key_file.name
 
         try:
+            # Envelope SOAP para CadConsultaCadastro4
+            #             soap_env = f"""<?xml version="1.0" encoding="utf-8"?>
+            # <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:cad="http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4">
+            #     <soap:Body>
+            #         <cad:consultaCadastro2>
+            #             <nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4">{xml_content}</nfeDadosMsg>
+            #         </cad:consultaCadastro2>
+            #     </soap:Body>
+            # </soap:Envelope>"""
+
             # Envelope SOAP
             soap_env = f"""<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:cad="http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4">
-    <soap:Header/>
-    <soap:Body>
-        <cad:consultaCadastro>
-            <cad:nfeCabecMsg>
-                <![CDATA[<?xml version="1.0" encoding="utf-8"?><nfeCabecMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4"><versaoDados>2.00</versaoDados></nfeCabecMsg>]]>
-            </cad:nfeCabecMsg>
-            <cad:nfeDadosMsg>
-                <![CDATA[{xml_content}]]>
-            </cad:nfeDadosMsg>
-        </cad:consultaCadastro>
-    </soap:Body>
-</soap:Envelope>"""
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <soap:Body>
+            <nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4">
+                {xml_content}
+            </nfeDadosMsg>
+        </soap:Body>
+    </soap:Envelope>"""
 
             headers = {
-                "Content-Type": 'application/soap+xml; charset=utf-8; action="http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4/consultaCadastro"',
-                "SOAPAction": "http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4/consultaCadastro",
+                "Content-Type": "application/soap+xml; charset=utf-8",
             }
 
             _logger.info(f"Enviando consulta cadastro para {url}")
@@ -315,11 +323,18 @@ class ResPartner(models.Model):
             # Namespaces
             namespaces = {
                 "soap": "http://www.w3.org/2003/05/soap-envelope",
+                "wsdl": "http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4",
                 "nfe": "http://www.portalfiscal.inf.br/nfe",
             }
 
             # Extrair retConsCad do SOAP body
-            ret_cons_cad = root.xpath("//nfe:retConsCad", namespaces=namespaces)
+            # Na resposta real, retConsCad está no namespace WSDL, e os dados
+            # fiscais (infCons/infCad) estão no namespace NFe.
+            ret_cons_cad = root.xpath("//wsdl:retConsCad", namespaces=namespaces)
+
+            # Fallback genérico para outros layouts de resposta
+            if not ret_cons_cad:
+                ret_cons_cad = root.xpath("//*[local-name()='retConsCad']")
 
             if not ret_cons_cad:
                 _logger.error("Elemento retConsCad não encontrado na resposta")
@@ -327,9 +342,16 @@ class ResPartner(models.Model):
 
             ret_cons_cad = ret_cons_cad[0]
 
+            # Extrair nó infCons (namespace NFe)
+            inf_cons = ret_cons_cad.find(".//nfe:infCons", namespaces)
+
+            if inf_cons is None:
+                _logger.error("Elemento infCons não encontrado dentro de retConsCad")
+                raise UserError(_("Resposta inválida da SEFAZ"))
+
             # Verificar código de status
-            c_stat = ret_cons_cad.find("nfe:infCons/nfe:cStat", namespaces)
-            x_motivo = ret_cons_cad.find("nfe:infCons/nfe:xMotivo", namespaces)
+            c_stat = inf_cons.find("nfe:cStat", namespaces)
+            x_motivo = inf_cons.find("nfe:xMotivo", namespaces)
 
             if c_stat is not None and c_stat.text != "111":
                 # 111 = Consulta cadastro com uma ocorrência
@@ -340,7 +362,7 @@ class ResPartner(models.Model):
                 raise UserError(_("SEFAZ retornou erro: %s") % error_msg)
 
             # Extrair dados cadastrais
-            inf_cad = ret_cons_cad.find("nfe:infCons/nfe:infCad", namespaces)
+            inf_cad = inf_cons.find("nfe:infCad", namespaces)
 
             if inf_cad is None:
                 raise UserError(_("Nenhuma informação cadastral encontrada"))
@@ -351,23 +373,29 @@ class ResPartner(models.Model):
             x_nome = inf_cad.find("nfe:xNome", namespaces)
             if x_nome is not None:
                 partner_data["name"] = x_nome.text
+                partner_data["legal_name"] = x_nome.text
+
+            x_fant = inf_cad.find("nfe:xFant", namespaces)
+            if x_fant is not None:
+                partner_data["trade_name"] = x_fant.text
 
             # CNPJ
             cnpj = inf_cad.find("nfe:CNPJ", namespaces)
             if cnpj is not None:
                 partner_data["vat"] = cnpj.text
+                partner_data["formatted_cnpj_cpf"] = cnpj.text
                 partner_data["company_type"] = "company"
 
-            # CPF
-            cpf = inf_cad.find("nfe:CPF", namespaces)
-            if cpf is not None:
-                partner_data["vat"] = cpf.text
-                partner_data["company_type"] = "person"
+            # # CPF
+            # cpf = inf_cad.find("nfe:CPF", namespaces)
+            # if cpf is not None:
+            #     partner_data["vat"] = cpf.text
+            #     partner_data["company_type"] = "person"
 
             # Inscrição Estadual
-            ie = inf_cad.find("nfe:IE", namespaces)
+            ie = inf_cad.find("nfe:IEAtual", namespaces)
             if ie is not None and ie.text:
-                partner_data["l10n_br_ie_code"] = ie.text
+                partner_data["inscr_est"] = ie.text
 
             # Endereço
             ender = inf_cad.find("nfe:ender", namespaces)
@@ -380,26 +408,23 @@ class ResPartner(models.Model):
                 # Número
                 nro = ender.find("nfe:nro", namespaces)
                 if nro is not None:
-                    if "street" in partner_data:
-                        partner_data["street"] += f", {nro.text}"
-                    else:
-                        partner_data["street"] = nro.text
+                    partner_data["street_number"] = nro.text
 
                 # Complemento
                 x_cpl = ender.find("nfe:xCpl", namespaces)
                 if x_cpl is not None:
-                    partner_data["street2"] = x_cpl.text
+                    partner_data["street_complement"] = x_cpl.text
 
                 # Bairro
                 x_bairro = ender.find("nfe:xBairro", namespaces)
                 if x_bairro is not None:
-                    partner_data["l10n_br_district"] = x_bairro.text
+                    partner_data["district"] = x_bairro.text
 
                 # Município (buscar res.city por código IBGE)
                 c_mun = ender.find("nfe:cMun", namespaces)
                 if c_mun is not None:
                     city = self.env["res.city"].search(
-                        [("l10n_br_ibge_code", "=", c_mun.text)], limit=1
+                        [("ibge_code", "=", c_mun.text)], limit=1
                     )
                     if city:
                         partner_data["city_id"] = city.id
@@ -459,7 +484,7 @@ class ResPartner(models.Model):
         # Enviar requisição SOAP
         response = self._send_soap_request(url, xml_content, certificate)
 
-        _logger.debug(f"Resposta SEFAZ:\n{response.text}")
+        _logger.info(f"Resposta SEFAZ:\n{response.text}")
 
         # Parse da resposta
         partner_data = self._parse_cadastro_response(response.text)
