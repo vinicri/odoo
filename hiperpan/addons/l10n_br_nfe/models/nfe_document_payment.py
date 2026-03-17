@@ -33,11 +33,11 @@ PAYMENT_METHOD = [
 
 CARD_INTEGRATION_TYPE = [
     (
-        "01",
+        "1",
         "Pagamento integrado com o sistema de automação da empresa (Ex.: equipamento TEF, Comércio Eletrônico)",
     ),
     (
-        "02",
+        "2",
         "Pagamento não integrado com o sistema de automação da empresa (Ex.: equipamento POS)",
     ),
 ]

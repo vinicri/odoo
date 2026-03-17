@@ -459,7 +459,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
         if nfe_document.retrieval_country_code and nfe_document.retrieval_country_name:
             rCPais = etree.SubElement(retirada, "cPais")
-            rCPais.text = nfe_document.retrieval_country_code
+            rCPais.text = str(nfe_document.retrieval_country_code)
 
             rXpais = etree.SubElement(retirada, "xPais")
             rXpais.text = nfe_document.retrieval_country_name
@@ -523,7 +523,7 @@ def buildNfeXmlFromNfeDocumentModel(nfe_document):
 
         if nfe_document.delivery_country_code and nfe_document.delivery_country_name:
             dCPais = etree.SubElement(entrega, "cPais")
-            dCPais.text = nfe_document.delivery_country_code
+            dCPais.text = str(nfe_document.delivery_country_code)
 
             dXpais = etree.SubElement(entrega, "xPais")
             dXpais.text = nfe_document.delivery_country_name
@@ -6788,9 +6788,7 @@ class NFeDocument(models.Model):
                 auth_date_raw = sefaz_result.get("date")
                 auth_date_odoo = None
                 if auth_date_raw:
-                    dt = datetime.fromisoformat(
-                        auth_date_raw.replace("Z", "+00:00")
-                    )
+                    dt = datetime.fromisoformat(auth_date_raw.replace("Z", "+00:00"))
                     if dt.tzinfo:
                         dt = dt.astimezone(pytz.UTC).replace(tzinfo=None)
                     auth_date_odoo = dt.strftime("%Y-%m-%d %H:%M:%S")

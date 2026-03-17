@@ -41,6 +41,20 @@ class PartyMixin(models.AbstractModel):
         tracking=True,
     )
 
+    @api.depends("formatted_cnpj_cpf")
+    def _compute_cnpj_cpf_stripped(self):
+        for record in self:
+            if record.formatted_cnpj_cpf:
+                record.vat = "".join(
+                    char for char in record.formatted_cnpj_cpf if char.isalnum()
+                )
+            else:
+                record.vat = False
+
+    @api.onchange("formatted_cnpj_cpf")
+    def _onchange_cnpj_cpf(self):
+        self.formatted_cnpj_cpf = cnpj_cpf.formata(str(self.formatted_cnpj_cpf))
+
     street = fields.Char(
         string="Logadouro",
         size=60,
@@ -223,20 +237,6 @@ class PartyMixin(models.AbstractModel):
     #     comodel_name="res.country",
     #     default=lambda self: self.env.ref("base.br"),
     # )
-
-    @api.depends("formatted_cnpj_cpf")
-    def _compute_cnpj_cpf_stripped(self):
-        for record in self:
-            if record.formatted_cnpj_cpf:
-                record.vat = "".join(
-                    char for char in record.formatted_cnpj_cpf if char.isalnum()
-                )
-            else:
-                record.vat = False
-
-    @api.onchange("formatted_cnpj_cpf")
-    def _onchange_cnpj_cpf(self):
-        self.formatted_cnpj_cpf = cnpj_cpf.formata(str(self.formatted_cnpj_cpf))
 
     @api.onchange("zip")
     def _onchange_zip(self):
