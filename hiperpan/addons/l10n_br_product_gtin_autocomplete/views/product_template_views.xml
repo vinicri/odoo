@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Extend product.template form to add GTIN search field -->
+    <record id="view_product_template_form_gtin_search" model="ir.ui.view">
+        <field name="name">product.template.form.gtin.search</field>
+        <field name="model">product.template</field>
+        <field name="priority" eval="5" />
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <!-- Add GTIN search field at the top of the form -->
+            <xpath expr="//field[@name='name']" position="before">
+                <field name="search_gtin" placeholder="Digite GTIN/EAN (8, 12, 13 ou 14 dígitos)" class="oe_inline"/>
+                <label for="search_gtin" string="Consulta Automática CCG" class="oe_edit_only"/>
+            </xpath>
+
+            <!-- Add help text below the name field -->
+            <!-- <xpath expr="//field[@name='name']" position="after">
+                <div class="alert alert-info oe_edit_only" role="alert" attrs="{'invisible': ['|', ('id', '!=', False), ('search_gtin', '!=', False)]}">
+                    <strong>Dica:</strong> Para preenchimento automático dos dados do produto,
+                    utilize o campo <strong>GTIN/EAN</strong> acima.
+                    Os dados serão consultados automaticamente no CCG (Cadastro Centralizado de GTIN)
+                    mantido pela GS1 Brasil quando você digitar o código de barras completo
+                    (8, 12, 13 ou 14 dígitos).
+                    <br/><br/>
+                    <strong>Atenção:</strong> Este serviço só funciona para produtos registrados
+                    na GS1 Brasil (prefixos 789 e 790).
+                </div>
+            </xpath> -->
+        </field>
+    </record>
+</odoo>

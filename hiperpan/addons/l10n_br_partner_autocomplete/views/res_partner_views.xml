@@ -10,7 +10,7 @@
             <xpath expr="//field[@id='company']" position="replace">
                 <!-- New partner: show custom field (no id yet) -->
                 <field id="search_cnpj_cpf" name="search_cnpj_cpf" options="{'line_breaks': False}" placeholder="CNPJ para procurar" widget="text" class="text-break" default_focus="1" invisible="id or not is_company" required="type == 'contact'"/>
-                <field id="name" invisible="1"/>
+                <field name="name" invisible="1"/>
                 <!-- Existing partner: restore original field -->
                 <field id="company" name="name" options="{'line_breaks': False}" widget="text" class="text-break" default_focus="1" placeholder="e.g. Lumber Inc" invisible="not id or not is_company" required="type == 'contact'"/>
             </xpath>
