@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem
+        id="menu_dfe_monitor_root"
+        name="Monitor DFe"
+        sequence="85"/>
+
+    <menuitem
+        id="menu_dfe_monitor_documents"
+        name="Documentos Recebidos"
+        parent="menu_dfe_monitor_root"
+        action="l10n_br_dfe_monitor.action_dfe_document"
+        sequence="10"/>
+
+    <menuitem
+        id="menu_dfe_monitor_consult"
+        name="Consultar DFes"
+        parent="menu_dfe_monitor_root"
+        action="l10n_br_dfe_monitor.action_dfe_query_wizard"
+        sequence="20"/>
+
+</odoo>

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- List View -->
+    <record id="view_dfe_document_list" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.document.list</field>
+        <field name="model">l10n_br_dfe_monitor.document</field>
+        <field name="arch" type="xml">
+            <list string="Documentos Fiscais Eletrônicos" default_order="nsu desc"
+                  decoration-info="state == 'new'"
+                  decoration-success="state == 'processed'"
+                  decoration-danger="state == 'error'">
+                <field name="nsu"/>
+                <field name="document_type"/>
+                <field name="schema"/>
+                <field name="ch_nfe"/>
+                <field name="emit_name"/>
+                <field name="dest_name"/>
+                <field name="n_nf"/>
+                <field name="v_nf"/>
+                <field name="dh_emi"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'new'"
+                       decoration-success="state == 'processed'"
+                       decoration-danger="state == 'error'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_dfe_document_form" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.document.form</field>
+        <field name="model">l10n_br_dfe_monitor.document</field>
+        <field name="arch" type="xml">
+            <form string="Documento Fiscal Eletrônico">
+                <header>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="new,processed,error"/>
+                </header>
+                <sheet>
+                    <group string="Identificação">
+                        <group>
+                            <field name="nsu"/>
+                            <field name="document_type"/>
+                            <field name="schema"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group>
+                            <field name="ch_nfe"/>
+                            <field name="n_nf"/>
+                            <field name="dh_emi"/>
+                            <field name="v_nf"/>
+                        </group>
+                    </group>
+                    <group string="Emitente / Destinatário">
+                        <group>
+                            <field name="emit_cnpj"/>
+                            <field name="emit_name"/>
+                        </group>
+                        <group>
+                            <field name="dest_cnpj"/>
+                            <field name="dest_name"/>
+                        </group>
+                    </group>
+                    <group string="Arquivo XML">
+                        <field name="xml_file" filename="xml_filename" widget="binary"/>
+                        <field name="xml_filename" invisible="1"/>
+                    </group>
+                    <notebook>
+                        <page string="XML">
+                            <field name="xml_content" widget="text" readonly="1"/>
+                        </page>
+                        <page string="Observações">
+                            <field name="notes" widget="text"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_dfe_document_search" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.document.search</field>
+        <field name="model">l10n_br_dfe_monitor.document</field>
+        <field name="arch" type="xml">
+            <search string="Buscar DFe">
+                <field name="nsu" string="NSU"/>
+                <field name="ch_nfe" string="Chave de Acesso"/>
+                <field name="emit_name" string="Emitente"/>
+                <field name="dest_name" string="Destinatário"/>
+                <field name="n_nf" string="Número NF-e"/>
+                <filter string="Novos" name="new" domain="[('state','=','new')]"/>
+                <filter string="Processados" name="processed" domain="[('state','=','processed')]"/>
+                <filter string="Erros" name="error" domain="[('state','=','error')]"/>
+                <separator/>
+                <filter string="NF-e Completa" name="proc_nfe" domain="[('schema','ilike','procNFe')]"/>
+                <filter string="Resumo NF-e" name="res_nfe" domain="[('schema','ilike','resNFe')]"/>
+                <filter string="Eventos" name="eventos" domain="[('schema','ilike','Evento')]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter string="Tipo de Documento" name="group_type" context="{'group_by': 'document_type'}"/>
+                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_dfe_document" model="ir.actions.act_window">
+        <field name="name">Documentos DFe</field>
+        <field name="res_model">l10n_br_dfe_monitor.document</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dfe_document_search"/>
+        <field name="context">{'search_default_new': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nenhum DFe recebido ainda.
+            </p>
+            <p>
+                Clique em "Consultar DFes" para buscar documentos fiscais
+                eletrônicos de interesse desta empresa no Ambiente Nacional da SEFAZ.
+            </p>
+        </field>
+    </record>
+
+</odoo>
