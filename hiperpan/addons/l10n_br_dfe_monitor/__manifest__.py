@@ -16,7 +16,7 @@
         - Suporte a ambientes de produção e homologação
     """,
     "author": "Hiperpan",
-    "depends": ["l10n_br_fiscal", "l10n_br_certificate"],
+    "depends": ["l10n_br_fiscal", "l10n_br_certificate", "l10n_br_nfe"],
     "license": "LGPL-3",
     "data": [
         "security/ir.model.access.csv",
@@ -25,7 +25,7 @@
         "views/dfe_menu.xml",
     ],
     "external_dependencies": {
-        "python": ["requests", "cryptography"],
+        "python": ["requests", "cryptography", "erpbrasil.base"],
     },
     "installable": True,
     "auto_install": False,

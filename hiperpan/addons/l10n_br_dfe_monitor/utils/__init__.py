@@ -1,1 +1,1 @@
-from . import schema_validator
+from . import schema_validator, consult_dist_dfe

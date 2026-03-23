@@ -1,6 +1,7 @@
 """
 Wizard para consulta de DFes
 """
+
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
@@ -19,8 +20,12 @@ class DfeQueryWizard(models.TransientModel):
         required=True,
         default="distNSU",
     )
-    nsu = fields.Char(string="NSU", help="Número Sequencial Único (para consulta por NSU)")
-    ch_nfe = fields.Char(string="Chave de Acesso", size=44, help="44 dígitos da chave de acesso da NF-e")
+    nsu = fields.Char(
+        string="NSU", help="Número Sequencial Único (para consulta por NSU)"
+    )
+    ch_nfe = fields.Char(
+        string="Chave de Acesso", size=44, help="44 dígitos da chave de acesso da NF-e"
+    )
     result_message = fields.Text(string="Resultado", readonly=True)
 
     @api.onchange("query_type")
@@ -38,11 +43,17 @@ class DfeQueryWizard(models.TransientModel):
 
         DfeDocument = self.env["l10n_br_dfe_monitor.document"]
 
-        result = DfeDocument.consult_dist_dfe(
-            query_type=self.query_type,
-            nsu=self.nsu,
-            ch_nfe=self.ch_nfe,
-        )
+        company = self.env.company
+
+        result = DfeDocument.consult_dist_dfe()
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("DFes Recebidos"),
+            "res_model": "l10n_br_dfe_monitor.document",
+            "view_mode": "list,form",
+            "target": "current",
+        }
 
         new_count = result.get("new_count", 0)
         ult_nsu = result.get("ult_nsu", "-")
@@ -51,10 +62,12 @@ class DfeQueryWizard(models.TransientModel):
 
         # Atualizar NSUs na empresa
         company = self.env.company
-        company.write({
-            "dfe_last_nsu": ult_nsu,
-            "dfe_max_nsu": max_nsu,
-        })
+        company.write(
+            {
+                "dfe_last_nsu": ult_nsu,
+                "dfe_max_nsu": max_nsu,
+            }
+        )
 
         msg = _(
             "Consulta realizada com sucesso!\n\n"
