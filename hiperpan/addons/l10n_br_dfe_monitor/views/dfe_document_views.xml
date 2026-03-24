@@ -7,6 +7,10 @@
         <field name="model">l10n_br_dfe_monitor.document</field>
         <field name="arch" type="xml">
             <list string="Documentos Fiscais Eletrônicos" default_order="nsu desc">
+                <header>
+                    <button name="action_process_res_nfe" type="object" string="Resumos NF-e" display="always" />
+                    <button name="action_set_all_pending" type="object" string="Todos pendentes" display="always" />
+                </header>
                 <field name="nsu"/>
                 <field name="document_type"/>
                 <field name="schema"/>

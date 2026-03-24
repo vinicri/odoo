@@ -21,6 +21,7 @@
     "data": [
         "security/ir.model.access.csv",
         "views/dfe_document_views.xml",
+        "views/dfe_res_nfe_views.xml",
         "wizard/dfe_query_wizard_views.xml",
         "views/dfe_menu.xml",
     ],

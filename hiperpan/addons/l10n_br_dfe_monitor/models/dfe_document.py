@@ -28,12 +28,17 @@ NFE_DIST_DFE_URLS = {
     "homologation": "https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx",
 }
 
-SCHEMA_TYPE_LABELS = {
-    "resNFe": "Resumo NF-e",
-    "procNFe": "NF-e Completa",
-    "resEvento": "Resumo de Evento",
-    "procEventoNFe": "Evento NF-e",
-}
+
+SCHEMA_TYPE_RES_NFE = "resNFe"
+SCHEMA_TYPE_PROC_NFE = "procNFe"
+SCHEMA_TYPE_RES_EVENTO = "resEvento"
+SCHEMA_TYPE_PROC_EVENTO_NFE = "procEventoNFe"
+SCHEMA_TYPES = [
+    (SCHEMA_TYPE_RES_NFE, "Resumo NF-e"),
+    (SCHEMA_TYPE_PROC_NFE, "NF-e Completa"),
+    (SCHEMA_TYPE_RES_EVENTO, "Resumo de Evento"),
+    (SCHEMA_TYPE_PROC_EVENTO_NFE, "Evento NF-e"),
+]
 
 
 class DfeDocument(models.Model):
@@ -53,8 +58,11 @@ class DfeDocument(models.Model):
 
     schema = fields.Char(string="Schema XML", readonly=True, required=True)
 
-    document_type = fields.Char(
-        string="Tipo de Documento", compute="_compute_document_type", store=True
+    document_type = fields.Selection(
+        string="Tipo de Documento",
+        selection=SCHEMA_TYPES,
+        compute="_compute_document_type",
+        store=True,
     )
 
     tp_amb = fields.Selection(
@@ -104,13 +112,12 @@ class DfeDocument(models.Model):
     @api.depends("schema")
     def _compute_document_type(self):
         for rec in self:
-            doc_type = "Desconhecido"
-            if rec.schema:
-                for key, label in SCHEMA_TYPE_LABELS.items():
-                    if key in rec.schema:
-                        doc_type = label
-                        break
-            rec.document_type = doc_type
+            rec.document_type = False
+            schema_key = (rec.schema or "").split("_", 1)[0]
+            for schema_type in SCHEMA_TYPES:
+                if schema_key == schema_type[0]:
+                    rec.document_type = schema_type[0]
+                    break
 
     def _extract_nfe_data(self, xml_string, schema):
         """Extrai dados relevantes do XML do DFe"""
@@ -305,6 +312,55 @@ class DfeDocument(models.Model):
                 exc_info=True,
             )
             raise
+
+    def action_set_all_pending(self):
+        self.search([("state", "!=", "pending")]).state = "pending"
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Processamento"),
+                "message": _("Todos os documentos foram definidos como pendentes."),
+            },
+        }
+
+    @api.model
+    def _process_res_nfe(self):
+        """Processa o registro de Resumo NF-e"""
+        company = self.env.company
+        tp_amb = company.fiscal_document_emission_env
+        pending_res_nfe = self.env["l10n_br_dfe_monitor.document"].search(
+            [
+                ("company_id", "=", company.id),
+                ("tp_amb", "=", tp_amb),
+                ("state", "=", "pending"),
+                ("document_type", "=", SCHEMA_TYPE_RES_NFE),
+            ]
+        )
+        ResNfe = self.env["l10n_br_dfe_monitor.res_nfe"]
+        for res_nfe in pending_res_nfe:
+            record = ResNfe.create_from_dfe_document(res_nfe)
+            if record:
+                res_nfe.state = "processed"
+            else:
+                _logger.warning(
+                    f"Erro ao criar res_nfe: {res_nfe.id} - {res_nfe.dfe_document_id.nsu}"
+                )
+                res_nfe.state = "error"
+
+    def action_process_res_nfe(self):
+        """Botão da lista: processa resumos NF-e pendentes para a empresa atual."""
+        self._process_res_nfe()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Processamento"),
+                "message": _("Resumos NF-e pendentes foram processados."),
+                "type": "success",
+                "sticky": False,
+            },
+        }
 
     @api.model
     def consult_dist_dfe(self):

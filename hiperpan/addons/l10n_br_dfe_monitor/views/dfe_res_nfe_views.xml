@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- List View -->
+    <record id="view_dfe_res_nfe_list" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.res_nfe.list</field>
+        <field name="model">l10n_br_dfe_monitor.res_nfe</field>
+        <field name="arch" type="xml">
+            <list string="Resumos NF-e" decoration-success="c_sit_nfe == '1'" decoration-danger="c_sit_nfe == '2'" decoration-muted="c_sit_nfe == '3'">
+                <field name="dh_recbto" string="Dt. Autorização"/>
+                <field name="dh_emi" string="Dt. Emissão"/>
+                <field name="ch_nfe"/>
+                <field name="x_nome" string="Emitente"/>
+                <field name="tp_nf"/>
+                <field name="v_nf" string="Valor"/>
+                <field name="c_sit_nfe"/>
+                <field name="manifestacao"/>
+                <field name="tp_amb"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_dfe_res_nfe_form" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.res_nfe.form</field>
+        <field name="model">l10n_br_dfe_monitor.res_nfe</field>
+        <field name="arch" type="xml">
+            <form string="Resumo NF-e">
+                <sheet>
+                    <group string="Identificação">
+                        <field name="ch_nfe"/>
+                        <field name="versao"/>
+                        <field name="tp_amb"/>
+                        <field name="c_sit_nfe"/>
+                        <field name="dfe_document_id"/>
+                    </group>
+                    <group string="Emitente">
+                        <field name="emit_cnpj"/>
+                        <field name="emit_cpf"/>
+                        <field name="x_nome"/>
+                        <field name="ie"/>
+                    </group>
+                    <group string="Dados da NF-e">
+                        <field name="tp_nf"/>
+                        <field name="v_nf"/>
+                        <field name="dh_emi"/>
+                        <field name="dh_recbto"/>
+                        <field name="n_prot"/>
+                        <field name="dig_val"/>
+                    </group>
+                    <group string="Manifestação do Destinatário">
+                        <field name="manifestacao"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_dfe_res_nfe" model="ir.actions.act_window">
+        <field name="name">Resumos NF-e</field>
+        <field name="res_model">l10n_br_dfe_monitor.res_nfe</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_company_id': True}</field>
+    </record>
+
+</odoo>

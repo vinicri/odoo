@@ -14,6 +14,13 @@
         sequence="10"/>
 
     <menuitem
+        id="menu_dfe_monitor_res_nfe"
+        name="Resumos NF-e"
+        parent="menu_dfe_monitor_root"
+        action="l10n_br_dfe_monitor.action_dfe_res_nfe"
+        sequence="15"/>
+
+    <menuitem
         id="menu_dfe_monitor_consult"
         name="Consultar DFes"
         parent="menu_dfe_monitor_root"
