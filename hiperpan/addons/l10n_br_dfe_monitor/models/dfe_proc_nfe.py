@@ -1,0 +1,669 @@
+"""
+Brazilian DFe Monitor - NF-e Processada (procNFe)
+
+Armazena os dados extraídos do XML procNFe recebido via NFeDistribuicaoDFe.
+O procNFe contém a NF-e completa (infNFe) + protocolo de autorização (protNFe).
+"""
+
+import base64
+import logging
+from datetime import datetime, timezone
+from lxml import etree
+from odoo import api, fields, models, _
+
+_logger = logging.getLogger(__name__)
+
+NS = "http://www.portalfiscal.inf.br/nfe"
+
+
+def _parse_nfe_dh(s):
+    """Parse de data/hora ISO-8601 com offset (ex. -03:00 ou Z) para UTC naive (Odoo Datetime)."""
+    if not s:
+        return None
+    s = s.strip().replace("Z", "+00:00")
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
+def _find(root, *tags):
+    """Busca um elemento pelo primeiro tag encontrado, com ou sem namespace."""
+    for tag in tags:
+        el = root.find(f"{{{NS}}}{tag}")
+        if el is not None:
+            return el
+        el = root.find(f".//{{{NS}}}{tag}")
+        if el is not None:
+            return el
+    return None
+
+
+def _text(root, *tags):
+    el = _find(root, *tags)
+    return el.text if el is not None else None
+
+
+class DfeProcNfe(models.Model):
+    _name = "l10n_br_dfe_monitor.proc_nfe"
+    _description = "NF-e Processada (procNFe)"
+    _order = "dh_emi desc, id desc"
+    _rec_name = "ch_nfe"
+
+    company_id = fields.Many2one(
+        "res.company",
+        string="Empresa",
+        required=True,
+        default=lambda self: self.env.company,
+        index=True,
+    )
+    dfe_document_id = fields.Many2one(
+        "l10n_br_dfe_monitor.document",
+        string="DFe Documento",
+        ondelete="set null",
+        index=True,
+    )
+
+    tp_amb = fields.Selection(
+        [("1", "Produção"), ("2", "Homologação")],
+        string="Tipo de Ambiente",
+        readonly=True,
+        required=True,
+    )
+
+    # ── Grupo A/B – Identificação da NF-e ──────────────────────────────────
+    versao = fields.Char(string="Versão", readonly=True, required=True)
+    ch_nfe = fields.Char(
+        string="Chave de Acesso", size=44, index=True, readonly=True, required=True
+    )
+    c_uf = fields.Char(string="UF Emitente (cód)", size=2, readonly=True, required=True)
+    nat_op = fields.Char(string="Natureza da Operação", readonly=True, required=True)
+    mod = fields.Char(string="Modelo", size=2, readonly=True, required=True)
+    serie = fields.Char(string="Série", size=3, readonly=True, required=True)
+    n_nf = fields.Char(string="Número NF", readonly=True, required=True)
+    dh_emi = fields.Datetime(string="Data de Emissão", readonly=True, required=True)
+    dh_sai_ent = fields.Datetime(string="Data Saída/Entrada", readonly=True)
+    tp_nf = fields.Selection(
+        [("0", "Entrada"), ("1", "Saída")],
+        string="Tipo de Operação",
+        readonly=True,
+        required=True,
+    )
+    id_dest = fields.Selection(
+        [("1", "Interna"), ("2", "Interestadual"), ("3", "Exterior")],
+        string="Destino",
+        readonly=True,
+        required=True,
+    )
+    c_mun_fg = fields.Char(
+        string="Código do Município do Fato Gerador", readonly=True, required=True
+    )
+    tp_imp = fields.Selection(
+        [
+            ("0", "Sem DANFE"),
+            ("1", "DANFE Retrato"),
+            ("2", "DANFE Paisagem"),
+            ("3", "DANFE Simplificado"),
+            ("4", "DANFE NFC-e"),
+            ("5", "DANFE NFC-e em mensagem eletrônica"),
+        ],
+        string="Tipo de Impresso",
+        readonly=True,
+    )
+
+    tp_emis = fields.Selection(
+        [
+            ("1", "Normal"),
+            ("2", "Contingência FS"),
+            ("3", "Regime Especial NFF"),
+            ("4", "Contingência DPEC"),
+            ("5", "Contingência FSDA"),
+            ("6", "Contingência SVC - AN"),
+            ("7", "Contingência SVC - RS"),
+            ("9", "Contingência off-line NFC-e"),
+        ],
+        string="Tipo de Emissão",
+        readonly=True,
+    )
+
+    fin_nfe = fields.Selection(
+        [
+            ("1", "Normal"),
+            ("2", "Complementar"),
+            ("3", "Ajuste"),
+            ("4", "Devolução"),
+        ],
+        string="Finalidade",
+        readonly=True,
+    )
+    ind_final = fields.Selection(
+        [("0", "Normal"), ("1", "Consumidor Final")],
+        string="Consumidor Final",
+        readonly=True,
+    )
+    ind_pres = fields.Selection(
+        [
+            ("0", "Não se aplica"),
+            ("1", "Presencial"),
+            ("2", "Internet"),
+            ("3", "Teleatendimento"),
+            ("4", "Domicílio NFC-e"),
+            ("5", "Presencial fora estab."),
+            ("9", "Outros"),
+        ],
+        string="Presença Comprador",
+        readonly=True,
+    )
+
+    ind_intermed = fields.Selection(
+        [("0", "Operação sem intermediador"), ("1", "Operação com intermediador")],
+        string="Intermediador",
+        readonly=True,
+    )
+
+    proc_emi = fields.Selection(
+        [
+            ("0", "Emissão de NF-e com aplicativo do contribuinte"),
+            ("1", "Emissão de NF-e avulsa pelo Fisco"),
+            (
+                "2",
+                "Emissão de NF-e avulsa, pelo contribuinte com seu certificado digital, através do site do Fisco",
+            ),
+            ("3", "Emissão NF-e pelo contribuinte com aplicativo fornecido pelo Fisco"),
+        ],
+        string="Processo de Emissão",
+        readonly=True,
+    )
+
+    # TODO documento referenciado
+
+    # ── Grupo C – Emitente ─────────────────────────────────────────────────
+    emit_cnpj = fields.Char(string="CNPJ Emitente", size=14, readonly=True)
+    emit_cpf = fields.Char(string="CPF Emitente", size=11, readonly=True)
+    emit_x_nome = fields.Char(
+        string="Razão Social Emitente", readonly=True, required=True
+    )
+    emit_x_fant = fields.Char(string="Nome Fantasia Emitente", readonly=True)
+    emit_ender_x_lgr = fields.Char(
+        string="Endereço Emitente", readonly=True, required=True
+    )
+    emit_ender_nro = fields.Char(string="Número Emitente", readonly=True, required=True)
+    emit_ender_xCpl = fields.Char(string="Complemento Emitente", readonly=True)
+    emit_ender_xBairro = fields.Char(
+        string="Bairro Emitente", readonly=True, required=True
+    )
+    emit_ender_cMun = fields.Char(
+        string="Codigo do Municipio Emitente", readonly=True, required=True
+    )
+    emit_ender_xMun = fields.Char(
+        string="Município Emitente", readonly=True, required=True
+    )
+    emit_ender_UF = fields.Char(
+        string="UF Emitente", size=2, readonly=True, required=True
+    )
+    emit_ender_CEP = fields.Char(string="CEP Emitente", readonly=True, required=True)
+    emit_ender_cPais = fields.Char(string="Codigo do Pais Emitente", readonly=True)
+    emit_ender_xPais = fields.Char(string="Pais Emitente", readonly=True)
+
+    emit_ender_fone = fields.Char(string="Telefone Emitente", readonly=True)
+
+    emit_ie = fields.Char(string="IE Emitente", readonly=True, required=True)
+    emit_iest = fields.Char(string="IE Substituto Tributário Emitente", readonly=True)
+    emit_im = fields.Char(string="IM Emitente", readonly=True)
+    emit_cnae = fields.Char(string="CNAE Emitente", readonly=True)
+    emit_crt = fields.Selection(
+        [
+            ("1", "Simples Nacional"),
+            ("2", "Simples Nacional – excesso"),
+            ("3", "Regime Normal"),
+        ],
+        string="CRT Emitente",
+        readonly=True,
+        required=True,
+    )
+
+    # ── Grupo E – Destinatário ─────────────────────────────────────────────
+    dest_cnpj = fields.Char(string="CNPJ Destinatário", size=14, readonly=True)
+    dest_cpf = fields.Char(string="CPF Destinatário", size=11, readonly=True)
+    dest_id_estrangeiro = fields.Char(
+        string="ID Estrangeiro Destinatário", readonly=True
+    )
+    dest_x_nome = fields.Char(string="Nome Destinatário", readonly=True)
+
+    dest_ender_x_lgr = fields.Char(string="Endereço Destinatário", readonly=True)
+    dest_ender_nro = fields.Char(string="Número Destinatário", readonly=True)
+    dest_ender_xCpl = fields.Char(string="Complemento Destinatário", readonly=True)
+    dest_ender_xBairro = fields.Char(string="Bairro Destinatário", readonly=True)
+    dest_ender_cMun = fields.Char(
+        string="Codigo do Municipio Destinatário", readonly=True
+    )
+    dest_ender_xMun = fields.Char(string="Município Destinatário", readonly=True)
+    dest_ender_UF = fields.Char(string="UF Destinatário", size=2, readonly=True)
+    dest_ender_CEP = fields.Char(string="CEP Destinatário", readonly=True)
+    dest_ender_cPais = fields.Char(string="Codigo do Pais Destinatário", readonly=True)
+    dest_ender_xPais = fields.Char(string="Pais Destinatário", readonly=True)
+
+    dest_ender_fone = fields.Char(string="Telefone Destinatário", readonly=True)
+    dest_email = fields.Char(string="E-mail Destinatário", readonly=True)
+
+    dest_ind_ie = fields.Selection(
+        [
+            ("1", "Contribuinte ICMS (informar a IE do destinatário)"),
+            ("2", "Contribuinte isento de Inscrição no cadastro de Contribuintes"),
+            (
+                "9",
+                "Não Contribuinte (pode ou não possuir IE no Cadastro de Contribuintes do ICMS)",
+            ),
+        ],
+        string="Indicador da IE do Destinatário",
+        readonly=True,
+    )
+
+    dest_ie = fields.Char(string="IE Destinatário", readonly=True)
+    dest_isuf = fields.Char(string="SUFRAMA Destinatário", readonly=True)
+    dest_im = fields.Char(string="Inscrição Municipal Destinatário", readonly=True)
+
+    # TODO transportes
+    # TODO dados cobranca
+    # TODO pagamento
+    # TODO intermediador
+    # TODO inf adicionais
+    # TODO info comercio exterior
+
+    # ── Grupo W – Totais ICMS ──────────────────────────────────────────────
+    v_bc = fields.Float(
+        string="Base Cálculo ICMS", digits=(13, 2), readonly=True, required=True
+    )
+    v_icms = fields.Float(
+        string="Valor ICMS", digits=(13, 2), readonly=True, required=True
+    )
+    v_icms_deson = fields.Float(
+        string="ICMS Desonerado", digits=(13, 2), readonly=True, required=True
+    )
+    v_fcp_uf_dest = fields.Float(
+        string="Valor FCP da UF de Destino",
+        digits=(13, 2),
+        readonly=True,
+    )
+    v_icms_uf_dest = fields.Float(
+        string="Valor ICMS da UF de Destino",
+        digits=(13, 2),
+        readonly=True,
+    )
+    v_icms_uf_remet = fields.Float(
+        string="Valor ICMS da UF de Remetente",
+        digits=(13, 2),
+        readonly=True,
+    )
+    v_fcp = fields.Float(
+        string="Valor FCP", digits=(13, 2), readonly=True, required=True
+    )
+    v_bc_st = fields.Float(
+        string="Base Cálculo ICMS ST", digits=(13, 2), readonly=True, required=True
+    )
+    v_st = fields.Float(
+        string="Valor ICMS ST", digits=(13, 2), readonly=True, required=True
+    )
+    v_fcp_st = fields.Float(
+        string="Valor FCP ST", digits=(13, 2), readonly=True, required=True
+    )
+    v_fcp_st_ret = fields.Float(
+        string="Valor FCP ST Retido", digits=(13, 2), readonly=True, required=True
+    )
+    v_prod = fields.Float(
+        string="Valor Produtos/Serviços", digits=(13, 2), readonly=True, required=True
+    )
+    v_frete = fields.Float(string="Frete", digits=(13, 2), readonly=True, required=True)
+    v_seg = fields.Float(string="Seguro", digits=(13, 2), readonly=True, required=True)
+    v_desc = fields.Float(
+        string="Desconto", digits=(13, 2), readonly=True, required=True
+    )
+    v_ii = fields.Float(
+        string="Imposto Importação", digits=(13, 2), readonly=True, required=True
+    )
+    v_ipi = fields.Float(string="IPI", digits=(13, 2), readonly=True, required=True)
+    v_ipi_devol = fields.Float(
+        string="IPI Devolvido", digits=(13, 2), readonly=True, required=True
+    )
+    v_pis = fields.Float(string="PIS", digits=(13, 2), readonly=True, required=True)
+    v_cofins = fields.Float(
+        string="COFINS", digits=(13, 2), readonly=True, required=True
+    )
+    v_outro = fields.Float(
+        string="Outras Despesas", digits=(13, 2), readonly=True, required=True
+    )
+    v_nf = fields.Float(
+        string="Valor Total NF-e", digits=(13, 2), readonly=True, required=True
+    )
+    v_tot_trib = fields.Float(string="Aprox. Tributos", digits=(13, 2), readonly=True)
+
+    # ── Protocolo de Autorização (protNFe) ─────────────────────────────────
+    # n_prot = fields.Char(string="Número Protocolo", readonly=True)
+    # dh_recbto = fields.Datetime(string="Data Autorização", readonly=True)
+    # c_stat = fields.Char(string="Código Status (cStat)", size=3, readonly=True)
+    # x_motivo = fields.Char(string="Motivo Status", readonly=True)
+    # dig_val = fields.Char(string="Digest Value", readonly=True)
+
+    # ── Informações adicionais ─────────────────────────────────────────────
+    inf_cpl = fields.Text(string="Informações Complementares", readonly=True)
+    inf_ad_fisco = fields.Text(string="Inf. de Interesse do Fisco", readonly=True)
+
+    # ── Manifestação do destinatário ───────────────────────────────────────
+    # manifestacao = fields.Selection(
+    #     [
+    #         ("ciencia", "Ciência da Operação"),
+    #         ("confirmado", "Confirmação da Operação"),
+    #         ("nao_realizada", "Operação Não Realizada"),
+    #         ("desconhecido", "Desconhecimento da Operação"),
+    #     ],
+    #     string="Manifestação do Destinatário",
+    # )
+
+    @api.model
+    def _create_from_dfe_document(self, dfe_doc):
+        """
+        Cria um registro procNFe a partir de um DfeDocument com schema procNFe.
+        Retorna o registro criado ou None em caso de erro.
+        """
+        try:
+            if not dfe_doc.xml_file:
+                _logger.warning(f"DFe {dfe_doc.nsu}: xml_file vazio, ignorando.")
+                return None
+
+            raw_xml = base64.b64decode(dfe_doc.xml_file)
+            root = etree.fromstring(raw_xml)
+
+            # ── infNFe / ide / emit / dest / total / infAdic ────────────────────
+            nfe = _find(root, "NFe")
+            if nfe is None:
+                raise ValueError(f"DFe {dfe_doc.nsu}: elemento NFe não encontrado.")
+
+            inf_nfe = _find(nfe, "infNFe")
+            if inf_nfe is None:
+                raise ValueError(f"DFe {dfe_doc.nsu}: elemento infNFe não encontrado.")
+
+            versao = inf_nfe.get("versao")
+            ch_nfe = (inf_nfe.get("Id") or "").replace("NFe", "") or _text(
+                inf_nfe, "chNFe"
+            )
+
+            # Grupo B – Identificação
+            ide = _find(inf_nfe, "ide")
+            if ide is None:
+                raise ValueError(f"DFe {dfe_doc.nsu}: elemento ide não encontrado.")
+
+            c_uf = _text(ide, "cUF")
+            nat_op = _text(ide, "natOp")
+            mod = _text(ide, "mod")
+            serie = _text(ide, "serie")
+            n_nf = _text(ide, "nNF")
+            dh_emi = _parse_nfe_dh(_text(ide, "dhEmi"))
+            dh_sai_ent = _parse_nfe_dh(_text(ide, "dhSaiEnt"))
+            tp_nf = _text(ide, "tpNF")
+            id_dest = _text(ide, "idDest")
+            c_mun_fg = _text(ide, "cMunFG")
+            tp_imp = _text(ide, "tpImp")
+            tp_emis = _text(ide, "tpEmis")
+            tp_amb = _text(ide, "tpAmb")
+            fin_nfe = _text(ide, "finNFe")
+            ind_final = _text(ide, "indFinal")
+            ind_pres = _text(ide, "indPres")
+            ind_intermed = _text(ide, "indIntermed")
+            proc_emi = _text(ide, "procEmi")
+
+            # Grupo C – Emitente
+            emit = _find(inf_nfe, "emit")
+            if emit is None:
+                raise ValueError(f"DFe {dfe_doc.nsu}: elemento emit não encontrado.")
+
+            emit_cnpj = _text(emit, "CNPJ")
+            emit_cpf = _text(emit, "CPF")
+            emit_x_nome = _text(emit, "xNome")
+            emit_x_fant = _text(emit, "xFant")
+
+            emit_ie = _text(emit, "IE")
+            emit_iest = _text(emit, "IEST")
+            emit_im = _text(emit, "IM")
+            emit_cnae = _text(emit, "CNAE")
+            emit_crt = _text(emit, "CRT")
+
+            ender_emit = _find(emit, "enderEmit")
+            if ender_emit is None:
+                raise ValueError(
+                    f"DFe {dfe_doc.nsu}: elemento enderEmit não encontrado."
+                )
+
+            emit_ender_x_lgr = _text(ender_emit, "xLgr")
+            emit_ender_nro = _text(ender_emit, "nro")
+            emit_ender_xCpl = _text(ender_emit, "xCpl")
+            emit_ender_xBairro = _text(ender_emit, "xBairro")
+            emit_ender_cMun = _text(ender_emit, "cMun")
+            emit_ender_xMun = _text(ender_emit, "xMun")
+            emit_ender_UF = _text(ender_emit, "UF")
+            emit_ender_CEP = _text(ender_emit, "CEP")
+            emit_ender_cPais = _text(ender_emit, "cPais")
+            emit_ender_xPais = _text(ender_emit, "xPais")
+            emit_ender_fone = _text(ender_emit, "fone")
+
+            # Grupo E – Destinatário
+            dest = _find(inf_nfe, "dest")
+            if dest is None:
+                raise ValueError(f"DFe {dfe_doc.nsu}: elemento dest não encontrado.")
+
+            dest_cnpj = _text(dest, "CNPJ")
+            dest_cpf = _text(dest, "CPF")
+            dest_id_estrangeiro = _text(dest, "idEstrangeiro")
+            dest_x_nome = _text(dest, "xNome")
+
+            dest_ind_ie = _text(dest, "indIEDest")
+            dest_ie = _text(dest, "IE")
+            dest_isuf = _text(dest, "ISUF")
+            dest_im = _text(dest, "IM")
+
+            dest_x_email = _text(dest, "email")
+
+            ender_dest = _find(dest, "enderDest")
+            if ender_dest is not None:
+                dest_ender_x_lgr = _text(ender_dest, "xLgr") or None
+                dest_ender_nro = _text(ender_dest, "nro") or None
+                dest_ender_xCpl = _text(ender_dest, "xCpl") or None
+                dest_ender_xBairro = _text(ender_dest, "xBairro") or None
+                dest_ender_cMun = _text(ender_dest, "cMun") or None
+                dest_ender_xMun = _text(ender_dest, "xMun") or None
+                dest_ender_UF = _text(ender_dest, "UF") or None
+                dest_ender_CEP = _text(ender_dest, "CEP") or None
+                dest_ender_cPais = _text(ender_dest, "cPais") or None
+                dest_ender_xPais = _text(ender_dest, "xPais") or None
+                dest_ender_fone = _text(ender_dest, "fone") or None
+
+            # Grupo W – Totais
+            total = _find(inf_nfe, "total")
+            icms_tot = _find(total, "ICMSTot")
+
+            if icms_tot is None:
+                raise ValueError(f"DFe {dfe_doc.nsu}: elemento ICMSTot não encontrado.")
+
+            def _fval(el, tag):
+                v = _text(el, tag) if el is not None else None
+                if v is None:
+                    return 0.0
+                v = v.strip()
+                if not v:
+                    return 0.0
+                # XML costuma usar ".", mas alguns fluxos podem vir com ","
+                v = v.replace(",", ".") if ("," in v and "." not in v) else v
+                try:
+                    return float(v)
+                except (ValueError, TypeError):
+                    return 0.0
+
+            v_bc = _fval(icms_tot, "vBC")
+            v_icms = _fval(icms_tot, "vICMS")
+            v_icms_deson = _fval(icms_tot, "vICMSDeson")
+            v_fcp_uf_dest = _fval(icms_tot, "vFCPUFDest")
+            v_icms_uf_dest = _fval(icms_tot, "vICMSUFDest")
+            v_icms_uf_remet = _fval(icms_tot, "vICMSUFRemet")
+            v_fcp = _fval(icms_tot, "vFCP")
+            v_bc_st = _fval(icms_tot, "vBCST")
+            v_st = _fval(icms_tot, "vST")
+            v_fcp_st = _fval(icms_tot, "vFCPST")
+            v_fcp_st_ret = _fval(icms_tot, "vFCPSTRet")
+            v_prod = _fval(icms_tot, "vProd")
+            v_frete = _fval(icms_tot, "vFrete")
+            v_seg = _fval(icms_tot, "vSeg")
+            v_desc = _fval(icms_tot, "vDesc")
+            v_ii = _fval(icms_tot, "vII")
+            v_ipi = _fval(icms_tot, "vIPI")
+            v_ipi_devol = _fval(icms_tot, "vIPIDevol")
+            v_pis = _fval(icms_tot, "vPIS")
+            v_cofins = _fval(icms_tot, "vCOFINS")
+            v_outro = _fval(icms_tot, "vOutro")
+            v_nf = _fval(icms_tot, "vNF")
+            v_tot_trib = _fval(icms_tot, "vTotTrib")
+
+            # Grupo Z – Informações adicionais
+            inf_adic = _find(inf_nfe, "infAdic")
+            inf_cpl = _text(inf_adic, "infCpl")
+            inf_ad_fisco = _text(inf_adic, "infAdFisco")
+
+            # # Se tags obrigatórias não existirem, aborta (evita gravação parcial inválida)
+            # required_str_fields = {
+            #     "versao": versao,
+            #     "ch_nfe": ch_nfe,
+            #     "c_uf": c_uf,
+            #     "nat_op": nat_op,
+            #     "mod": mod,
+            #     "serie": serie,
+            #     "n_nf": n_nf,
+            #     "dh_emi": dh_emi,
+            #     "tp_nf": tp_nf,
+            #     "id_dest": id_dest,
+            #     "tp_amb": tp_amb or dfe_doc.tp_amb,
+            #     "emit_x_nome": emit_x_nome,
+            #     "emit_ender_x_lgr": emit_ender_x_lgr,
+            #     "emit_ender_nro": emit_ender_nro,
+            #     "emit_ender_xBairro": emit_ender_xBairro,
+            #     "emit_ender_cMun": emit_ender_cMun,
+            #     "emit_ender_xMun": emit_ender_xMun,
+            #     "emit_ender_UF": emit_ender_UF,
+            #     "emit_ender_CEP": emit_ender_CEP,
+            #     "emit_ender_cPais": emit_ender_cPais,
+            #     "emit_ender_xPais": emit_ender_xPais,
+            #     "emit_ie": emit_ie,
+            #     "emit_crt": emit_crt,
+            # }
+            # missing = [k for k, v in required_str_fields.items() if not v]
+            # if missing:
+            #     _logger.warning(
+            #         f"DFe {dfe_doc.nsu}: faltando campos obrigatórios no XML: {', '.join(missing)}"
+            #     )
+            #     return None
+
+            vals = {
+                # Vínculos
+                "company_id": dfe_doc.company_id.id,
+                "dfe_document_id": dfe_doc.id,
+                "tp_amb": dfe_doc.tp_amb,
+                # Identificação
+                "versao": versao,
+                "ch_nfe": ch_nfe,
+                "c_uf": c_uf,
+                "nat_op": nat_op,
+                "mod": mod,
+                "serie": serie,
+                "n_nf": n_nf,
+                "dh_emi": dh_emi,
+                "dh_sai_ent": dh_sai_ent,
+                "tp_nf": tp_nf,
+                "id_dest": id_dest,
+                "c_mun_fg": c_mun_fg,
+                "tp_imp": tp_imp,
+                "tp_emis": tp_emis,
+                "fin_nfe": fin_nfe,
+                "ind_final": ind_final,
+                "ind_pres": ind_pres,
+                "ind_intermed": ind_intermed,
+                "proc_emi": proc_emi,
+                # Emitente
+                "emit_cnpj": emit_cnpj,
+                "emit_cpf": emit_cpf,
+                "emit_x_nome": emit_x_nome,
+                "emit_x_fant": emit_x_fant,
+                "emit_ender_x_lgr": emit_ender_x_lgr,
+                "emit_ender_nro": emit_ender_nro,
+                "emit_ender_xCpl": emit_ender_xCpl,
+                "emit_ender_xBairro": emit_ender_xBairro,
+                "emit_ender_cMun": emit_ender_cMun,
+                "emit_ender_xMun": emit_ender_xMun,
+                "emit_ender_UF": emit_ender_UF,
+                "emit_ender_CEP": emit_ender_CEP,
+                "emit_ender_cPais": emit_ender_cPais,
+                "emit_ender_xPais": emit_ender_xPais,
+                "emit_ender_fone": emit_ender_fone,
+                "emit_ie": emit_ie,
+                "emit_iest": emit_iest,
+                "emit_im": emit_im,
+                "emit_cnae": emit_cnae,
+                "emit_crt": emit_crt,
+                # Destinatário
+                "dest_cnpj": dest_cnpj,
+                "dest_cpf": dest_cpf,
+                "dest_id_estrangeiro": dest_id_estrangeiro,
+                "dest_x_nome": dest_x_nome,
+                "dest_ind_ie": dest_ind_ie,
+                "dest_ie": dest_ie,
+                "dest_isuf": dest_isuf,
+                "dest_im": dest_im,
+                "dest_ender_x_lgr": dest_ender_x_lgr,
+                "dest_ender_nro": dest_ender_nro,
+                "dest_ender_xCpl": dest_ender_xCpl,
+                "dest_ender_xBairro": dest_ender_xBairro,
+                "dest_ender_cMun": dest_ender_cMun,
+                "dest_ender_xMun": dest_ender_xMun,
+                "dest_ender_UF": dest_ender_UF,
+                "dest_ender_CEP": dest_ender_CEP,
+                "dest_ender_cPais": dest_ender_cPais,
+                "dest_ender_xPais": dest_ender_xPais,
+                "dest_ender_fone": dest_ender_fone,
+                "dest_email": dest_x_email,
+                # Totais
+                "v_bc": v_bc,
+                "v_icms": v_icms,
+                "v_icms_deson": v_icms_deson,
+                "v_fcp_uf_dest": v_fcp_uf_dest,
+                "v_icms_uf_dest": v_icms_uf_dest,
+                "v_icms_uf_remet": v_icms_uf_remet,
+                "v_fcp": v_fcp,
+                "v_bc_st": v_bc_st,
+                "v_st": v_st,
+                "v_fcp_st": v_fcp_st,
+                "v_fcp_st_ret": v_fcp_st_ret,
+                "v_prod": v_prod,
+                "v_frete": v_frete,
+                "v_seg": v_seg,
+                "v_desc": v_desc,
+                "v_ii": v_ii,
+                "v_ipi": v_ipi,
+                "v_ipi_devol": v_ipi_devol,
+                "v_pis": v_pis,
+                "v_cofins": v_cofins,
+                "v_outro": v_outro,
+                "v_nf": v_nf,
+                "v_tot_trib": v_tot_trib,
+                # Informações adicionais
+                "inf_cpl": inf_cpl,
+                "inf_ad_fisco": inf_ad_fisco,
+            }
+
+            record = self.create(vals)
+            _logger.info(
+                f"procNFe criado: id={record.id} chNFe={ch_nfe} NSU={dfe_doc.nsu}"
+            )
+            return record
+
+        except Exception as e:
+            _logger.error(
+                f"Erro ao criar procNFe para DFe NSU={dfe_doc.nsu}: {e}",
+                exc_info=True,
+            )
+            raise e

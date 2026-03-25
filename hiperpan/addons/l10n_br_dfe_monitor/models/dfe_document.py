@@ -363,6 +363,51 @@ class DfeDocument(models.Model):
         }
 
     @api.model
+    def _process_proc_nfe(self):
+        """Processa documentos procNFe pendentes, extraindo dados para l10n_br_dfe_monitor.proc_nfe."""
+        company = self.env.company
+        tp_amb = company.fiscal_document_emission_env
+        pending = self.env["l10n_br_dfe_monitor.document"].search(
+            [
+                ("company_id", "=", company.id),
+                ("tp_amb", "=", tp_amb),
+                ("state", "=", "pending"),
+                ("document_type", "=", SCHEMA_TYPE_PROC_NFE),
+            ]
+        )
+        ProcNfe = self.env["l10n_br_dfe_monitor.proc_nfe"]
+        for dfe_doc in pending:
+            try:
+                record = ProcNfe._create_from_dfe_document(dfe_doc)
+                if record:
+                    dfe_doc.state = "processed"
+                else:
+                    _logger.warning(
+                        f"Erro ao criar procNfe: {dfe_doc.id} - {dfe_doc.dfe_document_id.nsu}"
+                    )
+                    dfe_doc.state = "error"
+            except Exception as e:
+                _logger.error(
+                    f"Erro ao processar procNFe NSU={dfe_doc.nsu}: {e}",
+                    exc_info=True,
+                )
+                dfe_doc.state = "error"
+
+    def action_process_proc_nfe(self):
+        """Botão da lista: processa NF-e completas pendentes para a empresa atual."""
+        self._process_proc_nfe()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Processamento"),
+                "message": _("NF-e completas pendentes foram processadas."),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    @api.model
     def consult_dist_dfe(self):
         company = self.env.company
         tp_amb = company.fiscal_document_emission_env

@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- List View -->
+    <record id="view_dfe_proc_nfe_list" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.proc_nfe.list</field>
+        <field name="model">l10n_br_dfe_monitor.proc_nfe</field>
+        <field name="arch" type="xml">
+            <list string="NF-e Processadas">
+                <field name="dh_emi" string="Dt. Emissão"/>
+                <field name="serie" string="Série"/>
+                <field name="n_nf" string="Nº NF"/>
+                <field name="emit_x_nome" string="Emitente"/>
+                <field name="emit_ender_UF" string="UF"/>
+                <field name="tp_nf"/>
+                <field name="v_nf" string="Valor Total"/>
+                <field name="tp_amb"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_dfe_proc_nfe_form" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.proc_nfe.form</field>
+        <field name="model">l10n_br_dfe_monitor.proc_nfe</field>
+        <field name="arch" type="xml">
+            <form string="NF-e Processada">
+                <sheet>
+                    <group string="Empresa">
+                        <field name="company_id"/>
+                        <field name="dfe_document_id"/>
+                    </group>
+                    <group string="Identificação">
+                        <group>
+                            <field name="ch_nfe"/>
+                            <field name="versao"/>
+                            <field name="c_uf"/>
+                            <field name="mod"/>
+                            <field name="serie"/>
+                            <field name="n_nf"/>
+                            <field name="nat_op"/>
+                        </group>
+                        <group>
+                            <field name="tp_nf"/>
+                            <field name="tp_amb"/>
+                            <field name="fin_nfe"/>
+                            <field name="ind_final"/>
+                            <field name="ind_pres"/>
+                            <field name="id_dest"/>
+                            <field name="ind_intermed"/>
+                        </group>
+                        <group>
+                            <field name="dh_emi"/>
+                            <field name="dh_sai_ent"/>
+                        </group>
+                        <group>
+                            <field name="tp_imp"/>
+                            <field name="tp_emis"/>
+                            <field name="proc_emi"/>
+                        </group>
+                    </group>
+                    <group string="Emitente">
+                        <group>
+                            <field name="emit_cnpj"/>
+                            <field name="emit_cpf"/>
+                            <field name="emit_x_nome"/>
+                            <field name="emit_x_fant"/>
+                        </group>
+                        <group string="Endereço">
+                            <field name="emit_ender_x_lgr"/>
+                            <field name="emit_ender_nro"/>
+                            <field name="emit_ender_xCpl"/>
+                            <field name="emit_ender_xBairro"/>
+                        </group>
+                        <group string="Localização">
+                            <field name="emit_ender_cMun"/>
+                            <field name="emit_ender_xMun"/>
+                            <field name="emit_ender_UF"/>
+                            <field name="emit_ender_CEP"/>
+                            <field name="emit_ender_cPais"/>
+                            <field name="emit_ender_xPais"/>
+                        </group>
+                        <group string="Contato">
+                            <field name="emit_ender_fone"/>
+                        </group>
+                        <group string="Cadastro Fiscal">
+                            <field name="emit_ie"/>
+                            <field name="emit_iest"/>
+                            <field name="emit_im"/>
+                            <field name="emit_cnae"/>
+                            <field name="emit_crt"/>
+                        </group>
+                    </group>
+                    <group string="Destinatário">
+                        <group>
+                            <field name="dest_cnpj"/>
+                            <field name="dest_cpf"/>
+                            <field name="dest_id_estrangeiro"/>
+                            <field name="dest_x_nome"/>
+                        </group>
+                        <group>
+                            <field name="dest_ind_ie"/>
+                            <field name="dest_ie"/>
+                            <field name="dest_isuf"/>
+                            <field name="dest_im"/>
+                        </group>
+                        <group string="Endereço">
+                            <field name="dest_ender_x_lgr"/>
+                            <field name="dest_ender_nro"/>
+                            <field name="dest_ender_xCpl"/>
+                            <field name="dest_ender_xBairro"/>
+                        </group>
+                        <group string="Localização">
+                            <field name="dest_ender_cMun"/>
+                            <field name="dest_ender_xMun"/>
+                            <field name="dest_ender_UF"/>
+                            <field name="dest_ender_CEP"/>
+                            <field name="dest_ender_cPais"/>
+                            <field name="dest_ender_xPais"/>
+                        </group>
+                        <group string="Contato">
+                            <field name="dest_ender_fone"/>
+                            <field name="dest_email"/>
+                        </group>
+                    </group>
+                    <group string="Totais">
+                        <group>
+                            <field name="v_bc"/>
+                            <field name="v_icms"/>
+                            <field name="v_icms_deson"/>
+                            <field name="v_fcp_uf_dest"/>
+                            <field name="v_icms_uf_dest"/>
+                            <field name="v_icms_uf_remet"/>
+                            <field name="v_fcp"/>
+                        </group>
+                        <group>
+                            <field name="v_bc_st"/>
+                            <field name="v_st"/>
+                            <field name="v_fcp_st"/>
+                            <field name="v_fcp_st_ret"/>
+                        </group>
+                        <group>
+                            <field name="v_prod"/>
+                            <field name="v_frete"/>
+                            <field name="v_seg"/>
+                            <field name="v_desc"/>
+                            <field name="v_ii"/>
+                            <field name="v_ipi"/>
+                            <field name="v_ipi_devol"/>
+                        </group>
+                        <group>
+                            <field name="v_pis"/>
+                            <field name="v_cofins"/>
+                            <field name="v_outro"/>
+                            <field name="v_nf"/>
+                            <field name="v_tot_trib"/>
+                        </group>
+                    </group>
+                    <group string="Informações Adicionais">
+                        <field name="inf_cpl" nolabel="1"/>
+                        <field name="inf_ad_fisco" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_dfe_proc_nfe" model="ir.actions.act_window">
+        <field name="name">NF-e Processadas</field>
+        <field name="res_model">l10n_br_dfe_monitor.proc_nfe</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>
