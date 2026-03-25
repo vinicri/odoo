@@ -348,6 +348,14 @@ class DfeProcNfe(models.Model):
     inf_cpl = fields.Text(string="Informações Complementares", readonly=True)
     inf_ad_fisco = fields.Text(string="Inf. de Interesse do Fisco", readonly=True)
 
+    # ── Itens ───────────────────────────────────────────────────────────────
+    item_ids = fields.One2many(
+        "l10n_br_dfe_monitor.proc_nfe_item",
+        "proc_nfe_id",
+        string="Itens",
+        readonly=True,
+    )
+
     # ── Manifestação do destinatário ───────────────────────────────────────
     # manifestacao = fields.Selection(
     #     [
@@ -659,6 +667,12 @@ class DfeProcNfe(models.Model):
             _logger.info(
                 f"procNFe criado: id={record.id} chNFe={ch_nfe} NSU={dfe_doc.nsu}"
             )
+
+            # Criar itens a partir dos elementos <det>
+            Item = self.env["l10n_br_dfe_monitor.proc_nfe_item"]
+            for det_el in nfe.findall(f"{{{NS}}}infNFe/{{{NS}}}det"):
+                Item._create_from_det(record, det_el)
+
             return record
 
         except Exception as e:

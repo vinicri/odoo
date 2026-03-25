@@ -160,6 +160,25 @@
                         <field name="inf_cpl" nolabel="1"/>
                         <field name="inf_ad_fisco" nolabel="1"/>
                     </group>
+                    <notebook>
+                        <page string="Itens">
+                            <field name="item_ids" readonly="1">
+                                <list>
+                                    <field name="n_item" string="Item"/>
+                                    <field name="c_prod" string="Código"/>
+                                    <field name="x_prod" string="Descrição"/>
+                                    <field name="ncm"/>
+                                    <field name="cfop"/>
+                                    <field name="u_com" string="Un."/>
+                                    <field name="q_com" string="Qtd."/>
+                                    <field name="v_un_com" string="Vlr. Unit."/>
+                                    <field name="v_prod" string="Vlr. Total"/>
+                                    <field name="v_desc" string="Desc."/>
+                                    <field name="ind_tot"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>

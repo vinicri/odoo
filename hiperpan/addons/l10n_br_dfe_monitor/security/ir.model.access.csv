@@ -6,3 +6,5 @@ access_dfe_res_nfe_user,DFe ResNFe User,model_l10n_br_dfe_monitor_res_nfe,base.g
 access_dfe_res_nfe_manager,DFe ResNFe Manager,model_l10n_br_dfe_monitor_res_nfe,base.group_system,1,1,1,1
 access_dfe_proc_nfe_user,DFe ProcNFe User,model_l10n_br_dfe_monitor_proc_nfe,base.group_user,1,1,1,0
 access_dfe_proc_nfe_manager,DFe ProcNFe Manager,model_l10n_br_dfe_monitor_proc_nfe,base.group_system,1,1,1,1
+access_dfe_proc_nfe_item_user,DFe ProcNFe Item User,model_l10n_br_dfe_monitor_proc_nfe_item,base.group_user,1,1,1,0
+access_dfe_proc_nfe_item_manager,DFe ProcNFe Item Manager,model_l10n_br_dfe_monitor_proc_nfe_item,base.group_system,1,1,1,1
