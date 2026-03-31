@@ -175,7 +175,110 @@
                                     <field name="v_prod" string="Vlr. Total"/>
                                     <field name="v_desc" string="Desc."/>
                                     <field name="ind_tot"/>
+                                    <field name="icms_orig" optional="hide"/>
+                                    <field name="icms_cst_csosn" optional="hide"/>
+                                    <field name="icms_v_bc" optional="hide"/>
+                                    <field name="icms_p_icms" optional="hide"/>
+                                    <field name="icms_v_icms" optional="hide"/>
+                                    <field name="icms_v_bc_st" optional="hide"/>
+                                    <field name="icms_p_icms_st" optional="hide"/>
+                                    <field name="icms_v_icms_st" optional="hide"/>
+                                    <field name="icms_v_icms_st_ret" optional="hide"/>
+                                    <field name="icms_v_fcp" optional="hide"/>
+                                    <field name="icms_v_fcp_st" optional="hide"/>
                                 </list>
+                                <form string="Item NF-e">
+                                    <sheet>
+                                        <group string="Produto">
+                                            <group>
+                                                <field name="n_item"/>
+                                                <field name="c_prod"/>
+                                                <field name="c_ean"/>
+                                                <field name="x_prod"/>
+                                                <field name="ncm"/>
+                                                <field name="nve"/>
+                                                <field name="cest"/>
+                                                <field name="ind_escala"/>
+                                                <field name="cnpj_fab"/>
+                                                <field name="c_benef"/>
+                                                <field name="ex_tipi"/>
+                                            </group>
+                                            <group>
+                                                <field name="cfop"/>
+                                                <field name="u_com"/>
+                                                <field name="q_com"/>
+                                                <field name="v_un_com"/>
+                                                <field name="v_prod"/>
+                                                <field name="c_ean_trib"/>
+                                                <field name="u_trib"/>
+                                                <field name="q_trib"/>
+                                                <field name="v_un_trib"/>
+                                                <field name="v_frete"/>
+                                                <field name="v_seg"/>
+                                                <field name="v_desc"/>
+                                                <field name="v_outro"/>
+                                                <field name="ind_tot"/>
+                                            </group>
+                                        </group>
+                                        <group string="ICMS">
+                                            <group string="Identificação">
+                                                <field name="icms_orig"/>
+                                                <field name="icms_cst_csosn"/>
+                                                <field name="icms_mod_bc"/>
+                                            </group>
+                                            <group string="ICMS Próprio">
+                                                <field name="icms_v_bc"/>
+                                                <field name="icms_p_red_bc"/>
+                                                <field name="icms_p_icms"/>
+                                                <field name="icms_v_icms"/>
+                                            </group>
+                                            <group string="FCP">
+                                                <field name="icms_v_bc_fcp"/>
+                                                <field name="icms_p_fcp"/>
+                                                <field name="icms_v_fcp"/>
+                                            </group>
+                                            <group string="Simples Nacional">
+                                                <field name="icms_p_cred_sn"/>
+                                                <field name="icms_v_cred_icms_sn"/>
+                                            </group>
+                                            <group string="ICMS ST">
+                                                <field name="icms_mod_bc_st"/>
+                                                <field name="icms_p_mva_st"/>
+                                                <field name="icms_p_red_bc_st"/>
+                                                <field name="icms_v_bc_st"/>
+                                                <field name="icms_p_icms_st"/>
+                                                <field name="icms_v_icms_st"/>
+                                            </group>
+                                            <group string="FCP ST">
+                                                <field name="icms_v_bc_fcp_st"/>
+                                                <field name="icms_p_fcp_st"/>
+                                                <field name="icms_v_fcp_st"/>
+                                            </group>
+                                            <group string="ST Retido">
+                                                <field name="icms_v_bc_st_ret"/>
+                                                <field name="icms_p_st"/>
+                                                <field name="icms_v_icms_substituto"/>
+                                                <field name="icms_v_icms_st_ret"/>
+                                                <field name="icms_v_bc_fcp_st_ret"/>
+                                                <field name="icms_p_fcp_st_ret"/>
+                                                <field name="icms_v_fcp_st_ret"/>
+                                            </group>
+                                            <group string="ICMS Efetivo">
+                                                <field name="icms_p_red_bc_efet"/>
+                                                <field name="icms_v_bc_efet"/>
+                                                <field name="icms_p_icms_efet"/>
+                                                <field name="icms_v_icms_efet"/>
+                                            </group>
+                                            <group string="Desoneração / Diferimento">
+                                                <field name="icms_v_icms_deson"/>
+                                                <field name="icms_mot_des_icms"/>
+                                                <field name="icms_p_dif"/>
+                                                <field name="icms_v_icms_dif"/>
+                                                <field name="icms_v_icms_op"/>
+                                            </group>
+                                        </group>
+                                    </sheet>
+                                </form>
                             </field>
                         </page>
                     </notebook>
