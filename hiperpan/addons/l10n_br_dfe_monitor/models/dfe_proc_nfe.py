@@ -263,12 +263,64 @@ class DfeProcNfe(models.Model):
     dest_isuf = fields.Char(string="SUFRAMA Destinatário", readonly=True)
     dest_im = fields.Char(string="Inscrição Municipal Destinatário", readonly=True)
 
-    # TODO transportes
-    # TODO dados cobranca
-    # TODO pagamento
-    # TODO intermediador
-    # TODO inf adicionais
-    # TODO info comercio exterior
+    # ── Grupo X – Transporte ───────────────────────────────────────────────
+    # X02 – Modalidade do frete
+    transp_mod_frete = fields.Selection(
+        [
+            ("0", "CIF (por conta do Remetente)"),
+            ("1", "FOB (por conta do Destinatário)"),
+            ("2", "Por conta de Terceiros"),
+            ("3", "Transporte Próprio por conta do Remetente"),
+            ("4", "Transporte Próprio por conta do Destinatário"),
+            ("9", "Sem Ocorrência de Transporte"),
+        ],
+        string="Modalidade do Frete",
+        readonly=True,
+    )
+    # X04 – CNPJ do Transportador
+    transp_cnpj = fields.Char(string="CNPJ Transportador", size=14, readonly=True)
+    # X05 – CPF do Transportador
+    transp_cpf = fields.Char(string="CPF Transportador", size=11, readonly=True)
+    # X06 – Razão Social ou nome do Transportador
+    transp_x_nome = fields.Char(string="Nome Transportador", size=60, readonly=True)
+    # X07 – Inscrição Estadual do Transportador
+    transp_ie = fields.Char(string="IE Transportador", size=14, readonly=True)
+    # X08 – Endereço Completo do Transportador
+    transp_x_ender = fields.Char(
+        string="Endereço Transportador", size=60, readonly=True
+    )
+    # X09 – Nome do município do Transportador
+    transp_x_mun = fields.Char(string="Município Transportador", size=60, readonly=True)
+    # X10 – UF do Transportador
+    transp_uf = fields.Char(string="UF Transportador", size=2, readonly=True)
+    # X12 – Valor do Serviço de transporte (retenção ICMS)
+    transp_v_serv = fields.Float(
+        string="Vlr. Serviço Transp.", digits=(13, 2), readonly=True
+    )
+    # X13 – BC da Retenção do ICMS transporte
+    transp_v_bc_ret = fields.Float(
+        string="BC Ret. ICMS Transp.", digits=(13, 2), readonly=True
+    )
+    # X14 – Alíquota da Retenção do ICMS transporte (3v2-4)
+    transp_p_icms_ret = fields.Float(
+        string="Alíq. Ret. ICMS Transp.", digits=(5, 4), readonly=True
+    )
+    # X15 – Valor do ICMS Retido transporte
+    transp_v_icms_ret = fields.Float(
+        string="Vlr. ICMS Ret. Transp.", digits=(13, 2), readonly=True
+    )
+    # X16 – CFOP do Serviço de Transporte
+    transp_cfop = fields.Char(string="CFOP Transp.", size=4, readonly=True)
+    # X17 – Código do município de ocorrência do FG do ICMS transporte
+    transp_c_mun_fg = fields.Char(
+        string="Cód. Município FG Transp.", size=7, readonly=True
+    )
+    # X19 – Placa do Veículo de Transporte
+    transp_placa = fields.Char(string="Placa Veículo", size=7, readonly=True)
+    # X20 – UF do Veículo de Transporte
+    transp_uf_veic = fields.Char(string="UF Veículo", size=2, readonly=True)
+    # X21 – RNTC do Veículo de Transporte
+    transp_rntc = fields.Char(string="RNTC Veículo", size=20, readonly=True)
 
     # ── Grupo W – Totais ICMS ──────────────────────────────────────────────
     v_bc = fields.Float(
@@ -529,6 +581,49 @@ class DfeProcNfe(models.Model):
             v_nf = _fval(icms_tot, "vNF")
             v_tot_trib = _fval(icms_tot, "vTotTrib")
 
+            # Grupo X – Transporte
+            transp = _find(inf_nfe, "transp")
+            transp_mod_frete = _text(transp, "modFrete") if transp is not None else None
+            transporta = _find(transp, "transporta") if transp is not None else None
+            transp_cnpj = _text(transporta, "CNPJ") if transporta is not None else None
+            transp_cpf = _text(transporta, "CPF") if transporta is not None else None
+            transp_x_nome = (
+                _text(transporta, "xNome") if transporta is not None else None
+            )
+            transp_ie = _text(transporta, "IE") if transporta is not None else None
+            transp_x_ender = (
+                _text(transporta, "xEnder") if transporta is not None else None
+            )
+            transp_x_mun = _text(transporta, "xMun") if transporta is not None else None
+            transp_uf = _text(transporta, "UF") if transporta is not None else None
+            ret_transp = _find(transp, "retTransp") if transp is not None else None
+            transp_v_serv = (
+                _fval(ret_transp, "vServ") if ret_transp is not None else 0.0
+            )
+            transp_v_bc_ret = (
+                _fval(ret_transp, "vBCRet") if ret_transp is not None else 0.0
+            )
+            transp_p_icms_ret = (
+                _fval(ret_transp, "pICMSRet") if ret_transp is not None else 0.0
+            )
+            transp_v_icms_ret = (
+                _fval(ret_transp, "vICMSRet") if ret_transp is not None else 0.0
+            )
+            transp_cfop = _text(ret_transp, "CFOP") if ret_transp is not None else None
+            transp_c_mun_fg = (
+                _text(ret_transp, "cMunFG") if ret_transp is not None else None
+            )
+            veic_transp = _find(transp, "veicTransp") if transp is not None else None
+            transp_placa = (
+                _text(veic_transp, "placa") if veic_transp is not None else None
+            )
+            transp_uf_veic = (
+                _text(veic_transp, "UF") if veic_transp is not None else None
+            )
+            transp_rntc = (
+                _text(veic_transp, "RNTC") if veic_transp is not None else None
+            )
+
             # Grupo Z – Informações adicionais
             inf_adic = _find(inf_nfe, "infAdic")
             inf_cpl = _text(inf_adic, "infCpl")
@@ -658,6 +753,24 @@ class DfeProcNfe(models.Model):
                 "v_outro": v_outro,
                 "v_nf": v_nf,
                 "v_tot_trib": v_tot_trib,
+                # Transporte
+                "transp_mod_frete": transp_mod_frete,
+                "transp_cnpj": transp_cnpj,
+                "transp_cpf": transp_cpf,
+                "transp_x_nome": transp_x_nome,
+                "transp_ie": transp_ie,
+                "transp_x_ender": transp_x_ender,
+                "transp_x_mun": transp_x_mun,
+                "transp_uf": transp_uf,
+                "transp_v_serv": transp_v_serv,
+                "transp_v_bc_ret": transp_v_bc_ret,
+                "transp_p_icms_ret": transp_p_icms_ret,
+                "transp_v_icms_ret": transp_v_icms_ret,
+                "transp_cfop": transp_cfop,
+                "transp_c_mun_fg": transp_c_mun_fg,
+                "transp_placa": transp_placa,
+                "transp_uf_veic": transp_uf_veic,
+                "transp_rntc": transp_rntc,
                 # Informações adicionais
                 "inf_cpl": inf_cpl,
                 "inf_ad_fisco": inf_ad_fisco,

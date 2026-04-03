@@ -123,6 +123,31 @@
                             <field name="dest_email"/>
                         </group>
                     </group>
+                    <group string="Transporte">
+                        <group>
+                            <field name="transp_mod_frete"/>
+                            <field name="transp_placa"/>
+                            <field name="transp_uf_veic"/>
+                            <field name="transp_rntc"/>
+                        </group>
+                        <group string="Transportador">
+                            <field name="transp_cnpj"/>
+                            <field name="transp_cpf"/>
+                            <field name="transp_x_nome"/>
+                            <field name="transp_ie"/>
+                            <field name="transp_x_ender"/>
+                            <field name="transp_x_mun"/>
+                            <field name="transp_uf"/>
+                        </group>
+                        <group string="Retenção ICMS Transporte">
+                            <field name="transp_v_serv"/>
+                            <field name="transp_v_bc_ret"/>
+                            <field name="transp_p_icms_ret"/>
+                            <field name="transp_v_icms_ret"/>
+                            <field name="transp_cfop"/>
+                            <field name="transp_c_mun_fg"/>
+                        </group>
+                    </group>
                     <group string="Totais">
                         <group>
                             <field name="v_bc"/>
@@ -186,6 +211,15 @@
                                     <field name="icms_v_icms_st_ret" optional="hide"/>
                                     <field name="icms_v_fcp" optional="hide"/>
                                     <field name="icms_v_fcp_st" optional="hide"/>
+                                    <field name="ipi_cst" optional="hide"/>
+                                    <field name="ipi_v_ipi" optional="hide"/>
+                                    <field name="ii_v_ii" optional="hide"/>
+                                    <field name="pis_cst" optional="hide"/>
+                                    <field name="pis_v_pis" optional="hide"/>
+                                    <field name="pisst_v_pis" optional="hide"/>
+                                    <field name="cofins_cst" optional="hide"/>
+                                    <field name="cofins_v_cofins" optional="hide"/>
+                                    <field name="cofinsst_v_cofins" optional="hide"/>
                                 </list>
                                 <form string="Item NF-e">
                                     <sheet>
@@ -219,6 +253,9 @@
                                                 <field name="v_outro"/>
                                                 <field name="ind_tot"/>
                                             </group>
+                                        </group>
+                                        <group string="Informações Adicionais do Produto">
+                                            <field name="inf_ad_prod" nolabel="1"/>
                                         </group>
                                         <group string="ICMS">
                                             <group string="Identificação">
@@ -276,6 +313,63 @@
                                                 <field name="icms_v_icms_dif"/>
                                                 <field name="icms_v_icms_op"/>
                                             </group>
+                                        </group>
+                                        <group string="IPI">
+                                            <group string="Identificação">
+                                                <field name="ipi_cst"/>
+                                                <field name="ipi_cl_enq"/>
+                                                <field name="ipi_cnpj_prod"/>
+                                                <field name="ipi_c_enq"/>
+                                                <field name="ipi_c_selo"/>
+                                                <field name="ipi_q_selo"/>
+                                            </group>
+                                            <group string="Tributação">
+                                                <field name="ipi_v_bc"/>
+                                                <field name="ipi_p_ipi"/>
+                                                <field name="ipi_q_unid"/>
+                                                <field name="ipi_v_unid"/>
+                                                <field name="ipi_v_ipi"/>
+                                            </group>
+                                        </group>
+                                        <group string="COFINS">
+                                            <field name="cofins_cst"/>
+                                            <field name="cofins_v_bc"/>
+                                            <field name="cofins_p_cofins"/>
+                                            <field name="cofins_q_bc_prod"/>
+                                            <field name="cofins_v_aliq_prod"/>
+                                            <field name="cofins_v_cofins"/>
+                                        </group>
+                                        <group string="PIS">
+                                            <field name="pis_cst"/>
+                                            <field name="pis_v_bc"/>
+                                            <field name="pis_p_pis"/>
+                                            <field name="pis_q_bc_prod"/>
+                                            <field name="pis_v_aliq_prod"/>
+                                            <field name="pis_v_pis"/>
+                                        </group>
+                                        <group string="PIS ST">
+                                            <field name="pisst_v_bc"/>
+                                            <field name="pisst_p_pis"/>
+                                            <field name="pisst_q_bc_prod"/>
+                                            <field name="pisst_v_aliq_prod"/>
+                                            <field name="pisst_v_pis"/>
+                                        </group>
+                                        <group string="COFINS ST">
+                                            <field name="cofinsst_v_bc"/>
+                                            <field name="cofinsst_p_cofins"/>
+                                            <field name="cofinsst_q_bc_prod"/>
+                                            <field name="cofinsst_v_aliq_prod"/>
+                                            <field name="cofinsst_v_cofins"/>
+                                        </group>
+                                        <group string="Tributos Devolvidos">
+                                            <field name="devol_p_devol"/>
+                                            <field name="devol_v_ipi_devol"/>
+                                        </group>
+                                        <group string="Imposto de Importação">
+                                            <field name="ii_v_bc"/>
+                                            <field name="ii_v_desp_adu"/>
+                                            <field name="ii_v_ii"/>
+                                            <field name="ii_v_iof"/>
                                         </group>
                                     </sheet>
                                 </form>

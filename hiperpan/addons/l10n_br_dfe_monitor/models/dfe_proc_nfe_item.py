@@ -54,6 +54,209 @@ def _fval(root, tag):
         return 0.0
 
 
+def _parse_ipi(imposto_el):
+    """
+    Extrai os campos de IPI do elemento <imposto>.
+    Suporta os grupos IPITrib (CST 00,49,50,99) e IPINT (CST 01-05,51-55).
+    Retorna um dict com os campos populados (0.0 / None quando ausentes).
+    """
+    result = {}
+
+    if imposto_el is None:
+        return result
+
+    ipi_el = _find_direct(imposto_el, "IPI")
+    if ipi_el is None:
+        return result
+
+    # O01 campos diretos sob <IPI>
+    result["ipi_cl_enq"] = _text(ipi_el, "clEnq")
+    result["ipi_cnpj_prod"] = _text(ipi_el, "CNPJProd")
+    result["ipi_c_selo"] = _text(ipi_el, "cSelo")
+    result["ipi_q_selo"] = _fval(ipi_el, "qSelo")
+    result["ipi_c_enq"] = _text(ipi_el, "cEnq")
+
+    # Grupo IPITrib (CST 00,49,50,99) ou IPINT (CST 01-05,51-55)
+    ipi_trib = _find_direct(ipi_el, "IPITrib")
+    ipint = _find_direct(ipi_el, "IPINT")
+    group = ipi_trib or ipint
+
+    if group is not None:
+        result["ipi_cst"] = _text(group, "CST")
+        if ipi_trib is not None:
+            # cálculo por alíquota
+            result["ipi_v_bc"] = _fval(group, "vBC")
+            result["ipi_p_ipi"] = _fval(group, "pIPI")
+            # cálculo por valor por unidade
+            result["ipi_q_unid"] = _fval(group, "qUnid")
+            result["ipi_v_unid"] = _fval(group, "vUnid")
+            result["ipi_v_ipi"] = _fval(group, "vIPI")
+
+    return result
+
+
+def _parse_ii(imposto_el):
+    """
+    Extrai os campos do Imposto de Importação do elemento <imposto>.
+    Retorna um dict com os campos populados (0.0 quando ausentes).
+    """
+    result = {}
+
+    if imposto_el is None:
+        return result
+
+    ii_el = _find_direct(imposto_el, "II")
+    if ii_el is None:
+        return result
+
+    result["ii_v_bc"] = _fval(ii_el, "vBC")
+    result["ii_v_desp_adu"] = _fval(ii_el, "vDespAdu")
+    result["ii_v_ii"] = _fval(ii_el, "vII")
+    result["ii_v_iof"] = _fval(ii_el, "vIOF")
+
+    return result
+
+
+def _parse_pis(imposto_el):
+    """
+    Extrai os campos de PIS do elemento <imposto>.
+    Suporta grupos PISAliq, PISQtde, PISNT e PISOutr.
+    Retorna um dict com os campos populados (0.0 / None quando ausentes).
+    """
+    result = {}
+
+    if imposto_el is None:
+        return result
+
+    pis_el = _find_direct(imposto_el, "PIS")
+    if pis_el is None:
+        return result
+
+    # Localizar o grupo ativo
+    group = (
+        _find_direct(pis_el, "PISAliq")
+        or _find_direct(pis_el, "PISQtde")
+        or _find_direct(pis_el, "PISNT")
+        or _find_direct(pis_el, "PISOutr")
+    )
+    if group is None:
+        return result
+
+    result["pis_cst"] = _text(group, "CST")
+    result["pis_v_bc"] = _fval(group, "vBC")
+    result["pis_p_pis"] = _fval(group, "pPIS")
+    result["pis_q_bc_prod"] = _fval(group, "qBCProd")
+    result["pis_v_aliq_prod"] = _fval(group, "vAliqProd")
+    result["pis_v_pis"] = _fval(group, "vPIS")
+
+    return result
+
+
+def _parse_pisst(imposto_el):
+    """
+    Extrai os campos de PIS ST do elemento <imposto>.
+    Todos os campos são filhos diretos de <PISST>.
+    Retorna um dict com os campos populados (0.0 / None quando ausentes).
+    """
+    result = {}
+
+    if imposto_el is None:
+        return result
+
+    pisst_el = _find_direct(imposto_el, "PISST")
+    if pisst_el is None:
+        return result
+
+    result["pisst_v_bc"] = _fval(pisst_el, "vBC")
+    result["pisst_p_pis"] = _fval(pisst_el, "pPIS")
+    result["pisst_q_bc_prod"] = _fval(pisst_el, "qBCProd")
+    result["pisst_v_aliq_prod"] = _fval(pisst_el, "vAliqProd")
+    result["pisst_v_pis"] = _fval(pisst_el, "vPIS")
+
+    return result
+
+
+def _parse_cofins(imposto_el):
+    """
+    Extrai os campos de COFINS do elemento <imposto>.
+    Suporta grupos COFINSAliq, COFINSQtde, COFINSNT e COFINSOutr.
+    Retorna um dict com os campos populados (0.0 / None quando ausentes).
+    """
+    result = {}
+
+    if imposto_el is None:
+        return result
+
+    cofins_el = _find_direct(imposto_el, "COFINS")
+    if cofins_el is None:
+        return result
+
+    group = (
+        _find_direct(cofins_el, "COFINSAliq")
+        or _find_direct(cofins_el, "COFINSQtde")
+        or _find_direct(cofins_el, "COFINSNT")
+        or _find_direct(cofins_el, "COFINSOutr")
+    )
+    if group is None:
+        return result
+
+    result["cofins_cst"] = _text(group, "CST")
+    result["cofins_v_bc"] = _fval(group, "vBC")
+    result["cofins_p_cofins"] = _fval(group, "pCOFINS")
+    result["cofins_q_bc_prod"] = _fval(group, "qBCProd")
+    result["cofins_v_aliq_prod"] = _fval(group, "vAliqProd")
+    result["cofins_v_cofins"] = _fval(group, "vCOFINS")
+
+    return result
+
+
+def _parse_cofinsst(imposto_el):
+    """
+    Extrai os campos de COFINS ST do elemento <imposto>.
+    Todos os campos são filhos diretos de <COFINSST>.
+    Retorna um dict com os campos populados (0.0 / None quando ausentes).
+    """
+    result = {}
+
+    if imposto_el is None:
+        return result
+
+    cofinsst_el = _find_direct(imposto_el, "COFINSST")
+    if cofinsst_el is None:
+        return result
+
+    result["cofinsst_v_bc"] = _fval(cofinsst_el, "vBC")
+    result["cofinsst_p_cofins"] = _fval(cofinsst_el, "pCOFINS")
+    result["cofinsst_q_bc_prod"] = _fval(cofinsst_el, "qBCProd")
+    result["cofinsst_v_aliq_prod"] = _fval(cofinsst_el, "vAliqProd")
+    result["cofinsst_v_cofins"] = _fval(cofinsst_el, "vCOFINS")
+
+    return result
+
+
+def _parse_imposto_devol(det_el):
+    """
+    Extrai os campos de impostoDevol do elemento <det>.
+    Retorna um dict com os campos populados (0.0 / None quando ausentes).
+    """
+    result = {}
+
+    if det_el is None:
+        return result
+
+    devol_el = _find_direct(det_el, "impostoDevol")
+    if devol_el is None:
+        return result
+
+    result["devol_p_devol"] = _fval(devol_el, "pDevol")
+
+    ipi_el = _find_direct(devol_el, "IPI")
+    if ipi_el is not None:
+        result["devol_v_ipi_devol"] = _fval(ipi_el, "vIPIDevol")
+
+    return result
+
+
 def _parse_icms(imposto_el):
     """
     Extrai os campos de ICMS do elemento <imposto>.
@@ -320,6 +523,102 @@ class DfeProcNfeItem(models.Model):
         string="Vlr. ICMS Operação", digits=(13, 2), readonly=True
     )
 
+    # ── IPI ───────────────────────────────────────────────────────────────
+    # O02 – Classe de enquadramento do IPI para Cigarros e Bebidas (1-5)
+    ipi_cl_enq = fields.Char(string="Classe Enquadramento IPI", size=5, readonly=True)
+    # O03 – CNPJ do produtor da mercadoria (14)
+    ipi_cnpj_prod = fields.Char(string="CNPJ Produtor IPI", size=14, readonly=True)
+    # O04 – Código do selo de controle IPI (1-60)
+    ipi_c_selo = fields.Char(string="Cód. Selo IPI", size=60, readonly=True)
+    # O05 – Quantidade de selo de controle (1-12)
+    ipi_q_selo = fields.Float(string="Qtd. Selo IPI", digits=(12, 0), readonly=True)
+    # O06 – Código de Enquadramento Legal do IPI (1-3)
+    ipi_c_enq = fields.Char(string="Cód. Enquadramento Legal IPI", size=3, readonly=True)
+    # O09 – Código da situação tributária do IPI (CST) — válido para IPITrib e IPINT
+    ipi_cst = fields.Char(string="CST IPI", size=2, readonly=True)
+    # O10 – Valor da BC do IPI (13v2) — apenas IPITrib
+    ipi_v_bc = fields.Float(string="BC IPI", digits=(13, 2), readonly=True)
+    # O13 – Alíquota do IPI (3v2-4) — apenas IPITrib, cálculo por alíquota
+    ipi_p_ipi = fields.Float(string="Alíq. IPI", digits=(5, 4), readonly=True)
+    # O11 – Quantidade total na unidade padrão para tributação (12v0-4) — IPITrib, cálculo por valor/unidade
+    ipi_q_unid = fields.Float(string="Qtd. Unid. IPI", digits=(12, 4), readonly=True)
+    # O12 – Valor por Unidade Tributável (11v0-4) — IPITrib, cálculo por valor/unidade
+    ipi_v_unid = fields.Float(string="Vlr. Unit. IPI", digits=(11, 4), readonly=True)
+    # O14 – Valor do IPI (13v2)
+    ipi_v_ipi = fields.Float(string="Vlr. IPI", digits=(13, 2), readonly=True)
+
+    # ── Imposto de Importação ─────────────────────────────────────────────
+    # P02 – Valor da BC do Imposto de Importação (13v2)
+    ii_v_bc = fields.Float(string="BC Imp. Importação", digits=(13, 2), readonly=True)
+    # P03 – Valor das despesas aduaneiras (13v2)
+    ii_v_desp_adu = fields.Float(string="Despesas Aduaneiras", digits=(13, 2), readonly=True)
+    # P04 – Valor do Imposto de Importação (13v2)
+    ii_v_ii = fields.Float(string="Vlr. Imp. Importação", digits=(13, 2), readonly=True)
+    # P05 – Valor do Imposto sobre Operações Financeiras (13v2)
+    ii_v_iof = fields.Float(string="Vlr. IOF", digits=(13, 2), readonly=True)
+
+    # ── PIS ───────────────────────────────────────────────────────────────
+    # Q06 – Código de Situação Tributária do PIS (2) — comum a todos os grupos
+    pis_cst = fields.Char(string="CST PIS", size=2, readonly=True)
+    # Q07 – Valor da BC do PIS (13v2) — PISAliq / PISOutr (cálculo por %)
+    pis_v_bc = fields.Float(string="BC PIS", digits=(13, 2), readonly=True)
+    # Q08 – Alíquota do PIS em percentual (3v2-4) — PISAliq / PISOutr (cálculo por %)
+    pis_p_pis = fields.Float(string="Alíq. PIS %", digits=(5, 4), readonly=True)
+    # Q10 – Quantidade vendida (12v0-4) — PISQtde / PISOutr (cálculo por qtde)
+    pis_q_bc_prod = fields.Float(string="Qtd. Vendida PIS", digits=(12, 4), readonly=True)
+    # Q11 – Alíquota do PIS em reais (11v0-4) — PISQtde / PISOutr (cálculo por qtde)
+    pis_v_aliq_prod = fields.Float(string="Alíq. PIS R$", digits=(11, 4), readonly=True)
+    # Q09 – Valor do PIS (13v2) — comum a PISAliq, PISQtde e PISOutr
+    pis_v_pis = fields.Float(string="Vlr. PIS", digits=(13, 2), readonly=True)
+
+    # ── PIS ST ────────────────────────────────────────────────────────────
+    # R02 – Valor da BC do PIS ST (13v2) — cálculo por %
+    pisst_v_bc = fields.Float(string="BC PIS ST", digits=(13, 2), readonly=True)
+    # R03 – Alíquota do PIS ST em percentual (3v2-4) — cálculo por %
+    pisst_p_pis = fields.Float(string="Alíq. PIS ST %", digits=(5, 4), readonly=True)
+    # R04 – Quantidade vendida (12v0-4) — cálculo por valor
+    pisst_q_bc_prod = fields.Float(string="Qtd. Vendida PIS ST", digits=(12, 4), readonly=True)
+    # R05 – Alíquota do PIS ST em reais (11v0-4) — cálculo por valor
+    pisst_v_aliq_prod = fields.Float(string="Alíq. PIS ST R$", digits=(11, 4), readonly=True)
+    # R06 – Valor do PIS ST (13v2)
+    pisst_v_pis = fields.Float(string="Vlr. PIS ST", digits=(13, 2), readonly=True)
+
+    # ── COFINS ────────────────────────────────────────────────────────────
+    # S06 – Código de Situação Tributária da COFINS (2) — comum a todos os grupos
+    cofins_cst = fields.Char(string="CST COFINS", size=2, readonly=True)
+    # S07 – Valor da BC da COFINS (13v2) — COFINSAliq / COFINSOutr (cálculo por %)
+    cofins_v_bc = fields.Float(string="BC COFINS", digits=(13, 2), readonly=True)
+    # S08 – Alíquota da COFINS em percentual (3v2-4) — COFINSAliq / COFINSOutr (cálculo por %)
+    cofins_p_cofins = fields.Float(string="Alíq. COFINS %", digits=(5, 4), readonly=True)
+    # S09 – Quantidade vendida (12v0-4) — COFINSQtde / COFINSOutr (cálculo por qtde)
+    cofins_q_bc_prod = fields.Float(string="Qtd. Vendida COFINS", digits=(12, 4), readonly=True)
+    # S10 – Alíquota da COFINS em reais (11v0-4) — COFINSQtde / COFINSOutr (cálculo por qtde)
+    cofins_v_aliq_prod = fields.Float(string="Alíq. COFINS R$", digits=(11, 4), readonly=True)
+    # S11 – Valor da COFINS (13v2) — comum a COFINSAliq, COFINSQtde e COFINSOutr
+    cofins_v_cofins = fields.Float(string="Vlr. COFINS", digits=(13, 2), readonly=True)
+
+    # ── COFINS ST ─────────────────────────────────────────────────────────
+    # T02 – Valor da BC da COFINS ST (13v2) — cálculo por %
+    cofinsst_v_bc = fields.Float(string="BC COFINS ST", digits=(13, 2), readonly=True)
+    # T03 – Alíquota da COFINS ST em percentual (3v2-4) — cálculo por %
+    cofinsst_p_cofins = fields.Float(string="Alíq. COFINS ST %", digits=(5, 4), readonly=True)
+    # T04 – Quantidade vendida (12v0-4) — cálculo por valor
+    cofinsst_q_bc_prod = fields.Float(string="Qtd. Vendida COFINS ST", digits=(12, 4), readonly=True)
+    # T05 – Alíquota da COFINS ST em reais (11v0-4) — cálculo por valor
+    cofinsst_v_aliq_prod = fields.Float(string="Alíq. COFINS ST R$", digits=(11, 4), readonly=True)
+    # T06 – Valor da COFINS ST (13v2)
+    cofinsst_v_cofins = fields.Float(string="Vlr. COFINS ST", digits=(13, 2), readonly=True)
+
+    # ── Imposto Devolvido (impostoDevol) ──────────────────────────────────
+    # UA02 – Percentual da mercadoria devolvida (3v2)
+    devol_p_devol = fields.Float(string="% Devolvido", digits=(5, 2), readonly=True)
+    # UA04 – Valor do IPI devolvido (13v2)
+    devol_v_ipi_devol = fields.Float(string="Vlr. IPI Devolvido", digits=(13, 2), readonly=True)
+
+    # ── Informações Adicionais do Produto ─────────────────────────────────
+    # V01 – Informações adicionais do produto (1-500)
+    inf_ad_prod = fields.Char(string="Inf. Adicionais Produto", size=500, readonly=True)
+
     @api.model
     def _create_from_det(self, proc_nfe, det_el):
         """
@@ -366,5 +665,13 @@ class DfeProcNfeItem(models.Model):
         }
 
         vals.update(_parse_icms(imposto))
+        vals.update(_parse_ipi(imposto))
+        vals.update(_parse_ii(imposto))
+        vals.update(_parse_pis(imposto))
+        vals.update(_parse_pisst(imposto))
+        vals.update(_parse_cofins(imposto))
+        vals.update(_parse_cofinsst(imposto))
+        vals.update(_parse_imposto_devol(det_el))
+        vals["inf_ad_prod"] = _text(det_el, "infAdProd")
 
         return self.create(vals)
