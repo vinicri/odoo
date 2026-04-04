@@ -324,6 +324,23 @@
                                                 <field name="icms_ufdest_v_icms_uf_dest"/>
                                                 <field name="icms_ufdest_v_icms_uf_remet"/>
                                             </group>
+                                            <group string="ICMS ST Repasse (Interestadual)">
+                                                <field name="icmsst_rep_orig"/>
+                                                <field name="icmsst_rep_cst"/>
+                                                <field name="icmsst_rep_v_bc_st_ret"/>
+                                                <field name="icmsst_rep_p_st"/>
+                                                <field name="icmsst_rep_v_icms_substituto"/>
+                                                <field name="icmsst_rep_v_icms_st_ret"/>
+                                                <field name="icmsst_rep_v_bc_fcp_st_ret"/>
+                                                <field name="icmsst_rep_p_fcp_st_ret"/>
+                                                <field name="icmsst_rep_v_fcp_st_ret"/>
+                                                <field name="icmsst_rep_v_bc_st_dest"/>
+                                                <field name="icmsst_rep_v_icms_st_dest"/>
+                                                <field name="icmsst_rep_p_red_bc_efet"/>
+                                                <field name="icmsst_rep_v_bc_efet"/>
+                                                <field name="icmsst_rep_p_icms_efet"/>
+                                                <field name="icmsst_rep_v_icms_efet"/>
+                                            </group>
                                         </group>
                                         <group string="IPI">
                                             <group string="Identificação">

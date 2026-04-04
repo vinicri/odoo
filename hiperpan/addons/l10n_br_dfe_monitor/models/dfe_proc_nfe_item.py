@@ -54,6 +54,45 @@ def _fval(root, tag):
         return 0.0
 
 
+def _parse_icmsst_repasse(imposto_el):
+    """
+    Extrai os campos do grupo ICMSST (repasse de ICMS ST interestadual) do elemento <imposto>.
+    Este grupo é filho de <ICMS> e é usado para operações com CST 41 ou 60 em repasse via
+    Substituto Tributário. Difere dos grupos ICMS00-ICMS90 pois tem campos próprios de destino.
+    Retorna um dict com os campos populados (0.0 / None quando ausentes).
+    """
+    result = {}
+
+    if imposto_el is None:
+        return result
+
+    icms_el = _find_direct(imposto_el, "ICMS")
+    if icms_el is None:
+        return result
+
+    group = _find_direct(icms_el, "ICMSST")
+    if group is None:
+        return result
+
+    result["icmsst_rep_orig"] = _text(group, "orig")
+    result["icmsst_rep_cst"] = _text(group, "CST")
+    result["icmsst_rep_v_bc_st_ret"] = _fval(group, "vBCSTRet")
+    result["icmsst_rep_p_st"] = _fval(group, "pST")
+    result["icmsst_rep_v_icms_substituto"] = _fval(group, "vICMSSubstituto")
+    result["icmsst_rep_v_icms_st_ret"] = _fval(group, "vICMSSTRet")
+    result["icmsst_rep_v_bc_fcp_st_ret"] = _fval(group, "vBCFCPSTRet")
+    result["icmsst_rep_p_fcp_st_ret"] = _fval(group, "pFCPSTRet")
+    result["icmsst_rep_v_fcp_st_ret"] = _fval(group, "vFCPSTRet")
+    result["icmsst_rep_v_bc_st_dest"] = _fval(group, "vBCSTDest")
+    result["icmsst_rep_v_icms_st_dest"] = _fval(group, "vICMSSTDest")
+    result["icmsst_rep_p_red_bc_efet"] = _fval(group, "pRedBCEfet")
+    result["icmsst_rep_v_bc_efet"] = _fval(group, "vBCEfet")
+    result["icmsst_rep_p_icms_efet"] = _fval(group, "pICMSEfet")
+    result["icmsst_rep_v_icms_efet"] = _fval(group, "vICMSEfet")
+
+    return result
+
+
 def _parse_ipi(imposto_el):
     """
     Extrai os campos de IPI do elemento <imposto>.
@@ -551,6 +590,58 @@ class DfeProcNfeItem(models.Model):
         string="Vlr. ICMS Operação", digits=(13, 2), readonly=True
     )
 
+    # ── ICMS UF Destino (ICMSUFDest) ──────────────────────────────────────
+    # NA03 – Valor da BC do ICMS na UF de destino (13v2)
+    icms_ufdest_v_bc_uf_dest = fields.Float(string="BC ICMS UF Dest.", digits=(13, 2), readonly=True)
+    # NA04 – Valor da BC FCP na UF de destino (13v2)
+    icms_ufdest_v_bc_fcp_uf_dest = fields.Float(string="BC FCP UF Dest.", digits=(13, 2), readonly=True)
+    # NA05 – Percentual do FCP na UF de destino (3v2-4)
+    icms_ufdest_p_fcp_uf_dest = fields.Float(string="% FCP UF Dest.", digits=(5, 4), readonly=True)
+    # NA07 – Alíquota interna da UF de destino (3v2-4)
+    icms_ufdest_p_icms_uf_dest = fields.Float(string="Alíq. Interna UF Dest.", digits=(5, 4), readonly=True)
+    # NA09 – Alíquota interestadual das UF envolvidas (2v2)
+    icms_ufdest_p_icms_inter = fields.Float(string="Alíq. Interestadual", digits=(4, 2), readonly=True)
+    # NA11 – Percentual provisório de partilha do ICMS Interestadual (3v2-4)
+    icms_ufdest_p_icms_inter_part = fields.Float(string="% Partilha ICMS Inter.", digits=(5, 4), readonly=True)
+    # NA13 – Valor do FCP da UF de destino (13v2)
+    icms_ufdest_v_fcp_uf_dest = fields.Float(string="Vlr. FCP UF Dest.", digits=(13, 2), readonly=True)
+    # NA15 – Valor do ICMS Interestadual para a UF de destino (13v2)
+    icms_ufdest_v_icms_uf_dest = fields.Float(string="Vlr. ICMS UF Dest.", digits=(13, 2), readonly=True)
+    # NA17 – Valor do ICMS Interestadual para a UF do remetente (13v2)
+    icms_ufdest_v_icms_uf_remet = fields.Float(string="Vlr. ICMS UF Remet.", digits=(13, 2), readonly=True)
+
+    # ── ICMS ST Repasse (ICMSST – CST 41/60, interestadual) ───────────────
+    # N11 – Origem da mercadoria (1)
+    icmsst_rep_orig = fields.Char(string="Origem (ICMS ST Rep.)", size=1, readonly=True)
+    # N12 – CST do repasse (2) — 41 ou 60
+    icmsst_rep_cst = fields.Char(string="CST (ICMS ST Rep.)", size=2, readonly=True)
+    # N26 – Valor da BC do ICMS ST retido na UF remetente (13v2)
+    icmsst_rep_v_bc_st_ret = fields.Float(string="BC ST Ret. UF Rem.", digits=(13, 2), readonly=True)
+    # N26a – Alíquota suportada pelo Consumidor Final (3v2-4)
+    icmsst_rep_p_st = fields.Float(string="Alíq. ST Cons. Final (Rep.)", digits=(5, 4), readonly=True)
+    # N26b – Valor do ICMS próprio do Substituto (13v2)
+    icmsst_rep_v_icms_substituto = fields.Float(string="Vlr. ICMS Substituto (Rep.)", digits=(13, 2), readonly=True)
+    # N27 – Valor do ICMS ST retido na UF remetente (13v2)
+    icmsst_rep_v_icms_st_ret = fields.Float(string="Vlr. ICMS ST Ret. UF Rem.", digits=(13, 2), readonly=True)
+    # N27a – Valor da BC do FCP retido anteriormente (13v2)
+    icmsst_rep_v_bc_fcp_st_ret = fields.Float(string="BC FCP ST Ret. (Rep.)", digits=(13, 2), readonly=True)
+    # N27b – Percentual do FCP retido anteriormente por ST (3v2-4)
+    icmsst_rep_p_fcp_st_ret = fields.Float(string="% FCP ST Ret. (Rep.)", digits=(5, 4), readonly=True)
+    # N27d – Valor do FCP retido por ST (13v2)
+    icmsst_rep_v_fcp_st_ret = fields.Float(string="Vlr. FCP ST Ret. (Rep.)", digits=(13, 2), readonly=True)
+    # N31 – Valor da BC do ICMS ST da UF destino (13v2)
+    icmsst_rep_v_bc_st_dest = fields.Float(string="BC ST UF Dest. (Rep.)", digits=(13, 2), readonly=True)
+    # N32 – Valor do ICMS ST da UF destino (13v2)
+    icmsst_rep_v_icms_st_dest = fields.Float(string="Vlr. ICMS ST UF Dest. (Rep.)", digits=(13, 2), readonly=True)
+    # N34 – Percentual de redução da BC efetiva (3v2-4)
+    icmsst_rep_p_red_bc_efet = fields.Float(string="% Red. BC Efet. (Rep.)", digits=(5, 4), readonly=True)
+    # N35 – Valor da BC efetiva (13v2)
+    icmsst_rep_v_bc_efet = fields.Float(string="BC Efetiva (Rep.)", digits=(13, 2), readonly=True)
+    # N36 – Alíquota do ICMS efetiva (3v2-4)
+    icmsst_rep_p_icms_efet = fields.Float(string="Alíq. ICMS Efet. (Rep.)", digits=(5, 4), readonly=True)
+    # N37 – Valor do ICMS efetivo (13v2)
+    icmsst_rep_v_icms_efet = fields.Float(string="Vlr. ICMS Efet. (Rep.)", digits=(13, 2), readonly=True)
+
     # ── IPI ───────────────────────────────────────────────────────────────
     # O02 – Classe de enquadramento do IPI para Cigarros e Bebidas (1-5)
     ipi_cl_enq = fields.Char(string="Classe Enquadramento IPI", size=5, readonly=True)
@@ -719,6 +810,8 @@ class DfeProcNfeItem(models.Model):
         }
 
         vals.update(_parse_icms(imposto))
+        vals.update(_parse_icms_uf_dest(imposto))
+        vals.update(_parse_icmsst_repasse(imposto))
         vals.update(_parse_ipi(imposto))
         vals.update(_parse_ii(imposto))
         vals.update(_parse_pis(imposto))
