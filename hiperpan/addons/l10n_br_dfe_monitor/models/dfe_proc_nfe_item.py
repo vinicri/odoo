@@ -268,11 +268,7 @@ def _parse_icms_uf_dest(imposto_el):
     if imposto_el is None:
         return result
 
-    icms_el = _find_direct(imposto_el, "ICMS")
-    if icms_el is None:
-        return result
-
-    uf_dest = _find_direct(icms_el, "ICMSUFDest")
+    uf_dest = _find_direct(imposto_el, "ICMSUFDest")
     if uf_dest is None:
         return result
 
@@ -555,44 +551,6 @@ class DfeProcNfeItem(models.Model):
         string="Vlr. ICMS Operação", digits=(13, 2), readonly=True
     )
 
-    # ── ICMS UF Destino (ICMSUFDest) ──────────────────────────────────────
-    # NA03 – Valor da BC do ICMS na UF de destino (13v2)
-    icms_ufdest_v_bc_uf_dest = fields.Float(
-        string="BC ICMS UF Dest.", digits=(13, 2), readonly=True
-    )
-    # NA04 – Valor da BC FCP na UF de destino (13v2)
-    icms_ufdest_v_bc_fcp_uf_dest = fields.Float(
-        string="BC FCP UF Dest.", digits=(13, 2), readonly=True
-    )
-    # NA05 – Percentual do FCP na UF de destino (3v2-4)
-    icms_ufdest_p_fcp_uf_dest = fields.Float(
-        string="% FCP UF Dest.", digits=(5, 4), readonly=True
-    )
-    # NA07 – Alíquota interna da UF de destino (3v2-4)
-    icms_ufdest_p_icms_uf_dest = fields.Float(
-        string="Alíq. Interna UF Dest.", digits=(5, 4), readonly=True
-    )
-    # NA09 – Alíquota interestadual das UF envolvidas (2v2)
-    icms_ufdest_p_icms_inter = fields.Float(
-        string="Alíq. Interestadual", digits=(4, 2), readonly=True
-    )
-    # NA11 – Percentual provisório de partilha do ICMS Interestadual (3v2-4)
-    icms_ufdest_p_icms_inter_part = fields.Float(
-        string="% Partilha ICMS Inter.", digits=(5, 4), readonly=True
-    )
-    # NA13 – Valor do FCP da UF de destino (13v2)
-    icms_ufdest_v_fcp_uf_dest = fields.Float(
-        string="Vlr. FCP UF Dest.", digits=(13, 2), readonly=True
-    )
-    # NA15 – Valor do ICMS Interestadual para a UF de destino (13v2)
-    icms_ufdest_v_icms_uf_dest = fields.Float(
-        string="Vlr. ICMS UF Dest.", digits=(13, 2), readonly=True
-    )
-    # NA17 – Valor do ICMS Interestadual para a UF do remetente (13v2)
-    icms_ufdest_v_icms_uf_remet = fields.Float(
-        string="Vlr. ICMS UF Remet.", digits=(13, 2), readonly=True
-    )
-
     # ── IPI ───────────────────────────────────────────────────────────────
     # O02 – Classe de enquadramento do IPI para Cigarros e Bebidas (1-5)
     ipi_cl_enq = fields.Char(string="Classe Enquadramento IPI", size=5, readonly=True)
@@ -761,7 +719,6 @@ class DfeProcNfeItem(models.Model):
         }
 
         vals.update(_parse_icms(imposto))
-        vals.update(_parse_icms_uf_dest(imposto))
         vals.update(_parse_ipi(imposto))
         vals.update(_parse_ii(imposto))
         vals.update(_parse_pis(imposto))
