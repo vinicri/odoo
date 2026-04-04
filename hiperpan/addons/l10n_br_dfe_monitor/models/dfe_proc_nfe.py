@@ -263,6 +263,11 @@ class DfeProcNfe(models.Model):
     dest_isuf = fields.Char(string="SUFRAMA Destinatário", readonly=True)
     dest_im = fields.Char(string="Inscrição Municipal Destinatário", readonly=True)
 
+    # TODO dados cobranca
+    # TODO pagamento
+    # TODO intermediador
+    # TODO inf adicionais
+    # TODO info comercio exterior
     # ── Grupo X – Transporte ───────────────────────────────────────────────
     # X02 – Modalidade do frete
     transp_mod_frete = fields.Selection(

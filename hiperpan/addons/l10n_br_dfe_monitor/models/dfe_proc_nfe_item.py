@@ -257,6 +257,38 @@ def _parse_imposto_devol(det_el):
     return result
 
 
+def _parse_icms_uf_dest(imposto_el):
+    """
+    Extrai os campos do grupo ICMSUFDest do elemento <imposto>.
+    Utilizado em vendas interestaduais para consumidor final não contribuinte.
+    Retorna um dict com os campos populados (0.0 quando ausentes).
+    """
+    result = {}
+
+    if imposto_el is None:
+        return result
+
+    icms_el = _find_direct(imposto_el, "ICMS")
+    if icms_el is None:
+        return result
+
+    uf_dest = _find_direct(icms_el, "ICMSUFDest")
+    if uf_dest is None:
+        return result
+
+    result["icms_ufdest_v_bc_uf_dest"] = _fval(uf_dest, "vBCUFDest")
+    result["icms_ufdest_v_bc_fcp_uf_dest"] = _fval(uf_dest, "vBCFCPUFDest")
+    result["icms_ufdest_p_fcp_uf_dest"] = _fval(uf_dest, "pFCPUFDest")
+    result["icms_ufdest_p_icms_uf_dest"] = _fval(uf_dest, "pICMSUFDest")
+    result["icms_ufdest_p_icms_inter"] = _fval(uf_dest, "pICMSInter")
+    result["icms_ufdest_p_icms_inter_part"] = _fval(uf_dest, "pICMSInterPart")
+    result["icms_ufdest_v_fcp_uf_dest"] = _fval(uf_dest, "vFCPUFDest")
+    result["icms_ufdest_v_icms_uf_dest"] = _fval(uf_dest, "vICMSUFDest")
+    result["icms_ufdest_v_icms_uf_remet"] = _fval(uf_dest, "vICMSUFRemet")
+
+    return result
+
+
 def _parse_icms(imposto_el):
     """
     Extrai os campos de ICMS do elemento <imposto>.
@@ -523,6 +555,44 @@ class DfeProcNfeItem(models.Model):
         string="Vlr. ICMS Operação", digits=(13, 2), readonly=True
     )
 
+    # ── ICMS UF Destino (ICMSUFDest) ──────────────────────────────────────
+    # NA03 – Valor da BC do ICMS na UF de destino (13v2)
+    icms_ufdest_v_bc_uf_dest = fields.Float(
+        string="BC ICMS UF Dest.", digits=(13, 2), readonly=True
+    )
+    # NA04 – Valor da BC FCP na UF de destino (13v2)
+    icms_ufdest_v_bc_fcp_uf_dest = fields.Float(
+        string="BC FCP UF Dest.", digits=(13, 2), readonly=True
+    )
+    # NA05 – Percentual do FCP na UF de destino (3v2-4)
+    icms_ufdest_p_fcp_uf_dest = fields.Float(
+        string="% FCP UF Dest.", digits=(5, 4), readonly=True
+    )
+    # NA07 – Alíquota interna da UF de destino (3v2-4)
+    icms_ufdest_p_icms_uf_dest = fields.Float(
+        string="Alíq. Interna UF Dest.", digits=(5, 4), readonly=True
+    )
+    # NA09 – Alíquota interestadual das UF envolvidas (2v2)
+    icms_ufdest_p_icms_inter = fields.Float(
+        string="Alíq. Interestadual", digits=(4, 2), readonly=True
+    )
+    # NA11 – Percentual provisório de partilha do ICMS Interestadual (3v2-4)
+    icms_ufdest_p_icms_inter_part = fields.Float(
+        string="% Partilha ICMS Inter.", digits=(5, 4), readonly=True
+    )
+    # NA13 – Valor do FCP da UF de destino (13v2)
+    icms_ufdest_v_fcp_uf_dest = fields.Float(
+        string="Vlr. FCP UF Dest.", digits=(13, 2), readonly=True
+    )
+    # NA15 – Valor do ICMS Interestadual para a UF de destino (13v2)
+    icms_ufdest_v_icms_uf_dest = fields.Float(
+        string="Vlr. ICMS UF Dest.", digits=(13, 2), readonly=True
+    )
+    # NA17 – Valor do ICMS Interestadual para a UF do remetente (13v2)
+    icms_ufdest_v_icms_uf_remet = fields.Float(
+        string="Vlr. ICMS UF Remet.", digits=(13, 2), readonly=True
+    )
+
     # ── IPI ───────────────────────────────────────────────────────────────
     # O02 – Classe de enquadramento do IPI para Cigarros e Bebidas (1-5)
     ipi_cl_enq = fields.Char(string="Classe Enquadramento IPI", size=5, readonly=True)
@@ -533,7 +603,9 @@ class DfeProcNfeItem(models.Model):
     # O05 – Quantidade de selo de controle (1-12)
     ipi_q_selo = fields.Float(string="Qtd. Selo IPI", digits=(12, 0), readonly=True)
     # O06 – Código de Enquadramento Legal do IPI (1-3)
-    ipi_c_enq = fields.Char(string="Cód. Enquadramento Legal IPI", size=3, readonly=True)
+    ipi_c_enq = fields.Char(
+        string="Cód. Enquadramento Legal IPI", size=3, readonly=True
+    )
     # O09 – Código da situação tributária do IPI (CST) — válido para IPITrib e IPINT
     ipi_cst = fields.Char(string="CST IPI", size=2, readonly=True)
     # O10 – Valor da BC do IPI (13v2) — apenas IPITrib
@@ -551,7 +623,9 @@ class DfeProcNfeItem(models.Model):
     # P02 – Valor da BC do Imposto de Importação (13v2)
     ii_v_bc = fields.Float(string="BC Imp. Importação", digits=(13, 2), readonly=True)
     # P03 – Valor das despesas aduaneiras (13v2)
-    ii_v_desp_adu = fields.Float(string="Despesas Aduaneiras", digits=(13, 2), readonly=True)
+    ii_v_desp_adu = fields.Float(
+        string="Despesas Aduaneiras", digits=(13, 2), readonly=True
+    )
     # P04 – Valor do Imposto de Importação (13v2)
     ii_v_ii = fields.Float(string="Vlr. Imp. Importação", digits=(13, 2), readonly=True)
     # P05 – Valor do Imposto sobre Operações Financeiras (13v2)
@@ -565,7 +639,9 @@ class DfeProcNfeItem(models.Model):
     # Q08 – Alíquota do PIS em percentual (3v2-4) — PISAliq / PISOutr (cálculo por %)
     pis_p_pis = fields.Float(string="Alíq. PIS %", digits=(5, 4), readonly=True)
     # Q10 – Quantidade vendida (12v0-4) — PISQtde / PISOutr (cálculo por qtde)
-    pis_q_bc_prod = fields.Float(string="Qtd. Vendida PIS", digits=(12, 4), readonly=True)
+    pis_q_bc_prod = fields.Float(
+        string="Qtd. Vendida PIS", digits=(12, 4), readonly=True
+    )
     # Q11 – Alíquota do PIS em reais (11v0-4) — PISQtde / PISOutr (cálculo por qtde)
     pis_v_aliq_prod = fields.Float(string="Alíq. PIS R$", digits=(11, 4), readonly=True)
     # Q09 – Valor do PIS (13v2) — comum a PISAliq, PISQtde e PISOutr
@@ -577,9 +653,13 @@ class DfeProcNfeItem(models.Model):
     # R03 – Alíquota do PIS ST em percentual (3v2-4) — cálculo por %
     pisst_p_pis = fields.Float(string="Alíq. PIS ST %", digits=(5, 4), readonly=True)
     # R04 – Quantidade vendida (12v0-4) — cálculo por valor
-    pisst_q_bc_prod = fields.Float(string="Qtd. Vendida PIS ST", digits=(12, 4), readonly=True)
+    pisst_q_bc_prod = fields.Float(
+        string="Qtd. Vendida PIS ST", digits=(12, 4), readonly=True
+    )
     # R05 – Alíquota do PIS ST em reais (11v0-4) — cálculo por valor
-    pisst_v_aliq_prod = fields.Float(string="Alíq. PIS ST R$", digits=(11, 4), readonly=True)
+    pisst_v_aliq_prod = fields.Float(
+        string="Alíq. PIS ST R$", digits=(11, 4), readonly=True
+    )
     # R06 – Valor do PIS ST (13v2)
     pisst_v_pis = fields.Float(string="Vlr. PIS ST", digits=(13, 2), readonly=True)
 
@@ -589,11 +669,17 @@ class DfeProcNfeItem(models.Model):
     # S07 – Valor da BC da COFINS (13v2) — COFINSAliq / COFINSOutr (cálculo por %)
     cofins_v_bc = fields.Float(string="BC COFINS", digits=(13, 2), readonly=True)
     # S08 – Alíquota da COFINS em percentual (3v2-4) — COFINSAliq / COFINSOutr (cálculo por %)
-    cofins_p_cofins = fields.Float(string="Alíq. COFINS %", digits=(5, 4), readonly=True)
+    cofins_p_cofins = fields.Float(
+        string="Alíq. COFINS %", digits=(5, 4), readonly=True
+    )
     # S09 – Quantidade vendida (12v0-4) — COFINSQtde / COFINSOutr (cálculo por qtde)
-    cofins_q_bc_prod = fields.Float(string="Qtd. Vendida COFINS", digits=(12, 4), readonly=True)
+    cofins_q_bc_prod = fields.Float(
+        string="Qtd. Vendida COFINS", digits=(12, 4), readonly=True
+    )
     # S10 – Alíquota da COFINS em reais (11v0-4) — COFINSQtde / COFINSOutr (cálculo por qtde)
-    cofins_v_aliq_prod = fields.Float(string="Alíq. COFINS R$", digits=(11, 4), readonly=True)
+    cofins_v_aliq_prod = fields.Float(
+        string="Alíq. COFINS R$", digits=(11, 4), readonly=True
+    )
     # S11 – Valor da COFINS (13v2) — comum a COFINSAliq, COFINSQtde e COFINSOutr
     cofins_v_cofins = fields.Float(string="Vlr. COFINS", digits=(13, 2), readonly=True)
 
@@ -601,19 +687,29 @@ class DfeProcNfeItem(models.Model):
     # T02 – Valor da BC da COFINS ST (13v2) — cálculo por %
     cofinsst_v_bc = fields.Float(string="BC COFINS ST", digits=(13, 2), readonly=True)
     # T03 – Alíquota da COFINS ST em percentual (3v2-4) — cálculo por %
-    cofinsst_p_cofins = fields.Float(string="Alíq. COFINS ST %", digits=(5, 4), readonly=True)
+    cofinsst_p_cofins = fields.Float(
+        string="Alíq. COFINS ST %", digits=(5, 4), readonly=True
+    )
     # T04 – Quantidade vendida (12v0-4) — cálculo por valor
-    cofinsst_q_bc_prod = fields.Float(string="Qtd. Vendida COFINS ST", digits=(12, 4), readonly=True)
+    cofinsst_q_bc_prod = fields.Float(
+        string="Qtd. Vendida COFINS ST", digits=(12, 4), readonly=True
+    )
     # T05 – Alíquota da COFINS ST em reais (11v0-4) — cálculo por valor
-    cofinsst_v_aliq_prod = fields.Float(string="Alíq. COFINS ST R$", digits=(11, 4), readonly=True)
+    cofinsst_v_aliq_prod = fields.Float(
+        string="Alíq. COFINS ST R$", digits=(11, 4), readonly=True
+    )
     # T06 – Valor da COFINS ST (13v2)
-    cofinsst_v_cofins = fields.Float(string="Vlr. COFINS ST", digits=(13, 2), readonly=True)
+    cofinsst_v_cofins = fields.Float(
+        string="Vlr. COFINS ST", digits=(13, 2), readonly=True
+    )
 
     # ── Imposto Devolvido (impostoDevol) ──────────────────────────────────
     # UA02 – Percentual da mercadoria devolvida (3v2)
     devol_p_devol = fields.Float(string="% Devolvido", digits=(5, 2), readonly=True)
     # UA04 – Valor do IPI devolvido (13v2)
-    devol_v_ipi_devol = fields.Float(string="Vlr. IPI Devolvido", digits=(13, 2), readonly=True)
+    devol_v_ipi_devol = fields.Float(
+        string="Vlr. IPI Devolvido", digits=(13, 2), readonly=True
+    )
 
     # ── Informações Adicionais do Produto ─────────────────────────────────
     # V01 – Informações adicionais do produto (1-500)
@@ -665,6 +761,7 @@ class DfeProcNfeItem(models.Model):
         }
 
         vals.update(_parse_icms(imposto))
+        vals.update(_parse_icms_uf_dest(imposto))
         vals.update(_parse_ipi(imposto))
         vals.update(_parse_ii(imposto))
         vals.update(_parse_pis(imposto))

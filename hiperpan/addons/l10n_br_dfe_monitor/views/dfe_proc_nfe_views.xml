@@ -313,6 +313,17 @@
                                                 <field name="icms_v_icms_dif"/>
                                                 <field name="icms_v_icms_op"/>
                                             </group>
+                                            <group string="ICMS UF Destino (Interestadual)">
+                                                <field name="icms_ufdest_v_bc_uf_dest"/>
+                                                <field name="icms_ufdest_v_bc_fcp_uf_dest"/>
+                                                <field name="icms_ufdest_p_fcp_uf_dest"/>
+                                                <field name="icms_ufdest_p_icms_uf_dest"/>
+                                                <field name="icms_ufdest_p_icms_inter"/>
+                                                <field name="icms_ufdest_p_icms_inter_part"/>
+                                                <field name="icms_ufdest_v_fcp_uf_dest"/>
+                                                <field name="icms_ufdest_v_icms_uf_dest"/>
+                                                <field name="icms_ufdest_v_icms_uf_remet"/>
+                                            </group>
                                         </group>
                                         <group string="IPI">
                                             <group string="Identificação">
