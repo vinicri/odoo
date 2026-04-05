@@ -407,6 +407,15 @@ class DfeDocument(models.Model):
             },
         }
 
+    def action_open_upload_wizard(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Importar XML DFe"),
+            "res_model": "l10n_br_dfe_monitor.upload.wizard",
+            "view_mode": "form",
+            "target": "new",
+        }
+
     @api.model
     def consult_dist_dfe(self):
         company = self.env.company

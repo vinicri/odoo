@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_dfe_upload_wizard_form" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.upload.wizard.form</field>
+        <field name="model">l10n_br_dfe_monitor.upload.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar XML DFe">
+                <group>
+                    <field name="xml_file" filename="xml_filename" widget="binary" required="1"/>
+                    <field name="xml_filename"/>
+                </group>
+                <footer>
+                    <button name="action_upload" type="object" string="Importar" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dfe_upload_wizard" model="ir.actions.act_window">
+        <field name="name">Importar XML DFe</field>
+        <field name="res_model">l10n_br_dfe_monitor.upload.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</odoo>
