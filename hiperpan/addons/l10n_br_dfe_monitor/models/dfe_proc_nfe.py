@@ -405,6 +405,23 @@ class DfeProcNfe(models.Model):
     inf_cpl = fields.Text(string="Informações Complementares", readonly=True)
     inf_ad_fisco = fields.Text(string="Inf. de Interesse do Fisco", readonly=True)
 
+    # ── Grupo YA – Pagamento ───────────────────────────────────────────────
+    # YA09 – Valor do troco (13v2)
+    pag_v_troco = fields.Float(string="Troco", digits=(13, 2), readonly=True)
+
+    pag_ids = fields.One2many(
+        "l10n_br_dfe_monitor.proc_nfe_pag",
+        "proc_nfe_id",
+        string="Pagamentos",
+        readonly=True,
+    )
+
+    # ── Grupo YB – Intermediador ───────────────────────────────────────────
+    # YB02 – CNPJ do Intermediador (14)
+    intermed_cnpj = fields.Char(string="CNPJ Intermediador", size=14, readonly=True)
+    # YB03 – Identificador cadastrado no intermediador (60)
+    intermed_id_cad_int_tran = fields.Char(string="ID Intermediador", size=60, readonly=True)
+
     # ── Grupo Y – Cobrança ─────────────────────────────────────────────────
     # Y03 – Número da Fatura (1-60)
     fat_n_fat = fields.Char(string="Nº Fatura", size=60, readonly=True)
@@ -646,6 +663,15 @@ class DfeProcNfe(models.Model):
                 _text(veic_transp, "RNTC") if veic_transp is not None else None
             )
 
+            # Grupo YA – Pagamento
+            pag_el = _find(inf_nfe, "pag")
+            pag_v_troco = _fval(pag_el, "vTroco") if pag_el is not None else 0.0
+
+            # Grupo YB – Intermediador
+            inf_intermed = _find(inf_nfe, "infIntermed")
+            intermed_cnpj = _text(inf_intermed, "CNPJ") if inf_intermed is not None else None
+            intermed_id_cad_int_tran = _text(inf_intermed, "idCadIntTran") if inf_intermed is not None else None
+
             # Grupo Y – Cobrança
             cobr = _find(inf_nfe, "cobr")
             fat = _find(cobr, "fat") if cobr is not None else None
@@ -801,6 +827,11 @@ class DfeProcNfe(models.Model):
                 "transp_placa": transp_placa,
                 "transp_uf_veic": transp_uf_veic,
                 "transp_rntc": transp_rntc,
+                # Pagamento
+                "pag_v_troco": pag_v_troco,
+                # Intermediador
+                "intermed_cnpj": intermed_cnpj,
+                "intermed_id_cad_int_tran": intermed_id_cad_int_tran,
                 # Cobrança
                 "fat_n_fat": fat_n_fat,
                 "fat_v_orig": fat_v_orig,
@@ -815,6 +846,23 @@ class DfeProcNfe(models.Model):
             _logger.info(
                 f"procNFe criado: id={record.id} chNFe={ch_nfe} NSU={dfe_doc.nsu}"
             )
+
+            # Criar detalhamentos de pagamento
+            if pag_el is not None:
+                NS_find = f"{{{NS}}}"
+                Pag = self.env["l10n_br_dfe_monitor.proc_nfe_pag"]
+                for det_pag in pag_el.findall(f"{NS_find}detPag"):
+                    card_el = det_pag.find(f"{NS_find}card")
+                    Pag.create({
+                        "proc_nfe_id": record.id,
+                        "ind_pag": _text(det_pag, "indPag"),
+                        "t_pag": _text(det_pag, "tPag"),
+                        "v_pag": _fval(det_pag, "vPag"),
+                        "tp_integra": _text(card_el, "tpIntegra") if card_el is not None else False,
+                        "card_cnpj": _text(card_el, "CNPJ") if card_el is not None else False,
+                        "t_band": _text(card_el, "tBand") if card_el is not None else False,
+                        "c_aut": _text(card_el, "cAut") if card_el is not None else False,
+                    })
 
             # Criar parcelas de cobrança
             if cobr is not None:

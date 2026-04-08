@@ -148,6 +148,10 @@
                             <field name="transp_c_mun_fg"/>
                         </group>
                     </group>
+                    <group string="Intermediador">
+                        <field name="intermed_cnpj"/>
+                        <field name="intermed_id_cad_int_tran"/>
+                    </group>
                     <group string="Totais">
                         <group>
                             <field name="v_bc"/>
@@ -186,6 +190,20 @@
                         <field name="inf_ad_fisco" nolabel="1"/>
                     </group>
                     <notebook>
+                        <page string="Pagamento">
+                            <group>
+                                <field name="pag_v_troco"/>
+                            </group>
+                            <field name="pag_ids" readonly="1">
+                                <list>
+                                    <field name="ind_pag" string="Forma"/>
+                                    <field name="t_pag" string="Meio"/>
+                                    <field name="v_pag" string="Valor"/>
+                                    <field name="t_band" string="Bandeira" optional="hide"/>
+                                    <field name="c_aut" string="Autorização" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Cobrança">
                             <group string="Fatura">
                                 <field name="fat_n_fat"/>

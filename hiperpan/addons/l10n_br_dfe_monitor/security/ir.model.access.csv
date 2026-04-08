@@ -11,3 +11,5 @@ access_dfe_proc_nfe_item_user,DFe ProcNFe Item User,model_l10n_br_dfe_monitor_pr
 access_dfe_proc_nfe_item_manager,DFe ProcNFe Item Manager,model_l10n_br_dfe_monitor_proc_nfe_item,base.group_system,1,1,1,1
 access_dfe_proc_nfe_dup_user,DFe ProcNFe Dup User,model_l10n_br_dfe_monitor_proc_nfe_dup,base.group_user,1,1,1,0
 access_dfe_proc_nfe_dup_manager,DFe ProcNFe Dup Manager,model_l10n_br_dfe_monitor_proc_nfe_dup,base.group_system,1,1,1,1
+access_dfe_proc_nfe_pag_user,DFe ProcNFe Pag User,model_l10n_br_dfe_monitor_proc_nfe_pag,base.group_user,1,1,1,0
+access_dfe_proc_nfe_pag_manager,DFe ProcNFe Pag Manager,model_l10n_br_dfe_monitor_proc_nfe_pag,base.group_system,1,1,1,1
