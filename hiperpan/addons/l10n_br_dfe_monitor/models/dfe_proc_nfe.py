@@ -405,6 +405,23 @@ class DfeProcNfe(models.Model):
     inf_cpl = fields.Text(string="Informações Complementares", readonly=True)
     inf_ad_fisco = fields.Text(string="Inf. de Interesse do Fisco", readonly=True)
 
+    # ── Grupo Y – Cobrança ─────────────────────────────────────────────────
+    # Y03 – Número da Fatura (1-60)
+    fat_n_fat = fields.Char(string="Nº Fatura", size=60, readonly=True)
+    # Y04 – Valor Original da Fatura (13v2)
+    fat_v_orig = fields.Float(string="Vlr. Original Fatura", digits=(13, 2), readonly=True)
+    # Y05 – Valor do Desconto da Fatura (13v2)
+    fat_v_desc = fields.Float(string="Desc. Fatura", digits=(13, 2), readonly=True)
+    # Y06 – Valor Líquido da Fatura (13v2)
+    fat_v_liq = fields.Float(string="Vlr. Líquido Fatura", digits=(13, 2), readonly=True)
+
+    dup_ids = fields.One2many(
+        "l10n_br_dfe_monitor.proc_nfe_dup",
+        "proc_nfe_id",
+        string="Parcelas",
+        readonly=True,
+    )
+
     # ── Itens ───────────────────────────────────────────────────────────────
     item_ids = fields.One2many(
         "l10n_br_dfe_monitor.proc_nfe_item",
@@ -629,6 +646,14 @@ class DfeProcNfe(models.Model):
                 _text(veic_transp, "RNTC") if veic_transp is not None else None
             )
 
+            # Grupo Y – Cobrança
+            cobr = _find(inf_nfe, "cobr")
+            fat = _find(cobr, "fat") if cobr is not None else None
+            fat_n_fat = _text(fat, "nFat") if fat is not None else None
+            fat_v_orig = _fval(fat, "vOrig") if fat is not None else 0.0
+            fat_v_desc = _fval(fat, "vDesc") if fat is not None else 0.0
+            fat_v_liq = _fval(fat, "vLiq") if fat is not None else 0.0
+
             # Grupo Z – Informações adicionais
             inf_adic = _find(inf_nfe, "infAdic")
             inf_cpl = _text(inf_adic, "infCpl")
@@ -776,6 +801,11 @@ class DfeProcNfe(models.Model):
                 "transp_placa": transp_placa,
                 "transp_uf_veic": transp_uf_veic,
                 "transp_rntc": transp_rntc,
+                # Cobrança
+                "fat_n_fat": fat_n_fat,
+                "fat_v_orig": fat_v_orig,
+                "fat_v_desc": fat_v_desc,
+                "fat_v_liq": fat_v_liq,
                 # Informações adicionais
                 "inf_cpl": inf_cpl,
                 "inf_ad_fisco": inf_ad_fisco,
@@ -785,6 +815,21 @@ class DfeProcNfe(models.Model):
             _logger.info(
                 f"procNFe criado: id={record.id} chNFe={ch_nfe} NSU={dfe_doc.nsu}"
             )
+
+            # Criar parcelas de cobrança
+            if cobr is not None:
+                NS_find = f"{{{NS}}}"
+                Dup = self.env["l10n_br_dfe_monitor.proc_nfe_dup"]
+                for dup_el in cobr.findall(f"{NS_find}dup"):
+                    n_dup = _text(dup_el, "nDup")
+                    d_venc_str = _text(dup_el, "dVenc")
+                    v_dup = _fval(dup_el, "vDup")
+                    Dup.create({
+                        "proc_nfe_id": record.id,
+                        "n_dup": n_dup,
+                        "d_venc": d_venc_str or False,
+                        "v_dup": v_dup,
+                    })
 
             # Criar itens a partir dos elementos <det>
             Item = self.env["l10n_br_dfe_monitor.proc_nfe_item"]

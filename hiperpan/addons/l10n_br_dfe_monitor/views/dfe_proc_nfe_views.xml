@@ -186,6 +186,21 @@
                         <field name="inf_ad_fisco" nolabel="1"/>
                     </group>
                     <notebook>
+                        <page string="Cobrança">
+                            <group string="Fatura">
+                                <field name="fat_n_fat"/>
+                                <field name="fat_v_orig"/>
+                                <field name="fat_v_desc"/>
+                                <field name="fat_v_liq"/>
+                            </group>
+                            <field name="dup_ids" readonly="1">
+                                <list>
+                                    <field name="n_dup" string="Parcela"/>
+                                    <field name="d_venc" string="Vencimento"/>
+                                    <field name="v_dup" string="Valor"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Itens">
                             <field name="item_ids" readonly="1">
                                 <list>
