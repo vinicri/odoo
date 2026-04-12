@@ -104,6 +104,18 @@ class DfeResNfe(models.Model):
         required=True,
     )
 
+    def action_manifestar_ciencia(self):
+        self.filtered(lambda r: not r.manifestacao).write({"manifestacao": "ciencia"})
+
+    def action_manifestar_confirmado(self):
+        self.write({"manifestacao": "confirmado"})
+
+    def action_manifestar_nao_realizada(self):
+        self.write({"manifestacao": "nao_realizada"})
+
+    def action_manifestar_desconhecido(self):
+        self.write({"manifestacao": "desconhecido"})
+
     @api.model
     def create_from_dfe_document(self, dfe_doc):
         """
