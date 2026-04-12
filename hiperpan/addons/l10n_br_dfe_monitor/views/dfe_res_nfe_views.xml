@@ -74,29 +74,48 @@
                 <field name="tp_amb"/>
                 <templates>
                     <t t-name="card">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <strong class="o_kanban_record_title fs-6">
-                                <t t-esc="record.x_nome.value"/>
-                            </strong>
-                            <t t-if="record.manifestacao.value">
+                        <div class="d-flex flex-column justify-content-between align-items-start mb-1">
+                            <div>
+                                <strong class="o_kanban_record_title fs-6 mb-1">
+                                    <t t-esc="record.x_nome.value"/>
+                                </strong>
+                            </div>
+                            <div class="text-muted mb-1">
+                                <span class="h5">
+                                    <i class="fa fa-calendar me-1"/>
+                                    <t t-esc="record.dh_emi.value"/>
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between w-100">
                                 <span t-attf-class="badge rounded-pill #{
-                                    record.manifestacao.raw_value === 'confirmado' ? 'text-bg-success' :
-                                    record.manifestacao.raw_value === 'ciencia' ? 'text-bg-info' :
-                                    record.manifestacao.raw_value === 'nao_realizada' ? 'text-bg-warning' :
-                                    record.manifestacao.raw_value === 'desconhecido' ? 'text-bg-secondary' :
-                                    'text-bg-light'
-                                }">
+                                record.manifestacao.raw_value === 'confirmado' ? 'text-bg-success' :
+                                record.manifestacao.raw_value === 'ciencia' ? 'text-bg-info' :
+                                record.manifestacao.raw_value === 'nao_realizada' ? 'text-bg-warning' :
+                                record.manifestacao.raw_value === 'desconhecido' ? 'text-bg-secondary' :
+                                'text-bg-light'
+                            }">
                                     <t t-esc="record.manifestacao.value"/>
                                 </span>
-                            </t>
-                            <t t-else="">
-                                <span class="badge rounded-pill text-bg-light">Não manifestada</span>
-                            </t>
+                                <span>
+                                    <t t-if="record.c_sit_nfe.raw_value === '1'">
+                                        <span class="badge text-bg-success">Autorizada</span>
+                                    </t>
+                                    <t t-elif="record.c_sit_nfe.raw_value === '2'">
+                                        <span class="badge text-bg-danger">Denegada</span>
+                                    </t>
+                                    <t t-elif="record.c_sit_nfe.raw_value === '3'">
+                                        <span class="badge text-bg-warning">Cancelada</span>
+                                    </t>
+                                </span>
+
+                            </div>
                         </div>
-                        <div class="text-muted small mb-1">
-                            <i class="fa fa-key me-1"/><t t-esc="record.ch_nfe.value"/>
-                        </div>
-                        <div class="d-flex justify-content-between small">
+                        <!-- <div class="text-muted small mb-1">
+                            <i class="fa fa-key me-1"/>
+                            <t t-esc="record.ch_nfe.value"/>
+                        </div> -->
+                        <div class="small">
+
                             <span>
                                 <t t-if="record.tp_nf.raw_value === '0'">
                                     <span class="badge text-bg-primary">Entrada</span>
@@ -105,43 +124,34 @@
                                     <span class="badge text-bg-secondary">Saída</span>
                                 </t>
                             </span>
-                            <span>
-                                <t t-if="record.c_sit_nfe.raw_value === '1'">
-                                    <span class="badge text-bg-success">Autorizada</span>
-                                </t>
-                                <t t-elif="record.c_sit_nfe.raw_value === '2'">
-                                    <span class="badge text-bg-danger">Denegada</span>
-                                </t>
-                                <t t-elif="record.c_sit_nfe.raw_value === '3'">
-                                    <span class="badge text-bg-warning">Cancelada</span>
-                                </t>
-                            </span>
-                            <strong><t t-esc="record.v_nf.value"/></strong>
                         </div>
-                        <div class="text-muted small mt-1">
-                            <i class="fa fa-calendar me-1"/><t t-esc="record.dh_emi.value"/>
+                        <div class="d-flex justify-content-end mt-3">
+                            <strong class="h2">
+                                <t t-esc="record.v_nf.value"/>
+                            </strong>
                         </div>
+
                         <div class="o_kanban_record_bottom mt-2">
                             <div class="oe_kanban_bottom_left"/>
                             <div class="oe_kanban_bottom_right">
-                                <t t-if="!record.manifestacao.raw_value">
-                                    <button name="action_manifestar_ciencia" type="object"
-                                            class="btn btn-sm btn-outline-info" title="Ciência da Operação">
-                                        <i class="fa fa-eye"/> Ciência
+                                <t t-if="record.manifestacao.raw_value === 'pendente'">
+                                    <button name="action_manifestar_ciencia" type="object" class="btn btn-sm btn-outline-info" title="Ciência da Operação">
+                                        <i class="fa fa-eye"/>
+ Ciência
                                     </button>
                                 </t>
                                 <t t-if="record.manifestacao.raw_value === 'ciencia'">
-                                    <button name="action_manifestar_confirmado" type="object"
-                                            class="btn btn-sm btn-outline-success" title="Confirmar Operação">
-                                        <i class="fa fa-check"/> Confirmar
+                                    <button name="action_manifestar_confirmado" type="object" class="btn btn-sm btn-outline-success" title="Confirmar Operação">
+                                        <i class="fa fa-check"/>
+ Confirmar
                                     </button>
-                                    <button name="action_manifestar_nao_realizada" type="object"
-                                            class="btn btn-sm btn-outline-warning" title="Operação Não Realizada">
-                                        <i class="fa fa-times"/> Não Realizada
+                                    <button name="action_manifestar_nao_realizada" type="object" class="btn btn-sm btn-outline-warning" title="Operação Não Realizada">
+                                        <i class="fa fa-times"/>
+ Não Realizada
                                     </button>
-                                    <button name="action_manifestar_desconhecido" type="object"
-                                            class="btn btn-sm btn-outline-secondary" title="Desconhecimento">
-                                        <i class="fa fa-question"/> Desconhecido
+                                    <button name="action_manifestar_desconhecido" type="object" class="btn btn-sm btn-outline-secondary" title="Desconhecimento">
+                                        <i class="fa fa-question"/>
+ Desconhecido
                                     </button>
                                 </t>
                             </div>
@@ -161,7 +171,7 @@
                 <field name="ch_nfe" string="Chave"/>
                 <field name="x_nome" string="Emitente"/>
                 <separator/>
-                <filter name="nao_manifestada" string="Não Manifestada" domain="[('manifestacao', '=', False)]"/>
+                <filter name="nao_manifestada" string="Pendente" domain="[('manifestacao', '=', 'pendente')]"/>
                 <filter name="ciencia" string="Ciência" domain="[('manifestacao', '=', 'ciencia')]"/>
                 <filter name="confirmado" string="Confirmada" domain="[('manifestacao', '=', 'confirmado')]"/>
                 <filter name="nao_realizada" string="Não Realizada" domain="[('manifestacao', '=', 'nao_realizada')]"/>

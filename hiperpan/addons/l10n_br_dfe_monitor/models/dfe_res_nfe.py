@@ -10,10 +10,11 @@ from datetime import datetime, timezone
 _logger = logging.getLogger(__name__)
 
 MANIFESTACAO_SELECTION = [
-    ("ciencia", "Ciência da Operação"),
-    ("confirmado", "Confirmação da Operação"),
-    ("nao_realizada", "Operação Não Realizada"),
-    ("desconhecido", "Desconhecimento da Operação"),
+    ("pendente", "Pendente"),
+    ("ciencia", "Ciente"),
+    ("confirmado", "Confirmado"),
+    ("nao_realizada", "Não realizada"),
+    ("desconhecido", "Desconhecido"),
 ]
 
 C_SIT_NFE_LABELS = {
@@ -95,6 +96,8 @@ class DfeResNfe(models.Model):
     manifestacao = fields.Selection(
         MANIFESTACAO_SELECTION,
         string="Manifestação do Destinatário",
+        default="pendente",
+        required=True,
     )
 
     tp_amb = fields.Selection(
@@ -105,7 +108,9 @@ class DfeResNfe(models.Model):
     )
 
     def action_manifestar_ciencia(self):
-        self.filtered(lambda r: not r.manifestacao).write({"manifestacao": "ciencia"})
+        self.filtered(lambda r: r.manifestacao == "pendente").write(
+            {"manifestacao": "ciencia"}
+        )
 
     def action_manifestar_confirmado(self):
         self.write({"manifestacao": "confirmado"})
