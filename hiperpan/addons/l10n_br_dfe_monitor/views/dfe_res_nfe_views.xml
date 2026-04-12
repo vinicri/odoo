@@ -61,7 +61,7 @@
         <field name="name">l10n_br_dfe_monitor.res_nfe.kanban</field>
         <field name="model">l10n_br_dfe_monitor.res_nfe</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="manifestacao" class="o_kanban_small_column">
+            <kanban default_group_by="manifestacao" class="o_kanban_small_column" records_draggable="0">
                 <field name="id"/>
                 <field name="ch_nfe"/>
                 <field name="x_nome"/>
@@ -130,8 +130,17 @@
                             <div class="oe_kanban_bottom_left">
                                 <t t-if="record.proc_nfe_id.raw_value">
                                     <button name="action_open_proc_nfe" type="object" class="btn btn-sm btn-outline-primary" title="Ver NF-e Completa">
-                                        <i class="fa fa-file-text-o"/>
- NF-e
+                                        <i class="fa fa-file-text-o"/> NF-e
+                                    </button>
+                                </t>
+                                <t t-elif="record.manifestacao.raw_value === 'ciencia'">
+                                    <span class="text-muted small" title="O XML completo da NF-e ficará disponível após o emitente declarar ciência junto à SEFAZ">
+                                        <i class="fa fa-info-circle me-1"/>NF-e pendente
+                                    </span>
+                                </t>
+                                <t t-else="">
+                                    <button class="btn btn-sm btn-outline-secondary" disabled="1" title="Nenhuma NF-e processada vinculada a este resumo">
+                                        <i class="fa fa-file-text-o"/> NF-e
                                     </button>
                                 </t>
                             </div>
