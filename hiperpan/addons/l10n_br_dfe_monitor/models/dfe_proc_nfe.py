@@ -63,6 +63,13 @@ class DfeProcNfe(models.Model):
         ondelete="set null",
         index=True,
     )
+    res_nfe_id = fields.Many2one(
+        "l10n_br_dfe_monitor.res_nfe",
+        string="Resumo NF-e",
+        ondelete="set null",
+        index=True,
+        readonly=True,
+    )
 
     tp_amb = fields.Selection(
         [("1", "Produção"), ("2", "Homologação")],
@@ -846,6 +853,16 @@ class DfeProcNfe(models.Model):
             _logger.info(
                 f"procNFe criado: id={record.id} chNFe={ch_nfe} NSU={dfe_doc.nsu}"
             )
+
+            # Vincular resNFe correspondente pela chave de acesso
+            if ch_nfe:
+                res_nfe = self.env["l10n_br_dfe_monitor.res_nfe"].search(
+                    [("ch_nfe", "=", ch_nfe), ("company_id", "=", dfe_doc.company_id.id)],
+                    limit=1,
+                )
+                if res_nfe:
+                    record.res_nfe_id = res_nfe.id
+                    res_nfe.proc_nfe_id = record.id
 
             # Criar detalhamentos de pagamento
             if pag_el is not None:

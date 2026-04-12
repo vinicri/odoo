@@ -60,6 +60,13 @@ class DfeResNfe(models.Model):
         ondelete="set null",
         index=True,
     )
+    proc_nfe_id = fields.Many2one(
+        "l10n_br_dfe_monitor.proc_nfe",
+        string="NF-e Processada",
+        ondelete="set null",
+        index=True,
+        readonly=True,
+    )
 
     # Campos do schema resNFe_v1.01.xsd
     versao = fields.Char(string="Versão", readonly=True, required=True)
@@ -120,6 +127,17 @@ class DfeResNfe(models.Model):
 
     def action_manifestar_desconhecido(self):
         self.write({"manifestacao": "desconhecido"})
+
+    def action_open_proc_nfe(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("NF-e Processada"),
+            "res_model": "l10n_br_dfe_monitor.proc_nfe",
+            "res_id": self.proc_nfe_id.id,
+            "view_mode": "form",
+            "target": "current",
+        }
 
     @api.model
     def create_from_dfe_document(self, dfe_doc):
