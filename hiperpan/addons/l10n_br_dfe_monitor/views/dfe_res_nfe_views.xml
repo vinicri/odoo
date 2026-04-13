@@ -61,7 +61,7 @@
         <field name="name">l10n_br_dfe_monitor.res_nfe.kanban</field>
         <field name="model">l10n_br_dfe_monitor.res_nfe</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="manifestacao" class="o_kanban_small_column" records_draggable="0">
+            <kanban class="o_kanban_small_column" records_draggable="0">
                 <field name="id"/>
                 <field name="ch_nfe"/>
                 <field name="x_nome"/>
@@ -200,7 +200,7 @@
                 <separator/>
                 <filter name="entrada" string="Entradas" domain="[('tp_nf', '=', '0')]"/>
                 <filter name="saida" string="Saídas" domain="[('tp_nf', '=', '1')]"/>
-                <group expand="0" string="Agrupar por">
+                <group expand="1" string="Agrupar por">
                     <filter name="group_manifestacao" string="Manifestação" context="{'group_by': 'manifestacao'}"/>
                     <filter name="group_c_sit_nfe" string="Situação NF-e" context="{'group_by': 'c_sit_nfe'}"/>
                     <filter name="group_tp_nf" string="Tipo" context="{'group_by': 'tp_nf'}"/>
