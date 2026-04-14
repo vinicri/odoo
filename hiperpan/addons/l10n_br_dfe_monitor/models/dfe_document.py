@@ -6,6 +6,7 @@ import base64
 import gzip
 import logging
 import tempfile
+import traceback
 import os
 from lxml import etree
 import requests
@@ -18,6 +19,7 @@ from cryptography.hazmat.primitives.serialization import (
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from ..utils import schema_validator, consult_dist_dfe as consult_dist_dfe_utils
+from .common import InvalidTipoEventoError
 
 
 _logger = logging.getLogger(__name__)
@@ -93,13 +95,14 @@ class DfeDocument(models.Model):
         [
             ("pending", "Pendente"),
             ("processed", "Processado"),
+            ("not_supported", "Não Suportado"),
             ("error", "Erro"),
         ],
         string="Status",
         default="pending",
         required=True,
     )
-    # notes = fields.Text(string="Observações")
+    parse_message = fields.Text(string="Erro de Processamento", readonly=True)
 
     _sql_constraints = [
         (
@@ -425,15 +428,29 @@ class DfeDocument(models.Model):
             try:
                 record = ProcEventoNfe.create_from_dfe_document(dfe_doc)
                 if record:
-                    dfe_doc.state = "processed"
+                    dfe_doc.write({"state": "processed", "parse_message": False})
                 else:
-                    dfe_doc.state = "error"
+                    dfe_doc.write(
+                        {
+                            "state": "error",
+                            "parse_message": "create_from_dfe_document retornou None",
+                        }
+                    )
+            except InvalidTipoEventoError as e:
+                _logger.warning(
+                    "NSU=%s ignorado – tipo de evento não suportado: %s",
+                    dfe_doc.nsu,
+                    e.tp_evento,
+                )
+                dfe_doc.write({"state": "not_supported", "parse_message": str(e)})
             except Exception as e:
                 _logger.error(
                     f"Erro ao processar procEventoNFe NSU={dfe_doc.nsu}: {e}",
                     exc_info=True,
                 )
-                dfe_doc.state = "error"
+                dfe_doc.write(
+                    {"state": "error", "parse_message": traceback.format_exc()}
+                )  # noqa: F821
 
     def action_process_proc_evento_nfe(self):
         """Botão da lista: processa eventos NF-e pendentes para a empresa atual."""

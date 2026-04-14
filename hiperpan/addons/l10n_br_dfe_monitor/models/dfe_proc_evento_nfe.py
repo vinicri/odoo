@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timezone
 from lxml import etree
 from odoo import api, fields, models, _
+from .common import InvalidTipoEventoError
 
 _logger = logging.getLogger(__name__)
 
@@ -260,6 +261,12 @@ class DfeProcEventoNfe(models.Model):
 
             det_el = _find(inf_evento_in, "detEvento")
 
+            all_tp_evento = ["110111", "110112", "110110"] + list(
+                MANIFESTACAO_MAP.keys()
+            )
+            if tp_evento not in all_tp_evento:
+                raise InvalidTipoEventoError(tp_evento)
+
             # Parse detEvento por tipo
             det_vals = {}
             if det_el is not None:
@@ -346,4 +353,4 @@ class DfeProcEventoNfe(models.Model):
                 f"Erro ao criar procEventoNFe para DFe NSU={dfe_doc.nsu}: {e}",
                 exc_info=True,
             )
-            return None
+            raise
