@@ -28,6 +28,13 @@
         sequence="16"/>
 
     <menuitem
+        id="menu_dfe_monitor_proc_evento_nfe"
+        name="Eventos NF-e"
+        parent="menu_dfe_monitor_root"
+        action="l10n_br_dfe_monitor.action_dfe_proc_evento_nfe"
+        sequence="17"/>
+
+    <menuitem
         id="menu_dfe_monitor_consult"
         name="Consultar DFes"
         parent="menu_dfe_monitor_root"

@@ -407,6 +407,48 @@ class DfeDocument(models.Model):
             },
         }
 
+    @api.model
+    def _process_proc_evento_nfe(self):
+        """Processa documentos procEventoNFe pendentes."""
+        company = self.env.company
+        tp_amb = company.fiscal_document_emission_env
+        pending = self.env["l10n_br_dfe_monitor.document"].search(
+            [
+                ("company_id", "=", company.id),
+                ("tp_amb", "=", tp_amb),
+                ("state", "=", "pending"),
+                ("document_type", "=", SCHEMA_TYPE_PROC_EVENTO_NFE),
+            ]
+        )
+        ProcEventoNfe = self.env["l10n_br_dfe_monitor.proc_evento_nfe"]
+        for dfe_doc in pending:
+            try:
+                record = ProcEventoNfe.create_from_dfe_document(dfe_doc)
+                if record:
+                    dfe_doc.state = "processed"
+                else:
+                    dfe_doc.state = "error"
+            except Exception as e:
+                _logger.error(
+                    f"Erro ao processar procEventoNFe NSU={dfe_doc.nsu}: {e}",
+                    exc_info=True,
+                )
+                dfe_doc.state = "error"
+
+    def action_process_proc_evento_nfe(self):
+        """Botão da lista: processa eventos NF-e pendentes para a empresa atual."""
+        self._process_proc_evento_nfe()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Processamento"),
+                "message": _("Eventos NF-e pendentes foram processados."),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
     def action_open_upload_wizard(self):
         return {
             "type": "ir.actions.act_window",

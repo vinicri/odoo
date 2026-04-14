@@ -11,6 +11,7 @@
                     <button name="action_process_res_nfe" type="object" string="Resumos NF-e" display="always" />
                     <button name="action_set_all_pending" type="object" string="Todos pendentes" display="always" />
                     <button name="action_process_proc_nfe" type="object" string="NF-e Completas" display="always" />
+                    <button name="action_process_proc_evento_nfe" type="object" string="Eventos NF-e" display="always" />
                     <button name="action_open_upload_wizard" type="object" string="Importar XML" display="always" />
                 </header>
                 <field name="nsu"/>

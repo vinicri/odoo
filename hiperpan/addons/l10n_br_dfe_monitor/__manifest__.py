@@ -23,6 +23,7 @@
         "views/dfe_document_views.xml",
         "views/dfe_res_nfe_views.xml",
         "views/dfe_proc_nfe_views.xml",
+        "views/dfe_proc_evento_nfe_views.xml",
         "wizard/dfe_query_wizard_views.xml",
         "wizard/dfe_upload_wizard_views.xml",
         "views/dfe_menu.xml",
