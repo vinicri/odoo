@@ -475,6 +475,10 @@ class DfeDocument(models.Model):
             "target": "new",
         }
 
+    def action_view_xml(self):
+        self.ensure_one()
+        return self.env["l10n_br_dfe_monitor.xml_viewer_wizard"].action_open_xml_viewer(self.id)
+
     @api.model
     def consult_dist_dfe(self):
         company = self.env.company

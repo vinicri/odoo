@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_dfe_xml_viewer_wizard_form" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.xml_viewer_wizard.form</field>
+        <field name="model">l10n_br_dfe_monitor.xml_viewer_wizard</field>
+        <field name="arch" type="xml">
+            <form string="Visualizar XML">
+                <sheet>
+                    <field name="xml_content"
+                           widget="ace"
+                           options="{'mode': 'xml', 'theme': 'monokai'}"
+                           nolabel="1"
+                           readonly="1"
+                           style="min-height: 500px; width: 100%;"/>
+                </sheet>
+                <footer>
+                    <button string="Fechar" class="btn-primary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

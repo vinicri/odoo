@@ -55,6 +55,12 @@
                     <group string="Arquivo XML">
                         <field name="xml_file" filename="xml_filename" widget="binary"/>
                         <field name="xml_filename" invisible="1"/>
+                        <div>
+                            <button name="action_view_xml" type="object"
+                                    string="Visualizar XML" class="btn btn-secondary btn-sm"
+                                    icon="fa-code"
+                                    invisible="not xml_file"/>
+                        </div>
                     </group>
                     <group string="Erro de Processamento" invisible="not parse_message">
                         <field name="parse_message" nolabel="1" widget="text" readonly="1"/>
