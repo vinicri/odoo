@@ -701,8 +701,12 @@ class DfeProcNfe(models.Model):
 
             # Grupo Z – Informações adicionais
             inf_adic = _find(inf_nfe, "infAdic")
-            inf_cpl = _text(inf_adic, "infCpl")
-            inf_ad_fisco = _text(inf_adic, "infAdFisco")
+            if inf_adic is not None:
+                inf_cpl = _text(inf_adic, "infCpl") or None
+                inf_ad_fisco = _text(inf_adic, "infAdFisco") or None
+            else:
+                inf_cpl = None
+                inf_ad_fisco = None
 
             # # Se tags obrigatórias não existirem, aborta (evita gravação parcial inválida)
             # required_str_fields = {
