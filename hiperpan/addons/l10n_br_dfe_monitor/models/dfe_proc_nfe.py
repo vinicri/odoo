@@ -427,17 +427,23 @@ class DfeProcNfe(models.Model):
     # YB02 – CNPJ do Intermediador (14)
     intermed_cnpj = fields.Char(string="CNPJ Intermediador", size=14, readonly=True)
     # YB03 – Identificador cadastrado no intermediador (60)
-    intermed_id_cad_int_tran = fields.Char(string="ID Intermediador", size=60, readonly=True)
+    intermed_id_cad_int_tran = fields.Char(
+        string="ID Intermediador", size=60, readonly=True
+    )
 
     # ── Grupo Y – Cobrança ─────────────────────────────────────────────────
     # Y03 – Número da Fatura (1-60)
     fat_n_fat = fields.Char(string="Nº Fatura", size=60, readonly=True)
     # Y04 – Valor Original da Fatura (13v2)
-    fat_v_orig = fields.Float(string="Vlr. Original Fatura", digits=(13, 2), readonly=True)
+    fat_v_orig = fields.Float(
+        string="Vlr. Original Fatura", digits=(13, 2), readonly=True
+    )
     # Y05 – Valor do Desconto da Fatura (13v2)
     fat_v_desc = fields.Float(string="Desc. Fatura", digits=(13, 2), readonly=True)
     # Y06 – Valor Líquido da Fatura (13v2)
-    fat_v_liq = fields.Float(string="Vlr. Líquido Fatura", digits=(13, 2), readonly=True)
+    fat_v_liq = fields.Float(
+        string="Vlr. Líquido Fatura", digits=(13, 2), readonly=True
+    )
 
     dup_ids = fields.One2many(
         "l10n_br_dfe_monitor.proc_nfe_dup",
@@ -676,8 +682,14 @@ class DfeProcNfe(models.Model):
 
             # Grupo YB – Intermediador
             inf_intermed = _find(inf_nfe, "infIntermed")
-            intermed_cnpj = _text(inf_intermed, "CNPJ") if inf_intermed is not None else None
-            intermed_id_cad_int_tran = _text(inf_intermed, "idCadIntTran") if inf_intermed is not None else None
+            intermed_cnpj = (
+                _text(inf_intermed, "CNPJ") if inf_intermed is not None else None
+            )
+            intermed_id_cad_int_tran = (
+                _text(inf_intermed, "idCadIntTran")
+                if inf_intermed is not None
+                else None
+            )
 
             # Grupo Y – Cobrança
             cobr = _find(inf_nfe, "cobr")
@@ -857,7 +869,10 @@ class DfeProcNfe(models.Model):
             # Vincular resNFe correspondente pela chave de acesso
             if ch_nfe:
                 res_nfe = self.env["l10n_br_dfe_monitor.res_nfe"].search(
-                    [("ch_nfe", "=", ch_nfe), ("company_id", "=", dfe_doc.company_id.id)],
+                    [
+                        ("ch_nfe", "=", ch_nfe),
+                        ("company_id", "=", dfe_doc.company_id.id),
+                    ],
                     limit=1,
                 )
                 if res_nfe:
@@ -870,16 +885,30 @@ class DfeProcNfe(models.Model):
                 Pag = self.env["l10n_br_dfe_monitor.proc_nfe_pag"]
                 for det_pag in pag_el.findall(f"{NS_find}detPag"):
                     card_el = det_pag.find(f"{NS_find}card")
-                    Pag.create({
-                        "proc_nfe_id": record.id,
-                        "ind_pag": _text(det_pag, "indPag"),
-                        "t_pag": _text(det_pag, "tPag"),
-                        "v_pag": _fval(det_pag, "vPag"),
-                        "tp_integra": _text(card_el, "tpIntegra") if card_el is not None else False,
-                        "card_cnpj": _text(card_el, "CNPJ") if card_el is not None else False,
-                        "t_band": _text(card_el, "tBand") if card_el is not None else False,
-                        "c_aut": _text(card_el, "cAut") if card_el is not None else False,
-                    })
+                    Pag.create(
+                        {
+                            "proc_nfe_id": record.id,
+                            "ind_pag": _text(det_pag, "indPag"),
+                            "t_pag": _text(det_pag, "tPag"),
+                            "v_pag": _fval(det_pag, "vPag"),
+                            "tp_integra": (
+                                _text(card_el, "tpIntegra")
+                                if card_el is not None
+                                else False
+                            ),
+                            "card_cnpj": (
+                                _text(card_el, "CNPJ") if card_el is not None else False
+                            ),
+                            "t_band": (
+                                _text(card_el, "tBand")
+                                if card_el is not None
+                                else False
+                            ),
+                            "c_aut": (
+                                _text(card_el, "cAut") if card_el is not None else False
+                            ),
+                        }
+                    )
 
             # Criar parcelas de cobrança
             if cobr is not None:
@@ -889,12 +918,14 @@ class DfeProcNfe(models.Model):
                     n_dup = _text(dup_el, "nDup")
                     d_venc_str = _text(dup_el, "dVenc")
                     v_dup = _fval(dup_el, "vDup")
-                    Dup.create({
-                        "proc_nfe_id": record.id,
-                        "n_dup": n_dup,
-                        "d_venc": d_venc_str or False,
-                        "v_dup": v_dup,
-                    })
+                    Dup.create(
+                        {
+                            "proc_nfe_id": record.id,
+                            "n_dup": n_dup,
+                            "d_venc": d_venc_str or False,
+                            "v_dup": v_dup,
+                        }
+                    )
 
             # Criar itens a partir dos elementos <det>
             Item = self.env["l10n_br_dfe_monitor.proc_nfe_item"]
@@ -908,4 +939,4 @@ class DfeProcNfe(models.Model):
                 f"Erro ao criar procNFe para DFe NSU={dfe_doc.nsu}: {e}",
                 exc_info=True,
             )
-            raise e
+            raise

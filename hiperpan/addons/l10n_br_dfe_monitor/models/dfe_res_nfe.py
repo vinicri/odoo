@@ -208,4 +208,4 @@ class DfeResNfe(models.Model):
                 f"Erro ao criar resNFe para DFe NSU={dfe_doc.nsu}: {e}",
                 exc_info=True,
             )
-            return None
+            raise

@@ -342,14 +342,28 @@ class DfeDocument(models.Model):
         )
         ResNfe = self.env["l10n_br_dfe_monitor.res_nfe"]
         for res_nfe in pending_res_nfe:
-            record = ResNfe.create_from_dfe_document(res_nfe)
-            if record:
-                res_nfe.state = "processed"
-            else:
-                _logger.warning(
-                    f"Erro ao criar res_nfe: {res_nfe.id} - {res_nfe.dfe_document_id.nsu}"
+            try:
+                record = ResNfe.create_from_dfe_document(res_nfe)
+                if record:
+                    res_nfe.state = "processed"
+                else:
+                    _logger.warning(
+                        f"Erro ao criar res_nfe: {res_nfe.id} - {res_nfe.dfe_document_id.nsu}"
+                    )
+                    res_nfe.write(
+                        {
+                            "state": "error",
+                            "parse_message": "create_from_dfe_document retornou None",
+                        }
+                    )
+            except Exception as e:
+                _logger.error(
+                    f"Erro ao processar resNFe NSU={res_nfe.nsu}: {e}",
+                    exc_info=True,
                 )
-                res_nfe.state = "error"
+                res_nfe.write(
+                    {"state": "error", "parse_message": traceback.format_exc()}
+                )
 
     def action_process_res_nfe(self):
         """Botão da lista: processa resumos NF-e pendentes para a empresa atual."""
@@ -388,13 +402,20 @@ class DfeDocument(models.Model):
                     _logger.warning(
                         f"Erro ao criar procNfe: {dfe_doc.id} - {dfe_doc.dfe_document_id.nsu}"
                     )
-                    dfe_doc.state = "error"
+                    dfe_doc.write(
+                        {
+                            "state": "error",
+                            "parse_message": "create_from_dfe_document retornou None",
+                        }
+                    )
             except Exception as e:
                 _logger.error(
                     f"Erro ao processar procNFe NSU={dfe_doc.nsu}: {e}",
                     exc_info=True,
                 )
-                dfe_doc.state = "error"
+                dfe_doc.write(
+                    {"state": "error", "parse_message": traceback.format_exc()}
+                )
 
     def action_process_proc_nfe(self):
         """Botão da lista: processa NF-e completas pendentes para a empresa atual."""
@@ -477,7 +498,9 @@ class DfeDocument(models.Model):
 
     def action_view_xml(self):
         self.ensure_one()
-        return self.env["l10n_br_dfe_monitor.xml_viewer_wizard"].action_open_xml_viewer(self.id)
+        return self.env["l10n_br_dfe_monitor.xml_viewer_wizard"].action_open_xml_viewer(
+            self.id
+        )
 
     @api.model
     def consult_dist_dfe(self):
