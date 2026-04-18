@@ -198,6 +198,32 @@ class DfeResNfe(models.Model):
             }
 
             record = self.create(vals)
+
+            if ch_nfe:
+                proc_nfe = self.env["l10n_br_dfe_monitor.proc_nfe"].search(
+                    [
+                        ("ch_nfe", "=", ch_nfe),
+                        ("company_id", "=", dfe_doc.company_id.id),
+                        ("tp_amb", "=", dfe_doc.tp_amb),
+                    ],
+                    limit=1,
+                )
+                if proc_nfe:
+                    proc_nfe.res_nfe_id = record.id
+                    record.proc_nfe_id = proc_nfe.id
+
+                proc_evento_nfe_list = self.env[
+                    "l10n_br_dfe_monitor.proc_evento_nfe"
+                ].search(
+                    [
+                        ("ch_nfe", "=", ch_nfe),
+                        ("company_id", "=", dfe_doc.company_id.id),
+                        ("tp_amb", "=", dfe_doc.tp_amb),
+                    ],
+                )
+                for proc_evento_nfe in proc_evento_nfe_list:
+                    proc_evento_nfe.res_nfe_id = record.id
+
             _logger.info(
                 f"resNFe criado: id={record.id} chNFe={ch_nfe} NSU={dfe_doc.nsu}"
             )

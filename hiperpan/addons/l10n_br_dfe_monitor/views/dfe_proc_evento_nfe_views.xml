@@ -6,10 +6,7 @@
         <field name="name">l10n_br_dfe_monitor.proc_evento_nfe.list</field>
         <field name="model">l10n_br_dfe_monitor.proc_evento_nfe</field>
         <field name="arch" type="xml">
-            <list string="Eventos NF-e"
-                  decoration-success="c_stat == '135'"
-                  decoration-danger="c_stat and c_stat[0] == '4' or c_stat and c_stat[0] == '5'"
-                  decoration-muted="c_stat == '573'">
+            <list string="Eventos NF-e" decoration-success="c_stat == '135'" decoration-danger="c_stat and c_stat[0] == '4' or c_stat and c_stat[0] == '5'" decoration-muted="c_stat == '573'">
                 <field name="dh_evento" string="Data/Hora"/>
                 <field name="tp_evento" string="Tipo de Evento"/>
                 <field name="ch_nfe" string="Chave NF-e"/>
@@ -43,33 +40,28 @@
                             <field name="autor_cpf"/>
                             <field name="dfe_document_id"/>
                             <field name="res_nfe_id"/>
+                            <field name="proc_nfe_id"/>
                         </group>
                     </group>
 
                     <!-- detEvento: Cancelamento (110111 / 110112) -->
-                    <group string="Cancelamento"
-                           invisible="tp_evento not in ('110111', '110112')">
+                    <group string="Cancelamento" invisible="tp_evento not in ('110111', '110112')">
                         <field name="det_n_prot" string="Protocolo NF-e Cancelada"/>
                         <field name="det_x_just" string="Justificativa"/>
-                        <field name="det_ch_nfe_ref"
-                               invisible="tp_evento != '110112'"/>
-                        <field name="det_c_orgao_autor"
-                               invisible="tp_evento != '110112'"/>
+                        <field name="det_ch_nfe_ref" invisible="tp_evento != '110112'"/>
+                        <field name="det_c_orgao_autor" invisible="tp_evento != '110112'"/>
                     </group>
 
                     <!-- detEvento: Carta de Correção (110110) -->
-                    <group string="Carta de Correção"
-                           invisible="tp_evento != '110110'">
+                    <group string="Carta de Correção" invisible="tp_evento != '110110'">
                         <field name="det_x_correcao"/>
                         <field name="det_x_cond_uso"/>
                     </group>
 
                     <!-- detEvento: Manifestação do Destinatário (210xxx) -->
-                    <group string="Manifestação do Destinatário"
-                           invisible="tp_evento not in ('210200', '210210', '210220', '210240')">
+                    <group string="Manifestação do Destinatário" invisible="tp_evento not in ('210200', '210210', '210220', '210240')">
                         <field name="det_desc_evento" string="Descrição"/>
-                        <field name="det_x_just" string="Justificativa"
-                               invisible="tp_evento != '210240'"/>
+                        <field name="det_x_just" string="Justificativa" invisible="tp_evento != '210240'"/>
                     </group>
 
                     <!-- Resposta SEFAZ -->
@@ -81,12 +73,9 @@
                             <field name="n_prot"/>
                         </group>
                         <group>
-                            <field name="cnpj_dest"
-                                   invisible="tp_evento != '110111'"/>
-                            <field name="cpf_dest"
-                                   invisible="tp_evento != '110111'"/>
-                            <field name="ch_nfe_pend"
-                                   invisible="tp_evento != '110140'"/>
+                            <field name="cnpj_dest" invisible="tp_evento != '110111'"/>
+                            <field name="cpf_dest" invisible="tp_evento != '110111'"/>
+                            <field name="ch_nfe_pend" invisible="tp_evento != '110140'"/>
                         </group>
                     </group>
                 </sheet>
@@ -104,25 +93,17 @@
                 <field name="tp_evento" string="Tipo de Evento"/>
                 <field name="n_prot" string="Protocolo"/>
                 <separator/>
-                <filter name="cancelamento" string="Cancelamento"
-                        domain="[('tp_evento', 'in', ['110111', '110112'])]"/>
-                <filter name="carta_correcao" string="Carta de Correção"
-                        domain="[('tp_evento', '=', '110110')]"/>
-                <filter name="manifestacao" string="Manifestação"
-                        domain="[('tp_evento', 'in', ['210200', '210210', '210220', '210240'])]"/>
+                <filter name="cancelamento" string="Cancelamento" domain="[('tp_evento', 'in', ['110111', '110112'])]"/>
+                <filter name="carta_correcao" string="Carta de Correção" domain="[('tp_evento', '=', '110110')]"/>
+                <filter name="manifestacao" string="Manifestação" domain="[('tp_evento', 'in', ['210200', '210210', '210220', '210240'])]"/>
                 <separator/>
-                <filter name="autorizado" string="Autorizado (135)"
-                        domain="[('c_stat', '=', '135')]"/>
+                <filter name="autorizado" string="Autorizado (135)" domain="[('c_stat', '=', '135')]"/>
                 <separator/>
-                <filter name="producao" string="Produção"
-                        domain="[('tp_amb', '=', '1')]"/>
-                <filter name="homologacao" string="Homologação"
-                        domain="[('tp_amb', '=', '2')]"/>
+                <filter name="producao" string="Produção" domain="[('tp_amb', '=', '1')]"/>
+                <filter name="homologacao" string="Homologação" domain="[('tp_amb', '=', '2')]"/>
                 <group expand="1" string="Agrupar por">
-                    <filter name="group_tp_evento" string="Tipo de Evento"
-                            context="{'group_by': 'tp_evento'}"/>
-                    <filter name="group_c_stat" string="Status"
-                            context="{'group_by': 'c_stat'}"/>
+                    <filter name="group_tp_evento" string="Tipo de Evento" context="{'group_by': 'tp_evento'}"/>
+                    <filter name="group_c_stat" string="Status" context="{'group_by': 'c_stat'}"/>
                 </group>
             </search>
         </field>

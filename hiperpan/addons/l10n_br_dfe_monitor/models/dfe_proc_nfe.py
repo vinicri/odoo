@@ -471,6 +471,13 @@ class DfeProcNfe(models.Model):
     #     string="Manifestação do Destinatário",
     # )
 
+    dfe_proc_evento_nfe_ids = fields.One2many(
+        "l10n_br_dfe_monitor.proc_evento_nfe",
+        "proc_nfe_id",
+        string="Eventos de NF-e",
+        readonly=True,
+    )
+
     @api.model
     def _create_from_dfe_document(self, dfe_doc):
         """
@@ -876,12 +883,25 @@ class DfeProcNfe(models.Model):
                     [
                         ("ch_nfe", "=", ch_nfe),
                         ("company_id", "=", dfe_doc.company_id.id),
+                        ("tp_amb", "=", dfe_doc.tp_amb),
                     ],
                     limit=1,
                 )
                 if res_nfe:
                     record.res_nfe_id = res_nfe.id
                     res_nfe.proc_nfe_id = record.id
+
+                proc_evento_nfe_list = self.env[
+                    "l10n_br_dfe_monitor.proc_evento_nfe"
+                ].search(
+                    [
+                        ("ch_nfe", "=", ch_nfe),
+                        ("company_id", "=", dfe_doc.company_id.id),
+                        ("tp_amb", "=", dfe_doc.tp_amb),
+                    ],
+                )
+                for proc_evento_nfe in proc_evento_nfe_list:
+                    proc_evento_nfe.proc_nfe_id = record.id
 
             # Criar detalhamentos de pagamento
             if pag_el is not None:

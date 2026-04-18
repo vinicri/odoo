@@ -190,35 +190,6 @@
                         <field name="inf_ad_fisco" nolabel="1"/>
                     </group>
                     <notebook>
-                        <page string="Pagamento">
-                            <group>
-                                <field name="pag_v_troco"/>
-                            </group>
-                            <field name="pag_ids" readonly="1">
-                                <list>
-                                    <field name="ind_pag" string="Forma"/>
-                                    <field name="t_pag" string="Meio"/>
-                                    <field name="v_pag" string="Valor"/>
-                                    <field name="t_band" string="Bandeira" optional="hide"/>
-                                    <field name="c_aut" string="Autorização" optional="hide"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Cobrança">
-                            <group string="Fatura">
-                                <field name="fat_n_fat"/>
-                                <field name="fat_v_orig"/>
-                                <field name="fat_v_desc"/>
-                                <field name="fat_v_liq"/>
-                            </group>
-                            <field name="dup_ids" readonly="1">
-                                <list>
-                                    <field name="n_dup" string="Parcela"/>
-                                    <field name="d_venc" string="Vencimento"/>
-                                    <field name="v_dup" string="Valor"/>
-                                </list>
-                            </field>
-                        </page>
                         <page string="Itens">
                             <field name="item_ids" readonly="1">
                                 <list>
@@ -436,6 +407,46 @@
                                 </form>
                             </field>
                         </page>
+                        <page string="Pagamento">
+                            <group>
+                                <field name="pag_v_troco"/>
+                            </group>
+                            <field name="pag_ids" readonly="1">
+                                <list>
+                                    <field name="ind_pag" string="Forma"/>
+                                    <field name="t_pag" string="Meio"/>
+                                    <field name="v_pag" string="Valor"/>
+                                    <field name="t_band" string="Bandeira" optional="hide"/>
+                                    <field name="c_aut" string="Autorização" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Cobrança">
+                            <group string="Fatura">
+                                <field name="fat_n_fat"/>
+                                <field name="fat_v_orig"/>
+                                <field name="fat_v_desc"/>
+                                <field name="fat_v_liq"/>
+                            </group>
+                            <field name="dup_ids" readonly="1">
+                                <list>
+                                    <field name="n_dup" string="Parcela"/>
+                                    <field name="d_venc" string="Vencimento"/>
+                                    <field name="v_dup" string="Valor"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Eventos">
+                            <field name="dfe_proc_evento_nfe_ids" readonly="1">
+                                <list>
+                                    <field name="tp_evento" string="Tipo de Evento"/>
+                                    <field name="dh_evento" string="Data/Hora"/>
+                                    <field name="det_desc_evento" string="Descrição"/>
+                                    <field name="n_seq_evento" string="Seq. Evento"/>
+                                </list>
+                            </field>
+                        </page>
+
                     </notebook>
                 </sheet>
             </form>
