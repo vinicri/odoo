@@ -5,7 +5,9 @@ Brazilian DFe Monitor - Resumo de NF-e (resNFe)
 import logging
 from lxml import etree
 from odoo import api, fields, models, _
+from odoo.exceptions import UserError
 from datetime import datetime, timezone
+from ..utils.send_manifestacao import send_manifestacao
 
 _logger = logging.getLogger(__name__)
 
@@ -114,19 +116,46 @@ class DfeResNfe(models.Model):
         required=True,
     )
 
+    def _enviar_manifestacao(self, tp_evento, x_just=None):
+        """Envia manifestação para a SEFAZ e, em caso de sucesso, atualiza o campo local."""
+        manifestacao_map = {
+            "210200": "confirmado",
+            "210210": "ciencia",
+            "210220": "desconhecido",
+            "210240": "nao_realizada",
+        }
+        for rec in self:
+            send_manifestacao(
+                company=rec.company_id,
+                ch_nfe=rec.ch_nfe,
+                tp_evento=tp_evento,
+                tp_amb=rec.tp_amb,
+                x_just=x_just,
+            )
+            rec.manifestacao = manifestacao_map[tp_evento]
+
     def action_manifestar_ciencia(self):
-        self.filtered(lambda r: r.manifestacao == "pendente").write(
-            {"manifestacao": "ciencia"}
-        )
+        records = self.filtered(lambda r: r.manifestacao == "pendente")
+        if not records:
+            return
+        records._enviar_manifestacao("210210")
 
     def action_manifestar_confirmado(self):
-        self.write({"manifestacao": "confirmado"})
-
-    def action_manifestar_nao_realizada(self):
-        self.write({"manifestacao": "nao_realizada"})
+        self._enviar_manifestacao("210200")
 
     def action_manifestar_desconhecido(self):
-        self.write({"manifestacao": "desconhecido"})
+        self._enviar_manifestacao("210220")
+
+    def action_manifestar_nao_realizada(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Operação não Realizada — Justificativa"),
+            "res_model": "l10n_br_dfe_monitor.manifestacao_nao_realizada_wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_res_nfe_id": self.id},
+        }
 
     def action_open_proc_nfe(self):
         self.ensure_one()

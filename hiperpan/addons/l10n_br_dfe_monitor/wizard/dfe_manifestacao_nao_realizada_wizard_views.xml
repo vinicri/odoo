@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_dfe_manifestacao_nao_realizada_wizard_form" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.manifestacao_nao_realizada_wizard.form</field>
+        <field name="model">l10n_br_dfe_monitor.manifestacao_nao_realizada_wizard</field>
+        <field name="arch" type="xml">
+            <form string="Operação não Realizada">
+                <sheet>
+                    <group>
+                        <field name="res_nfe_id" readonly="1"/>
+                        <field name="x_just" placeholder="Mínimo 15 caracteres…"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirmar" type="object"
+                            string="Enviar Manifestação" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

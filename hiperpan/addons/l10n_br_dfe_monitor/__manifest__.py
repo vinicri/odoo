@@ -27,10 +27,16 @@
         "wizard/dfe_query_wizard_views.xml",
         "wizard/dfe_upload_wizard_views.xml",
         "wizard/dfe_xml_viewer_wizard_views.xml",
+        "wizard/dfe_manifestacao_nao_realizada_wizard_views.xml",
         "views/dfe_menu.xml",
     ],
     "external_dependencies": {
-        "python": ["requests", "cryptography", "erpbrasil.base"],
+        "python": [
+            "requests",
+            "cryptography",
+            "erpbrasil.base",
+            "erpbrasil.assinatura",
+        ],
     },
     "installable": True,
     "auto_install": False,
