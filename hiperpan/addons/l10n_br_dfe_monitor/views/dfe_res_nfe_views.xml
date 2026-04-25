@@ -130,17 +130,20 @@
                             <div class="oe_kanban_bottom_left">
                                 <t t-if="record.proc_nfe_id.raw_value">
                                     <button name="action_open_proc_nfe" type="object" class="btn btn-sm btn-outline-primary" title="Ver NF-e Completa">
-                                        <i class="fa fa-file-text-o"/> NF-e
+                                        <i class="fa fa-file-text-o"/>
+ NF-e
                                     </button>
                                 </t>
                                 <t t-elif="record.manifestacao.raw_value === 'ciencia'">
                                     <span class="text-muted small" title="O XML completo da NF-e ficará disponível após o emitente declarar ciência junto à SEFAZ">
-                                        <i class="fa fa-info-circle me-1"/>NF-e pendente
+                                        <i class="fa fa-info-circle me-1"/>
+NF-e pendente
                                     </span>
                                 </t>
                                 <t t-else="">
                                     <button class="btn btn-sm btn-outline-secondary" disabled="1" title="Nenhuma NF-e processada vinculada a este resumo">
-                                        <i class="fa fa-file-text-o"/> NF-e
+                                        <i class="fa fa-file-text-o"/>
+ NF-e
                                     </button>
                                 </t>
                             </div>
@@ -153,10 +156,39 @@
 
                             <div class="oe_kanban_bottom_right">
                                 <t t-if="record.manifestacao.raw_value === 'pendente'">
-                                    <button name="action_manifestar_ciencia" type="object" class="btn btn-sm btn-outline-info" title="Ciência da Operação">
-                                        <i class="fa fa-eye"/>
+                                    <div class="btn-group">
+                                        <button name="action_manifestar_ciencia" type="object" class="btn btn-sm btn-outline-info" title="Ciência da Operação">
+                                            <i class="fa fa-eye"/>
  Ciência
-                                    </button>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-info dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"/>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <button name="action_manifestar_ciencia" type="object" class="dropdown-item">
+                                                    <i class="fa fa-eye me-2"/>
+Ciência da Operação
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button name="action_manifestar_confirmado" type="object" class="dropdown-item">
+                                                    <i class="fa fa-check me-2"/>
+Confirmação da Operação
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button name="action_manifestar_nao_realizada" type="object" class="dropdown-item">
+                                                    <i class="fa fa-times me-2"/>
+Operação não Realizada
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button name="action_manifestar_desconhecido" type="object" class="dropdown-item">
+                                                    <i class="fa fa-question me-2"/>
+Desconhecimento
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </t>
                                 <t t-if="record.manifestacao.raw_value === 'ciencia'">
                                     <button name="action_manifestar_confirmado" type="object" class="btn btn-sm btn-outline-success" title="Confirmar Operação">
