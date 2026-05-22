@@ -2,7 +2,7 @@
 # Copyright (C) 2014  KMEE - www.kmee.com.br
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
 
-from odoo import _, fields, models
+from odoo import _, fields, models, api
 
 
 class Cnae(models.Model):
@@ -11,6 +11,14 @@ class Cnae(models.Model):
     _description = "CNAE"
 
     code = fields.Char(size=16)
+
+    code_num = fields.Integer(compute="_compute_unmasked_code", store=True, index=True)
+
+    @api.depends("code")
+    def _compute_unmasked_code(self):
+        for record in self:
+            digits = "".join(char for char in (record.code or "") if char.isdigit())
+            record.code_num = int(digits) if digits else 0
 
     version = fields.Char(size=16, required=True)
 
