@@ -15,6 +15,7 @@
                 <field name="tp_nf"/>
                 <field name="v_nf" string="Valor Total"/>
                 <field name="tp_amb"/>
+                <field name="estado_escrituracao" string="Escrituração" widget="badge" decoration-success="estado_escrituracao == 'escriturado'" decoration-warning="estado_escrituracao == 'pendente'"/>
             </list>
         </field>
     </record>
@@ -25,10 +26,14 @@
         <field name="model">l10n_br_dfe_monitor.proc_nfe</field>
         <field name="arch" type="xml">
             <form string="NF-e Processada">
+                <header>
+                    <button name="action_nfe_escrit" string="Escrituração de NF-e" type="object" class="btn-primary"/>
+                </header>
                 <sheet>
                     <group string="Empresa">
                         <field name="company_id"/>
                         <field name="dfe_document_id"/>
+                        <field name="partner_id"/>
                     </group>
                     <group string="Identificação">
                         <group>

@@ -71,6 +71,15 @@ class DfeProcNfe(models.Model):
         readonly=True,
     )
 
+    # ── Escrituração ────────────────────────────────────────────────────────
+    estado_escrituracao = fields.Selection(
+        [("pendente", "Pendente"), ("escriturado", "Escriturado")],
+        string="Escrituração",
+        default="pendente",
+        required=True,
+        index=True,
+    )
+
     tp_amb = fields.Selection(
         [("1", "Produção"), ("2", "Homologação")],
         string="Tipo de Ambiente",
@@ -477,6 +486,114 @@ class DfeProcNfe(models.Model):
         string="Eventos de NF-e",
         readonly=True,
     )
+
+    # On the proc_nfe model
+    dfe_nfe_escrit_id = fields.One2many(
+        "l10n_br_dfe_monitor.dfe_nfe_escrit",
+        "proc_nfe_id",
+        string="Escrituração",
+        readonly=True,
+    )
+
+    partner_id = fields.Many2one(
+        "res.partner",
+        string="Parceiro Emitente",
+        store=True,
+        readonly=False,
+        index=True,
+    )
+
+    def action_nfe_escrit(self):
+        self.ensure_one()
+        vat = self.emit_cnpj or self.emit_cpf
+        partner = (
+            self.env["res.partner"].search([("vat", "=", vat)], limit=1)
+            if vat
+            else False
+        )
+        if not partner:
+            return self._action_create_partner()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Escrituração de NF-e"),
+            "res_model": "l10n_br_dfe_monitor.dfe_nfe_escrit",
+            "context": {"default_proc_nfe_id": self.id},
+            "view_mode": "form",
+            "target": "new",
+        }
+
+    def _action_create_partner(self):
+        self.ensure_one()
+        state_id = False
+        if self.emit_ender_UF:
+            state = self.env["res.country.state"].search(
+                [("code", "=", self.emit_ender_UF), ("country_id.code", "=", "BR")],
+                limit=1,
+            )
+            state_id = state.id if state else False
+
+        country_id = False
+        if self.emit_ender_cPais:
+            country = self.env["res.country"].search(
+                [("bacen_code", "=", self.emit_ender_cPais)],
+                limit=1,
+            )
+            country_id = (
+                country.id
+                if country
+                else self.env.ref("base.br", raise_if_not_found=False)
+            )
+
+        city_id = False
+        if self.emit_ender_cMun:
+            city = self.env["res.city"].search(
+                [("ibge_code", "=", self.emit_ender_cMun)],
+                limit=1,
+            )
+            city_id = city.id if city else False
+
+        cnae_id = False
+        if self.emit_cnae:
+            cnae = self.env["l10n_br_fiscal.cnae"].search(
+                [("code_num", "=", self.emit_cnae)],
+                limit=1,
+            )
+            cnae_id = cnae.id if cnae else False
+
+        context = {
+            "default_proc_nfe_id": self.id,
+            "default_vat": self.emit_cnpj or self.emit_cpf or "",
+            "default_legal_name": self.emit_x_nome or "",
+            "default_trade_name": self.emit_x_fant or "",
+            "default_name": self.emit_x_fant or self.emit_x_nome or "",
+            # Endereço
+            "default_street": self.emit_ender_x_lgr or "",
+            "default_street_number": self.emit_ender_nro or "",
+            "default_street_complement": self.emit_ender_xCpl or "",
+            "default_district": self.emit_ender_xBairro or "",
+            "default_zip": self.emit_ender_CEP or "",
+            "default_phone": self.emit_ender_fone or "",
+            # Cadastro Fiscal
+            "default_inscr_est": self.emit_ie or "",
+            "default_inscr_mun": self.emit_im or "",
+            "default_main_cnae_id": cnae_id,
+            "default_fiscal_framework": self.emit_crt or "",
+            # Localização
+            "default_city_id": city_id,
+            "default_state_id": state_id,
+            "default_country_id": country_id,
+        }
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Criar Parceiro Emitente"),
+            "res_model": "l10n_br_dfe_monitor.create_partner_wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": context,
+        }
+
+    def link_partner(self, partner):
+        self.partner_id = partner
 
     @api.model
     def _create_from_dfe_document(self, dfe_doc):

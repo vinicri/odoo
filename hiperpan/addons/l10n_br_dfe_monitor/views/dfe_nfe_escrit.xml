@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_dfe_nfe_escrit_form" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.dfe_nfe_escrit.form</field>
+    <field name="model">l10n_br_dfe_monitor.dfe_nfe_escrit</field>
+    <field name="arch" type="xml">
+      <form string="Escrituração de NF-e">
+        <sheet>
+          <group>
+            <field name="proc_nfe_id"/>
+            <field name="ch_nfe"/>
+            <field name="partner_id"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+</odoo>

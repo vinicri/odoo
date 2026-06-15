@@ -16,7 +16,14 @@
         - Suporte a ambientes de produção e homologação
     """,
     "author": "Hiperpan",
-    "depends": ["l10n_br_fiscal", "l10n_br_certificate", "l10n_br_nfe"],
+    "depends": [
+        "l10n_br_base",
+        "l10n_br_fiscal",
+        "l10n_br_certificate",
+        "l10n_br_nfe",
+        "stock",
+        "uom",
+    ],
     "license": "LGPL-3",
     "data": [
         "security/ir.model.access.csv",
@@ -28,6 +35,8 @@
         "wizard/dfe_upload_wizard_views.xml",
         "wizard/dfe_xml_viewer_wizard_views.xml",
         "wizard/dfe_manifestacao_nao_realizada_wizard_views.xml",
+        "wizard/dfe_create_partner_wizard_views.xml",
+        "views/dfe_nfe_escrit.xml",
         "views/dfe_menu.xml",
     ],
     "external_dependencies": {

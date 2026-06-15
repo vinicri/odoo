@@ -17,3 +17,6 @@ access_dfe_proc_nfe_pag_user,DFe ProcNFe Pag User,model_l10n_br_dfe_monitor_proc
 access_dfe_proc_nfe_pag_manager,DFe ProcNFe Pag Manager,model_l10n_br_dfe_monitor_proc_nfe_pag,base.group_system,1,1,1,1
 access_dfe_proc_evento_nfe_user,DFe ProcEventoNFe User,model_l10n_br_dfe_monitor_proc_evento_nfe,base.group_user,1,1,1,0
 access_dfe_proc_evento_nfe_manager,DFe ProcEventoNFe Manager,model_l10n_br_dfe_monitor_proc_evento_nfe,base.group_system,1,1,1,1
+access_dfe_nfe_escrit_user,DFe NFe Escrit User,model_l10n_br_dfe_monitor_dfe_nfe_escrit,base.group_user,1,1,1,0
+access_dfe_nfe_escrit_manager,DFe NFe Escrit Manager,model_l10n_br_dfe_monitor_dfe_nfe_escrit,base.group_system,1,1,1,1
+access_dfe_create_partner_wizard_user,DFe Create Partner Wizard User,model_l10n_br_dfe_monitor_create_partner_wizard,base.group_user,1,1,1,1

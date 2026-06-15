@@ -41,3 +41,9 @@ class PartyMixin(models.AbstractModel):
         default=False,
         help="Empresa contribui com IPI no Simples ou Regime Normal.",
     )
+
+    main_cnae_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.cnae",
+        string="CNAE Principal",
+        help="CNAE Principal da empresa.",
+    )
