@@ -14,20 +14,169 @@ class DfeNfeEscrit(models.Model):
     )
 
     # save this in case the proc_nfe_id is deleted
-    ch_nfe = fields.Char(
+    nfe_key = fields.Char(
         string="Chave de Acesso",
-        size=44,
-        compute="_compute_ch_nfe",
-        required=True,
+        related="proc_nfe_id.ch_nfe",
         store=True,
-        readonly=True,
         index=True,
     )
 
-    @api.depends("proc_nfe_id.ch_nfe")
-    def _compute_ch_nfe(self):
+    nfe_number = fields.Char(
+        string="Número da NF-e",
+        related="proc_nfe_id.n_nf",
+        store=True,
+    )
+
+    nfe_series = fields.Char(
+        string="Série da NF-e",
+        related="proc_nfe_id.serie",
+        store=True,
+    )
+
+    issue_datetime = fields.Datetime(
+        string="Data de Emissão",
+        related="proc_nfe_id.dh_emi",
+        store=True,
+    )
+
+    departure_datetime = fields.Datetime(
+        string="Data de Saída",
+        related="proc_nfe_id.dh_sai_ent",
+        store=True,
+    )
+
+    arrival_datetime = fields.Datetime(
+        string="Data de Chegada",
+        required=True,
+    )
+
+    payment_type = fields.Selection(
+        [("0", "À vista"), ("1", "À prazo"), ("2", "Outros")],
+        string="Tipo de Pagamento",
+        required=True,
+        compute="_compute_payment_type",
+        store=True,
+    )
+
+    @api.depends("proc_nfe_id.pag_ids.ind_pag")
+    def _compute_payment_type(self):
         for rec in self:
-            rec.ch_nfe = rec.proc_nfe_id.ch_nfe
+            if rec.proc_nfe_id.pag_ids.ind_pag == "0":
+                rec.payment_type = "0"
+            elif rec.proc_nfe_id.pag_ids.ind_pag == "1":
+                rec.payment_type = "1"
+            else:
+                rec.payment_type = "2"
+
+    freight_type = fields.Selection(
+        [
+            ("0", "CIF (por conta do Remetente)"),
+            ("1", "FOB (por conta do Destinatário)"),
+            ("2", "Por conta de Terceiros"),
+            ("3", "Transporte Próprio por conta do Remetente"),
+            ("4", "Transporte Próprio por conta do Destinatário"),
+            ("9", "Sem Ocorrência de Transporte"),
+        ],
+        string="Modalidade do Frete",
+        compute="_compute_freight_type",
+        store=True,
+    )
+
+    @api.depends("proc_nfe_id.transp_mod_frete")
+    def _compute_freight_type(self):
+        for rec in self:
+            rec.freight_type = rec.proc_nfe_id.transp_mod_frete
+
+    total_icms_base = fields.Float(
+        string="Base de Cálculo do ICMS",
+        digits=(13, 2),
+        related="proc_nfe_id.v_bc",
+        store=True,
+    )
+
+    total_icms_value = fields.Float(
+        string="Valor do ICMS",
+        digits=(13, 2),
+        related="proc_nfe_id.v_icms",
+        store=True,
+    )
+
+    total_icms_st_base = fields.Float(
+        string="Base de Cálculo do ICMS ST",
+        digits=(13, 2),
+        related="proc_nfe_id.v_bc_st",
+        store=True,
+    )
+
+    total_icms_st_value = fields.Float(
+        string="Valor do ICMS ST",
+        digits=(13, 2),
+        related="proc_nfe_id.v_st",
+        store=True,
+    )
+
+    total_nfe = fields.Float(
+        string="Valor Total da NF-e",
+        digits=(13, 2),
+        related="proc_nfe_id.v_nf",
+        store=True,
+    )
+
+    total_products = fields.Float(
+        string="Valor das Mercadorias",
+        digits=(13, 2),
+        related="proc_nfe_id.v_prod",
+        store=True,
+    )
+
+    total_discount = fields.Float(
+        string="Valor do Desconto",
+        digits=(13, 2),
+        related="proc_nfe_id.v_desc",
+        store=True,
+    )
+
+    total_freight = fields.Float(
+        string="Valor do Frete",
+        digits=(13, 2),
+        related="proc_nfe_id.v_frete",
+        store=True,
+    )
+
+    total_insurance = fields.Float(
+        string="Valor do Seguro",
+        digits=(13, 2),
+        related="proc_nfe_id.v_seg",
+        store=True,
+    )
+
+    total_other_expenses = fields.Float(
+        string="Outras Despesas",
+        digits=(13, 2),
+        related="proc_nfe_id.v_outro",
+        store=True,
+    )
+
+    total_ipi = fields.Float(
+        string="Valor do IPI",
+        digits=(13, 2),
+        related="proc_nfe_id.v_ipi",
+        store=True,
+    )
+
+    total_pis = fields.Float(
+        string="Valor do PIS",
+        digits=(13, 2),
+        related="proc_nfe_id.v_pis",
+        store=True,
+    )
+
+    total_cofins = fields.Float(
+        string="Valor da COFINS",
+        digits=(13, 2),
+        related="proc_nfe_id.v_cofins",
+        store=True,
+    )
 
     partner_id = fields.Many2one(
         "res.partner",
