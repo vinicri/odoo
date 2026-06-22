@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_dfe_nfe_escrit_item_form" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.dfe_nfe_escrit_item.form</field>
+    <field name="model">l10n_br_dfe_monitor.dfe_nfe_escrit_item</field>
+    <field name="arch" type="xml">
+      <form string="Item da Escrituração de NF-e">
+        <sheet>
+          <field name="dfe_nfe_escrit_id"/>
+          <field name="proc_nfe_id"/>
+          <field name="proc_nfe_item_id"/>
+          <field name="item_number"/>
+          <field name="product_id"/>
+          <field name="icms_cst_id"/>
+          <field name="cfop_id"/>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_dfe_nfe_escrit_item_list" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.dfe_nfe_escrit_item.list</field>
+    <field name="model">l10n_br_dfe_monitor.dfe_nfe_escrit_item</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="item_number"/>
+        <field name="product_id"/>
+        <field name="icms_cst_id"/>
+        <field name="cfop_id"/>
+      </list>
+    </field>
+  </record>
+</odoo>

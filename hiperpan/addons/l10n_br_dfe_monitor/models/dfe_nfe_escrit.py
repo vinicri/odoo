@@ -13,6 +13,13 @@ class DfeNfeEscrit(models.Model):
         index=True,
     )
 
+    item_ids = fields.One2many(
+        comodel_name="l10n_br_dfe_monitor.dfe_nfe_escrit_item",
+        inverse_name="dfe_nfe_escrit_id",
+        string="Itens",
+        ondelete="cascade",
+    )
+
     # save this in case the proc_nfe_id is deleted
     nfe_key = fields.Char(
         string="Chave de Acesso",

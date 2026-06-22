@@ -6,12 +6,18 @@
     <field name="arch" type="xml">
       <form string="Escrituração de NF-e">
         <sheet>
+          <field name="proc_nfe_id" invisible="1"/>
           <group string="Prechimento">
             <field name="partner_id"/>
             <field name="issue_datetime"/>
             <field name="departure_datetime"/>
             <field name="arrival_datetime"/>
           </group>
+          <notebook>
+            <page string="Itens">
+              <field name="item_ids" context="{'default_proc_nfe_id': proc_nfe_id}"/>
+            </page>
+          </notebook>
           <group>
             <group string="Identificação">
               <field name="proc_nfe_id"/>
