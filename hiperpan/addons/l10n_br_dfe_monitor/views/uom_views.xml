@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+  <record id="dfe_uom_view_list" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.uom.form</field>
+    <field name="inherit_id" ref="l10n_br_nfe.nfe_uom_view_form"/>
+    <field name="model">uom.uom</field>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="inside">
+        <field name="dfe_uom_name_ids">
+          <list editable="bottom">
+            <field name="name"/>
+          </list>
+        </field>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

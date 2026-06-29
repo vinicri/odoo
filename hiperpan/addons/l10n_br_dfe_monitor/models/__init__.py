@@ -12,3 +12,7 @@ from . import res_company
 # from . import res_partner
 from . import dfe_nfe_escrit
 from . import dfe_nfe_escrit_item
+
+
+from . import uom_uom
+from . import dfe_uom_name

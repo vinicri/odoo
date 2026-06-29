@@ -6,7 +6,7 @@ class UoM(models.Model):
     _inherit = "uom.uom"
 
     nfe_name = fields.Char(
-        string="Nome na NFE/NFCE", size=6, help="Name of the UOM for NFE"
+        string="Nome na NFE/NFCE Emitida", size=6, help="Name of the UOM for NFE"
     )
 
     _sql_constraints = [

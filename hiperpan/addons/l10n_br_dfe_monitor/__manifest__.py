@@ -39,6 +39,7 @@
         "views/dfe_nfe_escrit.xml",
         "views/dfe_nfe_escrit_item.xml",
         "views/dfe_menu.xml",
+        "views/uom_views.xml",
     ],
     "external_dependencies": {
         "python": [
