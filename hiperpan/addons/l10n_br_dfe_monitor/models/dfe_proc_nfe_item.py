@@ -439,10 +439,10 @@ class DfeProcNfeItem(models.Model):
         string="Unidade Comercial", size=6, required=True, readonly=True
     )
     q_com = fields.Float(
-        string="Qtd. Comercial", digits=(15, 4), required=True, readonly=True
+        string="Qtd. Comercial", digits=(11, 4), required=True, readonly=True
     )
     v_un_com = fields.Float(
-        string="Vlr. Unit. Comercial", digits=(21, 10), required=True, readonly=True
+        string="Vlr. Unit. Comercial", digits=(11, 10), required=True, readonly=True
     )
     v_prod = fields.Float(
         string="Vlr. Total Bruto", digits=(13, 2), required=True, readonly=True
@@ -592,23 +592,41 @@ class DfeProcNfeItem(models.Model):
 
     # ── ICMS UF Destino (ICMSUFDest) ──────────────────────────────────────
     # NA03 – Valor da BC do ICMS na UF de destino (13v2)
-    icms_ufdest_v_bc_uf_dest = fields.Float(string="BC ICMS UF Dest.", digits=(13, 2), readonly=True)
+    icms_ufdest_v_bc_uf_dest = fields.Float(
+        string="BC ICMS UF Dest.", digits=(13, 2), readonly=True
+    )
     # NA04 – Valor da BC FCP na UF de destino (13v2)
-    icms_ufdest_v_bc_fcp_uf_dest = fields.Float(string="BC FCP UF Dest.", digits=(13, 2), readonly=True)
+    icms_ufdest_v_bc_fcp_uf_dest = fields.Float(
+        string="BC FCP UF Dest.", digits=(13, 2), readonly=True
+    )
     # NA05 – Percentual do FCP na UF de destino (3v2-4)
-    icms_ufdest_p_fcp_uf_dest = fields.Float(string="% FCP UF Dest.", digits=(5, 4), readonly=True)
+    icms_ufdest_p_fcp_uf_dest = fields.Float(
+        string="% FCP UF Dest.", digits=(5, 4), readonly=True
+    )
     # NA07 – Alíquota interna da UF de destino (3v2-4)
-    icms_ufdest_p_icms_uf_dest = fields.Float(string="Alíq. Interna UF Dest.", digits=(5, 4), readonly=True)
+    icms_ufdest_p_icms_uf_dest = fields.Float(
+        string="Alíq. Interna UF Dest.", digits=(5, 4), readonly=True
+    )
     # NA09 – Alíquota interestadual das UF envolvidas (2v2)
-    icms_ufdest_p_icms_inter = fields.Float(string="Alíq. Interestadual", digits=(4, 2), readonly=True)
+    icms_ufdest_p_icms_inter = fields.Float(
+        string="Alíq. Interestadual", digits=(4, 2), readonly=True
+    )
     # NA11 – Percentual provisório de partilha do ICMS Interestadual (3v2-4)
-    icms_ufdest_p_icms_inter_part = fields.Float(string="% Partilha ICMS Inter.", digits=(5, 4), readonly=True)
+    icms_ufdest_p_icms_inter_part = fields.Float(
+        string="% Partilha ICMS Inter.", digits=(5, 4), readonly=True
+    )
     # NA13 – Valor do FCP da UF de destino (13v2)
-    icms_ufdest_v_fcp_uf_dest = fields.Float(string="Vlr. FCP UF Dest.", digits=(13, 2), readonly=True)
+    icms_ufdest_v_fcp_uf_dest = fields.Float(
+        string="Vlr. FCP UF Dest.", digits=(13, 2), readonly=True
+    )
     # NA15 – Valor do ICMS Interestadual para a UF de destino (13v2)
-    icms_ufdest_v_icms_uf_dest = fields.Float(string="Vlr. ICMS UF Dest.", digits=(13, 2), readonly=True)
+    icms_ufdest_v_icms_uf_dest = fields.Float(
+        string="Vlr. ICMS UF Dest.", digits=(13, 2), readonly=True
+    )
     # NA17 – Valor do ICMS Interestadual para a UF do remetente (13v2)
-    icms_ufdest_v_icms_uf_remet = fields.Float(string="Vlr. ICMS UF Remet.", digits=(13, 2), readonly=True)
+    icms_ufdest_v_icms_uf_remet = fields.Float(
+        string="Vlr. ICMS UF Remet.", digits=(13, 2), readonly=True
+    )
 
     # ── ICMS ST Repasse (ICMSST – CST 41/60, interestadual) ───────────────
     # N11 – Origem da mercadoria (1)
@@ -616,31 +634,57 @@ class DfeProcNfeItem(models.Model):
     # N12 – CST do repasse (2) — 41 ou 60
     icmsst_rep_cst = fields.Char(string="CST (ICMS ST Rep.)", size=2, readonly=True)
     # N26 – Valor da BC do ICMS ST retido na UF remetente (13v2)
-    icmsst_rep_v_bc_st_ret = fields.Float(string="BC ST Ret. UF Rem.", digits=(13, 2), readonly=True)
+    icmsst_rep_v_bc_st_ret = fields.Float(
+        string="BC ST Ret. UF Rem.", digits=(13, 2), readonly=True
+    )
     # N26a – Alíquota suportada pelo Consumidor Final (3v2-4)
-    icmsst_rep_p_st = fields.Float(string="Alíq. ST Cons. Final (Rep.)", digits=(5, 4), readonly=True)
+    icmsst_rep_p_st = fields.Float(
+        string="Alíq. ST Cons. Final (Rep.)", digits=(5, 4), readonly=True
+    )
     # N26b – Valor do ICMS próprio do Substituto (13v2)
-    icmsst_rep_v_icms_substituto = fields.Float(string="Vlr. ICMS Substituto (Rep.)", digits=(13, 2), readonly=True)
+    icmsst_rep_v_icms_substituto = fields.Float(
+        string="Vlr. ICMS Substituto (Rep.)", digits=(13, 2), readonly=True
+    )
     # N27 – Valor do ICMS ST retido na UF remetente (13v2)
-    icmsst_rep_v_icms_st_ret = fields.Float(string="Vlr. ICMS ST Ret. UF Rem.", digits=(13, 2), readonly=True)
+    icmsst_rep_v_icms_st_ret = fields.Float(
+        string="Vlr. ICMS ST Ret. UF Rem.", digits=(13, 2), readonly=True
+    )
     # N27a – Valor da BC do FCP retido anteriormente (13v2)
-    icmsst_rep_v_bc_fcp_st_ret = fields.Float(string="BC FCP ST Ret. (Rep.)", digits=(13, 2), readonly=True)
+    icmsst_rep_v_bc_fcp_st_ret = fields.Float(
+        string="BC FCP ST Ret. (Rep.)", digits=(13, 2), readonly=True
+    )
     # N27b – Percentual do FCP retido anteriormente por ST (3v2-4)
-    icmsst_rep_p_fcp_st_ret = fields.Float(string="% FCP ST Ret. (Rep.)", digits=(5, 4), readonly=True)
+    icmsst_rep_p_fcp_st_ret = fields.Float(
+        string="% FCP ST Ret. (Rep.)", digits=(5, 4), readonly=True
+    )
     # N27d – Valor do FCP retido por ST (13v2)
-    icmsst_rep_v_fcp_st_ret = fields.Float(string="Vlr. FCP ST Ret. (Rep.)", digits=(13, 2), readonly=True)
+    icmsst_rep_v_fcp_st_ret = fields.Float(
+        string="Vlr. FCP ST Ret. (Rep.)", digits=(13, 2), readonly=True
+    )
     # N31 – Valor da BC do ICMS ST da UF destino (13v2)
-    icmsst_rep_v_bc_st_dest = fields.Float(string="BC ST UF Dest. (Rep.)", digits=(13, 2), readonly=True)
+    icmsst_rep_v_bc_st_dest = fields.Float(
+        string="BC ST UF Dest. (Rep.)", digits=(13, 2), readonly=True
+    )
     # N32 – Valor do ICMS ST da UF destino (13v2)
-    icmsst_rep_v_icms_st_dest = fields.Float(string="Vlr. ICMS ST UF Dest. (Rep.)", digits=(13, 2), readonly=True)
+    icmsst_rep_v_icms_st_dest = fields.Float(
+        string="Vlr. ICMS ST UF Dest. (Rep.)", digits=(13, 2), readonly=True
+    )
     # N34 – Percentual de redução da BC efetiva (3v2-4)
-    icmsst_rep_p_red_bc_efet = fields.Float(string="% Red. BC Efet. (Rep.)", digits=(5, 4), readonly=True)
+    icmsst_rep_p_red_bc_efet = fields.Float(
+        string="% Red. BC Efet. (Rep.)", digits=(5, 4), readonly=True
+    )
     # N35 – Valor da BC efetiva (13v2)
-    icmsst_rep_v_bc_efet = fields.Float(string="BC Efetiva (Rep.)", digits=(13, 2), readonly=True)
+    icmsst_rep_v_bc_efet = fields.Float(
+        string="BC Efetiva (Rep.)", digits=(13, 2), readonly=True
+    )
     # N36 – Alíquota do ICMS efetiva (3v2-4)
-    icmsst_rep_p_icms_efet = fields.Float(string="Alíq. ICMS Efet. (Rep.)", digits=(5, 4), readonly=True)
+    icmsst_rep_p_icms_efet = fields.Float(
+        string="Alíq. ICMS Efet. (Rep.)", digits=(5, 4), readonly=True
+    )
     # N37 – Valor do ICMS efetivo (13v2)
-    icmsst_rep_v_icms_efet = fields.Float(string="Vlr. ICMS Efet. (Rep.)", digits=(13, 2), readonly=True)
+    icmsst_rep_v_icms_efet = fields.Float(
+        string="Vlr. ICMS Efet. (Rep.)", digits=(13, 2), readonly=True
+    )
 
     # ── IPI ───────────────────────────────────────────────────────────────
     # O02 – Classe de enquadramento do IPI para Cigarros e Bebidas (1-5)
@@ -686,12 +730,12 @@ class DfeProcNfeItem(models.Model):
     # Q07 – Valor da BC do PIS (13v2) — PISAliq / PISOutr (cálculo por %)
     pis_v_bc = fields.Float(string="BC PIS", digits=(13, 2), readonly=True)
     # Q08 – Alíquota do PIS em percentual (3v2-4) — PISAliq / PISOutr (cálculo por %)
-    pis_p_pis = fields.Float(string="Alíq. PIS %", digits=(5, 4), readonly=True)
+    pis_p_pis = fields.Float(string="Alíq. PIS %", digits=(3, 4), readonly=True)
     # Q10 – Quantidade vendida (12v0-4) — PISQtde / PISOutr (cálculo por qtde)
     pis_q_bc_prod = fields.Float(
         string="Qtd. Vendida PIS", digits=(12, 4), readonly=True
     )
-    # Q11 – Alíquota do PIS em reais (11v0-4) — PISQtde / PISOutr (cálculo por qtde)
+    # Q11 – Alíquota do PIS em reais (11v0-4) — PISQtde / PISOu tr (cálculo por qtde)
     pis_v_aliq_prod = fields.Float(string="Alíq. PIS R$", digits=(11, 4), readonly=True)
     # Q09 – Valor do PIS (13v2) — comum a PISAliq, PISQtde e PISOutr
     pis_v_pis = fields.Float(string="Vlr. PIS", digits=(13, 2), readonly=True)

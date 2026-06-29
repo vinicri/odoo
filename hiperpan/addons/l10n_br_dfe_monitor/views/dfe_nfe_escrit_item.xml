@@ -6,13 +6,43 @@
     <field name="arch" type="xml">
       <form string="Item da Escrituração de NF-e">
         <sheet>
-          <field name="dfe_nfe_escrit_id"/>
-          <field name="proc_nfe_id"/>
-          <field name="proc_nfe_item_id"/>
-          <field name="item_number"/>
-          <field name="product_id"/>
-          <field name="icms_cst_id"/>
-          <field name="cfop_id"/>
+          <group>
+            <field name="dfe_nfe_escrit_id"/>
+            <field name="proc_nfe_id"/>
+            <field name="proc_nfe_item_id"/>
+            <field name="item_number"/>
+            <field name="product_id"/>
+            <field name="icms_origin_id"/>
+            <field name="icms_origin_code"/>
+            <field name="icms_cst_id"/>
+            <field name="cfop_id"/>
+            <field name="stock_move"/>
+            <field name="own_use"/>
+            <field name="quantity"/>
+            <field name="unit"/>
+            <field name="uom_id"/>
+            <field name="product_uom_id"/>
+            <field name="stock_quantity"/>
+            <field name="total_value"/>
+            <field name="total_discount"/>
+            <field name="icms_tax_percent"/>
+            <field name="icms_base"/>
+            <field name="icms_value"/>
+            <field name="icms_st_tax_percent"/>
+            <field name="icms_st_base"/>
+            <field name="icms_st_value"/>
+            <field name="ipi_cst_id" readonly="own_use"/>
+            <field name="ipi_tax_percent"/>
+            <field name="ipi_base"/>
+            <field name="ipi_value"/>
+            <field name="pis_cst_id" readonly="own_use"/>
+            <field name="pis_tax_percent"/>
+            <field name="pis_tax_unit"/>
+            <field name="pis_bc_value"/>
+            <field name="pis_bc_quantity"/>
+            <field name="pis_value"/>
+
+          </group>
         </sheet>
       </form>
     </field>
@@ -27,6 +57,7 @@
         <field name="product_id"/>
         <field name="icms_cst_id"/>
         <field name="cfop_id"/>
+        <field name="own_use"/>
       </list>
     </field>
   </record>
