@@ -869,7 +869,7 @@ class NFeDocumentLine(models.Model):
     )
     def _compute_icms_tax_id(self):
         for record in self:
-            if record.emission_finality == "1":
+            if record.emission_finality == "1" and not record.icms_tax_id:
                 if (
                     record.is_simples_nacional
                     and record.product_taxes_id
@@ -883,35 +883,35 @@ class NFeDocumentLine(models.Model):
                 ):
                     record.icms_tax_id = record.product_taxes_id.icms_tax_id
 
-    @api.constrains("icms_tax_id")
-    def _check_icms_tax_id(self):
-        for record in self:
-            if not record.icms_tax_id:
-                record._raise_validation_error(
-                    _(f"O ICMS não foi informado para o item da nota fiscal.")
-                )
-            if (
-                record.nfe_id.issuer_id.fiscal_framework in ("1", "2")
-                and record.icms_tax_id.tax_group_id.id
-                != self.env.ref("l10n_br_fiscal.tax_group_icmssn").id
-                and record.emission_finality != "4"
-            ):
-                record._raise_validation_error(
-                    _(
-                        f"O ICMS informado é invalido para regime fiscal da empresa emitente (Simples Nacional)."
-                    )
-                )
-            if (
-                record.nfe_id.issuer_id.fiscal_framework not in ("1", "2")
-                and record.icms_tax_id.tax_group_id.id
-                != self.env.ref("l10n_br_fiscal.tax_group_icms").id
-                and record.emission_finality != "4"
-            ):
-                record._raise_validation_error(
-                    _(
-                        f"O ICMS informado é invalido para regime fiscal da empresa emitente (Regime Normal)."
-                    )
-                )
+    # @api.constrains("icms_tax_id")
+    # def _check_icms_tax_id(self):
+    #     for record in self:
+    #         if not record.icms_tax_id:
+    #             record._raise_validation_error(
+    #                 _(f"O ICMS não foi informado para o item da nota fiscal.")
+    #             )
+    #         if (
+    #             record.nfe_id.issuer_id.fiscal_framework in ("1", "2")
+    #             and record.icms_tax_id.tax_group_id.id
+    #             != self.env.ref("l10n_br_fiscal.tax_group_icmssn").id
+    #             and record.emission_finality != "4"
+    #         ):
+    #             record._raise_validation_error(
+    #                 _(
+    #                     f"O ICMS informado é invalido para regime fiscal da empresa emitente (Simples Nacional)."
+    #                 )
+    #             )
+    #         if (
+    #             record.nfe_id.issuer_id.fiscal_framework not in ("1", "2")
+    #             and record.icms_tax_id.tax_group_id.id
+    #             != self.env.ref("l10n_br_fiscal.tax_group_icms").id
+    #             and record.emission_finality != "4"
+    #         ):
+    #             record._raise_validation_error(
+    #                 _(
+    #                     f"O ICMS informado é invalido para regime fiscal da empresa emitente (Regime Normal)."
+    #                 )
+    #             )
 
     icms_cst_id = fields.Many2one(
         related="icms_tax_id.cst_out_id",
