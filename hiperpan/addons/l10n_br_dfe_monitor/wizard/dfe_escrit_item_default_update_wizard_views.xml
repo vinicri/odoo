@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_dfe_escrit_item_default_update_wizard_form" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.escrit_item_default_update_wizard.form</field>
+        <field name="model">l10n_br_dfe_monitor.escrit_item_default_update_wizard</field>
+        <field name="arch" type="xml">
+            <form string="Atualizar Item Padrão?">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Já existe um item padrão para este produto/fornecedor com
+                        valores diferentes. Deseja atualizá-lo com os novos valores?
+                    </div>
+                    <field name="defaults_id" invisible="1"/>
+                    <field name="new_vals_json" invisible="1"/>
+                    <field name="diff_html" nolabel="1"/>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" type="object"
+                            string="Atualizar Padrão" class="btn-primary"/>
+                    <button string="Manter Atual" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

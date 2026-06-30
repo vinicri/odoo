@@ -1,44 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <menuitem
-        id="menu_dfe_monitor_root"
-        name="Monitor DFe"
-        sequence="85"/>
+    <menuitem id="menu_dfe_monitor_root" name="Monitor DFe" sequence="85"/>
 
-    <menuitem
-        id="menu_dfe_monitor_documents"
-        name="Documentos Recebidos"
-        parent="menu_dfe_monitor_root"
-        action="l10n_br_dfe_monitor.action_dfe_document"
-        sequence="10"/>
+    <menuitem id="menu_dfe_monitor_documents" name="Documentos Recebidos" parent="menu_dfe_monitor_root" action="l10n_br_dfe_monitor.action_dfe_document" sequence="10"/>
 
-    <menuitem
-        id="menu_dfe_monitor_res_nfe"
-        name="Resumos NF-e"
-        parent="menu_dfe_monitor_root"
-        action="l10n_br_dfe_monitor.action_dfe_res_nfe"
-        sequence="15"/>
+    <menuitem id="menu_dfe_monitor_res_nfe" name="Resumos NF-e" parent="menu_dfe_monitor_root" action="l10n_br_dfe_monitor.action_dfe_res_nfe" sequence="15"/>
 
-    <menuitem
-        id="menu_dfe_monitor_proc_nfe"
-        name="NF-e Processadas"
-        parent="menu_dfe_monitor_root"
-        action="l10n_br_dfe_monitor.action_dfe_proc_nfe"
-        sequence="16"/>
+    <menuitem id="menu_dfe_monitor_proc_nfe" name="NF-e Processadas" parent="menu_dfe_monitor_root" action="l10n_br_dfe_monitor.action_dfe_proc_nfe" sequence="16"/>
 
-    <menuitem
-        id="menu_dfe_monitor_proc_evento_nfe"
-        name="Eventos NF-e"
-        parent="menu_dfe_monitor_root"
-        action="l10n_br_dfe_monitor.action_dfe_proc_evento_nfe"
-        sequence="17"/>
+    <menuitem id="menu_dfe_monitor_proc_evento_nfe" name="Eventos NF-e" parent="menu_dfe_monitor_root" action="l10n_br_dfe_monitor.action_dfe_proc_evento_nfe" sequence="17"/>
 
-    <menuitem
-        id="menu_dfe_monitor_consult"
-        name="Consultar DFes"
-        parent="menu_dfe_monitor_root"
-        action="l10n_br_dfe_monitor.action_dfe_query_wizard"
-        sequence="20"/>
+    <menuitem id="menu_dfe_monitor_consult" name="Consultar DFes" parent="menu_dfe_monitor_root" action="l10n_br_dfe_monitor.action_dfe_query_wizard" sequence="20"/>
 
+    <menuitem id="menu_dfe_monitor_nfe_escrit" name="Escrituração de NF-e" parent="menu_dfe_monitor_root" action="l10n_br_dfe_monitor.action_dfe_nfe_escrit" sequence="21"/>
+
+    <menuitem id="menu_dfe_monitor_nfe_escrit_item_defaults" name="Itens de Escrituração de NF-e Padrão" parent="menu_dfe_monitor_root" action="l10n_br_dfe_monitor.action_dfe_nfe_escrit_item_defaults" sequence="22"/>
 </odoo>

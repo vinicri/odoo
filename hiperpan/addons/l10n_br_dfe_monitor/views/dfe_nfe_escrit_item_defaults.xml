@@ -48,4 +48,10 @@
       </list>
     </field>
   </record>
+
+  <record id="action_dfe_nfe_escrit_item_defaults" model="ir.actions.act_window">
+    <field name="name">Item de Escrituração de NF-e Padrão</field>
+    <field name="res_model">l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults</field>
+    <field name="view_mode">list,form</field>
+  </record>
 </odoo>

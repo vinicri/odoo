@@ -65,6 +65,91 @@ class DfeNfeEscritItem(models.Model):
                     record.pis_cst_id = dfe_nfe_escrit_item_defaults_id.pis_cst_id
                     record.cofins_cst_id = dfe_nfe_escrit_item_defaults_id.cofins_cst_id
 
+    # Fields that are mirrored between an escrituração item and its defaults
+    # record. Order is shared by create / compare / update so the three stay
+    # in sync. Each entry is (item_field, defaults_field).
+    _DEFAULT_TRACKED_FIELDS = [
+        ("product_id", "product_id"),
+        ("uom_id", "uom_id"),
+        ("own_use", "own_use"),
+        ("cfop_id", "cfop_id"),
+        ("icms_cst_id", "icms_cst_id"),
+        ("ipi_cst_id", "ipi_cst_id"),
+        ("pis_cst_id", "pis_cst_id"),
+        ("cofins_cst_id", "cofins_cst_id"),
+    ]
+
+    @api.model
+    def reconcile_item_default(self, item_values):
+        """Create or compare the defaults record for an (unsaved) escrituração item.
+
+        Called from the One2many line dialog right before the line is committed,
+        so ``item_values`` is the line's current in-memory values rather than a
+        stored record. ``item_values`` must contain ``proc_nfe_item_id`` plus the
+        tracked item fields.
+
+        Returns:
+          - ``False`` when nothing needs the user's attention (a new default was
+            created silently, or an existing default already matches);
+          - an ``ir.actions.act_window`` dict opening the confirmation wizard when
+            an existing default differs from the new values.
+        """
+        proc_item = self.env["l10n_br_dfe_monitor.proc_nfe_item"].browse(
+            item_values.get("proc_nfe_item_id")
+        )
+        if not proc_item:
+            return False
+
+        match_key = [
+            ("gtin", "=", proc_item.c_ean),
+            ("cod_prod", "=", proc_item.c_prod),
+            ("unit_text", "=", proc_item.u_com),
+            ("cnpj", "=", proc_item.proc_nfe_id.emit_cnpj),
+        ]
+
+        defaults_model = self.env["l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults"]
+        likely_id = item_values.get("likely_item_defaults_id")
+        defaults = (
+            defaults_model.browse(likely_id)
+            if likely_id
+            else defaults_model.search(match_key, limit=1)
+        )
+
+        new_vals = {
+            "gtin": proc_item.c_ean,
+            "cod_prod": proc_item.c_prod,
+            "unit_text": proc_item.u_com,
+            "description": proc_item.x_prod,
+            "cnpj": proc_item.proc_nfe_id.emit_cnpj,
+        }
+        for item_field, def_field in self._DEFAULT_TRACKED_FIELDS:
+            new_vals[def_field] = item_values.get(item_field) or False
+
+        if not defaults:
+            defaults_model.create(new_vals)
+            return False
+
+        differences = [
+            (item_field, def_field)
+            for item_field, def_field in self._DEFAULT_TRACKED_FIELDS
+            if self._defaults_field_differs(
+                defaults, def_field, new_vals.get(def_field)
+            )
+        ]
+        if not differences:
+            return False
+
+        wizard = self.env["l10n_br_dfe_monitor.escrit_item_default_update_wizard"]
+        return wizard.open_for(defaults, new_vals, differences)
+
+    @api.model
+    def _defaults_field_differs(self, defaults, def_field, new_value):
+        """Whether ``defaults[def_field]`` differs from the candidate ``new_value``."""
+        current = defaults[def_field]
+        if isinstance(current, models.BaseModel):
+            return current.id != (new_value or False)
+        return current != (new_value if new_value is not None else False)
+
     item_number = fields.Integer(
         string="Nº Item", related="proc_nfe_item_id.n_item", store=True
     )
@@ -198,7 +283,6 @@ class DfeNfeEscritItem(models.Model):
         store=True,
         compute="_compute_stock_quantity",
         readonly=True,
-        required=True,
     )
 
     @api.depends("uom_id", "quantity", "product_uom_id")

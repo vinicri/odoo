@@ -60,7 +60,6 @@ class DfeNfeEscrit(models.Model):
     payment_type = fields.Selection(
         [("0", "À vista"), ("1", "À prazo"), ("2", "Outros")],
         string="Tipo de Pagamento",
-        required=True,
         compute="_compute_payment_type",
         store=True,
     )

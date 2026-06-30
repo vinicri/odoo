@@ -47,4 +47,42 @@
       </form>
     </field>
   </record>
+
+  <record id="view_dfe_nfe_escrit_list" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.dfe_nfe_escrit.list</field>
+    <field name="model">l10n_br_dfe_monitor.dfe_nfe_escrit</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="nfe_key"/>
+        <field name="nfe_number"/>
+        <field name="nfe_series"/>
+        <field name="issue_datetime"/>
+        <field name="departure_datetime"/>
+        <field name="arrival_datetime"/>
+        <field name="payment_type"/>
+        <field name="freight_type"/>
+        <field name="total_icms_base"/>
+        <field name="total_icms_value"/>
+        <field name="total_icms_st_base"/>
+        <field name="total_icms_st_value"/>
+        <field name="total_nfe"/>
+        <field name="total_products"/>
+        <field name="total_discount"/>
+        <field name="total_freight"/>
+        <field name="total_insurance"/>
+        <field name="total_other_expenses"/>
+        <field name="total_ipi"/>
+        <field name="total_pis"/>
+        <field name="total_cofins"/>
+        <field name="partner_id"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_dfe_nfe_escrit" model="ir.actions.act_window">
+    <field name="name">Escrituração de NF-e</field>
+    <field name="res_model">l10n_br_dfe_monitor.dfe_nfe_escrit</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{}</field>
+  </record>
 </odoo>
