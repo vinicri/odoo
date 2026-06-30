@@ -27,6 +27,44 @@ class DfeNfeEscritItem(models.Model):
         store=True,
     )
 
+    likely_item_defaults_id = fields.Many2one(
+        "l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults",
+        string="Item de Escrituração de NF-e Padrão",
+        ondelete="set null",
+    )
+
+    @api.onchange("proc_nfe_item_id")
+    def _onchange_proc_nfe_item_id(self):
+        for record in self:
+            if record.proc_nfe_item_id:
+                gtin = record.proc_nfe_item_id.c_ean
+                cod_prod = record.proc_nfe_item_id.c_prod
+                unit_text = record.proc_nfe_item_id.u_com
+                cnpj = record.proc_nfe_id.emit_cnpj
+                # cpf = record.proc_nfe_id.emit_cpf
+
+                dfe_nfe_escrit_item_defaults_id = self.env[
+                    "l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults"
+                ].search(
+                    [
+                        ("gtin", "=", gtin),
+                        ("cod_prod", "=", cod_prod),
+                        ("unit_text", "=", unit_text),
+                        ("cnpj", "=", cnpj),
+                    ],
+                    limit=1,
+                )
+                if dfe_nfe_escrit_item_defaults_id:
+                    record.likely_item_defaults_id = dfe_nfe_escrit_item_defaults_id.id
+                    record.product_id = dfe_nfe_escrit_item_defaults_id.product_id
+                    record.uom_id = dfe_nfe_escrit_item_defaults_id.uom_id
+                    record.own_use = dfe_nfe_escrit_item_defaults_id.own_use
+                    record.cfop_id = dfe_nfe_escrit_item_defaults_id.cfop_id
+                    record.icms_cst_id = dfe_nfe_escrit_item_defaults_id.icms_cst_id
+                    record.ipi_cst_id = dfe_nfe_escrit_item_defaults_id.ipi_cst_id
+                    record.pis_cst_id = dfe_nfe_escrit_item_defaults_id.pis_cst_id
+                    record.cofins_cst_id = dfe_nfe_escrit_item_defaults_id.cofins_cst_id
+
     item_number = fields.Integer(
         string="Nº Item", related="proc_nfe_item_id.n_item", store=True
     )

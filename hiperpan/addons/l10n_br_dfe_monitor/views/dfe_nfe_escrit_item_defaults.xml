@@ -1,0 +1,51 @@
+<odoo>
+  <record id="view_dfe_nfe_escrit_item_defaults_form" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults.form</field>
+    <field name="model">l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults</field>
+    <field name="arch" type="xml">
+      <form string="Item de Escrituração de NF-e Padrão">
+        <sheet>
+          <group>
+            <field name="gtin"/>
+            <field name="cod_prod"/>
+            <field name="unit_text"/>
+            <field name="description"/>
+            <field name="cnpj"/>
+            <field name="partner_id"/>
+            <field name="product_id"/>
+            <field name="uom_id"/>
+            <field name="own_use"/>
+            <field name="cfop_id"/>
+            <field name="icms_cst_id"/>
+            <field name="ipi_cst_id"/>
+            <field name="pis_cst_id"/>
+            <field name="cofins_cst_id"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_dfe_nfe_escrit_item_defaults_list" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults.list</field>
+    <field name="model">l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="gtin"/>
+        <field name="cod_prod"/>
+        <field name="unit_text"/>
+        <field name="description"/>
+        <field name="cnpj"/>
+        <field name="partner_id"/>
+        <field name="product_id"/>
+        <field name="uom_id"/>
+        <field name="own_use"/>
+        <field name="cfop_id"/>
+        <field name="icms_cst_id"/>
+        <field name="ipi_cst_id"/>
+        <field name="pis_cst_id"/>
+        <field name="cofins_cst_id"/>
+      </list>
+    </field>
+  </record>
+</odoo>

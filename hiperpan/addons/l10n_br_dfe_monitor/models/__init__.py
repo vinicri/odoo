@@ -16,3 +16,5 @@ from . import dfe_nfe_escrit_item
 
 from . import uom_uom
 from . import dfe_uom_name
+
+from . import dfe_nfe_escrit_item_defaults
