@@ -7,8 +7,8 @@
       <form string="Item da Escrituração de NF-e">
         <sheet>
           <group>
-            <field name="dfe_nfe_escrit_id"/>
-            <field name="proc_nfe_id"/>
+            <field name="dfe_nfe_escrit_id" invisible="1"/>
+            <field name="proc_nfe_id" invisible="1"/>
             <field name="proc_nfe_item_id"/>
             <field name="item_number"/>
             <field name="product_id"/>

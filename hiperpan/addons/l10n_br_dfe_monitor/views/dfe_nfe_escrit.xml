@@ -15,7 +15,7 @@
           </group>
           <notebook>
             <page string="Itens">
-              <field name="item_ids" context="{'default_proc_nfe_id': proc_nfe_id}"/>
+              <field name="item_ids" context="{'default_dfe_nfe_escrit_id': id, 'default_proc_nfe_id': proc_nfe_id}"/>
             </page>
           </notebook>
           <group>

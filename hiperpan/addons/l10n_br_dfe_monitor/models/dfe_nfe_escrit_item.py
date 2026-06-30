@@ -8,7 +8,6 @@ class DfeNfeEscritItem(models.Model):
     dfe_nfe_escrit_id = fields.Many2one(
         "l10n_br_dfe_monitor.dfe_nfe_escrit",
         string="Escrituração de NF-e",
-        required=True,
         ondelete="cascade",
     )
 
