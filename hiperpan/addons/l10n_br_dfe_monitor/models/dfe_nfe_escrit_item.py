@@ -72,8 +72,19 @@ class DfeNfeEscritItem(models.Model):
         "l10n_br_fiscal.cst",
         string="ICMS CST",
         domain=domain_icms_cst_in_tax_id,
+        compute="_compute_icms_cst_id",
+        store=True,
+        readonly=False,
         ondelete="set null",
     )
+
+    @api.depends("own_use")
+    def _compute_icms_cst_id(self):
+        for record in self:
+            if record.own_use:
+                record.icms_cst_id = self.env.ref("l10n_br_fiscal.cst_icms_90")
+            else:
+                record.icms_cst_id = False
 
     cfop_id = fields.Many2one(
         "l10n_br_fiscal.cfop",
@@ -459,3 +470,108 @@ class DfeNfeEscritItem(models.Model):
                 record.pis_value = False
             else:
                 record.pis_value = record.proc_nfe_item_id.pis_v_pis
+
+    def domain_cofins_cst_in_tax_id(self):
+        return [
+            (
+                "tax_domain_id",
+                "=",
+                self.env.ref("l10n_br_fiscal.tax_domain_piscofins").id,
+            )
+        ]
+
+    cofins_cst_id = fields.Many2one(
+        "l10n_br_fiscal.cst",
+        string="COFINS CST",
+        domain=domain_cofins_cst_in_tax_id,
+        ondelete="set null",
+        compute="_compute_cofins_cst_id",
+        store=True,
+        readonly=False,
+    )
+
+    @api.depends("allow_pis_cofins", "proc_nfe_item_id.cofins_cst")
+    def _compute_cofins_cst_id(self):
+        for record in self:
+            if not record.allow_pis_cofins:
+                record.cofins_cst_id = False
+
+    cofins_tax_percent = fields.Float(
+        string="Aliquota do COFINS",
+        digits=(3, 4),
+        compute="_compute_cofins_tax_percent",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("allow_pis_cofins", "proc_nfe_item_id.cofins_p_cofins")
+    def _compute_cofins_tax_percent(self):
+        for record in self:
+            if not record.allow_pis_cofins:
+                record.cofins_tax_percent = False
+            else:
+                record.cofins_tax_percent = record.proc_nfe_item_id.cofins_p_cofins
+
+    cofins_tax_unit = fields.Float(
+        string="Aliquota em reais (Tributado por unidade)",
+        digits=(11, 4),
+        compute="_compute_cofins_tax_unit",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("allow_pis_cofins", "proc_nfe_item_id.cofins_v_aliq_prod")
+    def _compute_cofins_tax_unit(self):
+        for record in self:
+            if not record.allow_pis_cofins:
+                record.cofins_tax_unit = False
+            else:
+                record.cofins_tax_unit = record.proc_nfe_item_id.cofins_v_aliq_prod
+
+    cofins_bc_value = fields.Float(
+        string="Valor da Base de Calculo do COFINS",
+        digits=(13, 2),
+        compute="_compute_cofins_bc_value",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("allow_pis_cofins", "proc_nfe_item_id.cofins_v_bc")
+    def _compute_cofins_bc_value(self):
+        for record in self:
+            if not record.allow_pis_cofins:
+                record.cofins_bc_value = False
+            else:
+                record.cofins_bc_value = record.proc_nfe_item_id.cofins_v_bc
+
+    cofins_bc_quantity = fields.Float(
+        string="Quantidade (Tributado por quantidade)",
+        digits=(12, 4),
+        compute="_compute_cofins_bc_quantity",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("allow_pis_cofins", "proc_nfe_item_id.cofins_q_bc_prod")
+    def _compute_cofins_bc_quantity(self):
+        for record in self:
+            if not record.allow_pis_cofins:
+                record.cofins_bc_quantity = False
+            else:
+                record.cofins_bc_quantity = record.proc_nfe_item_id.cofins_q_bc_prod
+
+    cofins_value = fields.Float(
+        string="Valor do COFINS",
+        digits=(13, 2),
+        compute="_compute_cofins_value",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("allow_pis_cofins", "proc_nfe_item_id.cofins_v_cofins")
+    def _compute_cofins_value(self):
+        for record in self:
+            if not record.allow_pis_cofins:
+                record.cofins_value = False
+            else:
+                record.cofins_value = record.proc_nfe_item_id.cofins_v_cofins

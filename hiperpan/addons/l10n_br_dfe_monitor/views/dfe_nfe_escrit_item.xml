@@ -14,7 +14,7 @@
             <field name="product_id"/>
             <field name="icms_origin_id"/>
             <field name="icms_origin_code"/>
-            <field name="icms_cst_id"/>
+            <field name="icms_cst_id" readonly="own_use"/>
             <field name="cfop_id"/>
             <field name="stock_move"/>
             <field name="own_use"/>
@@ -35,12 +35,18 @@
             <field name="ipi_tax_percent"/>
             <field name="ipi_base"/>
             <field name="ipi_value"/>
-            <field name="pis_cst_id" readonly="own_use"/>
+            <field name="pis_cst_id" readonly="allow_pis_cofins"/>
             <field name="pis_tax_percent"/>
             <field name="pis_tax_unit"/>
             <field name="pis_bc_value"/>
             <field name="pis_bc_quantity"/>
             <field name="pis_value"/>
+            <field name="cofins_cst_id" readonly="allow_pis_cofins"/>
+            <field name="cofins_tax_percent"/>
+            <field name="cofins_tax_unit"/>
+            <field name="cofins_bc_value"/>
+            <field name="cofins_bc_quantity"/>
+            <field name="cofins_value"/>
 
           </group>
         </sheet>
