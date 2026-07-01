@@ -20,20 +20,6 @@ class DfeNfeEscrit(models.Model):
         ondelete="cascade",
     )
 
-    def reconcile_item_defaults(self):
-        """Reconcile every item of this escrituração against the defaults table.
-
-        Called by the form view right after a save. Missing defaults are created
-        silently; the ids of items whose existing default differs are returned so
-        the client can open one confirmation wizard per conflicting item.
-
-        :return: list of conflicting ``dfe_nfe_escrit_item`` ids (may be empty).
-        """
-        conflicts = self.env["l10n_br_dfe_monitor.dfe_nfe_escrit_item"]
-        for item in self.item_ids:
-            conflicts |= item._reconcile_default()
-        return conflicts.ids
-
     # save this in case the proc_nfe_id is deleted
     nfe_key = fields.Char(
         string="Chave de Acesso",

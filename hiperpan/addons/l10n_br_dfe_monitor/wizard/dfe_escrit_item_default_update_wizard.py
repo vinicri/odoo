@@ -1,9 +1,14 @@
 """
-Wizard shown after saving an escrituração when an item differs from its stored
-item-defaults record. It shows the current vs. new values for that single item
-and lets the user confirm updating the default. One wizard is opened per
-conflicting item.
+Wizard shown while saving an escrituração item (in its modal) when the item
+differs from its stored item-defaults record. It shows the current vs. new
+values and lets the user confirm updating the default.
+
+Because the item is still unsaved when its modal is saved, the wizard does not
+reference the item record: it stores the target defaults record and the new
+tracked values directly, so confirming can write them without the item.
 """
+
+import json
 
 from odoo import fields, models, _
 
@@ -12,47 +17,44 @@ class DfeEscritItemDefaultUpdateWizard(models.TransientModel):
     _name = "l10n_br_dfe_monitor.escrit_item_default_update_wizard"
     _description = "Atualizar Item de Escrituração Padrão"
 
-    item_id = fields.Many2one(
-        "l10n_br_dfe_monitor.dfe_nfe_escrit_item",
-        string="Item",
-        required=True,
-        readonly=True,
-    )
     defaults_id = fields.Many2one(
         "l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults",
         string="Item Padrão",
         required=True,
         readonly=True,
     )
+    # JSON of {defaults_field: value} to write when the user confirms.
+    new_vals_json = fields.Char(readonly=True)
     diff_html = fields.Html(string="Alterações", readonly=True, sanitize=False)
 
-    def create_for_item(self, item):
-        """Create and return the wizard record for one conflicting item.
+    def create_for_defaults(self, defaults, new_vals):
+        """Create the wizard record for a differing default.
 
-        :param item: a single dfe_nfe_escrit_item whose linked default differs
+        :param defaults: the existing dfe_nfe_escrit_item_defaults record
+        :param new_vals: full defaults-record values dict from the item
         :return: the created wizard record
         """
-        item.ensure_one()
-        defaults = item.likely_item_defaults_id
-        new_vals = item._default_values_from_item()
+        item_model = self.env["l10n_br_dfe_monitor.dfe_nfe_escrit_item"]
+        tracked = {
+            def_field: new_vals.get(def_field)
+            for _item_field, def_field in item_model._DEFAULT_TRACKED_FIELDS
+        }
         return self.create(
             {
-                "item_id": item.id,
                 "defaults_id": defaults.id,
-                "diff_html": self._build_diff_html(item, defaults, new_vals),
+                "new_vals_json": json.dumps(tracked),
+                "diff_html": self._build_diff_html(defaults, tracked),
             }
         )
 
-    def _build_diff_html(self, item, defaults, new_vals):
+    def _build_diff_html(self, defaults, tracked):
         rows = []
-        defaults_model = self.env[
-            "l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults"
-        ]
-        for _item_field, def_field in item._DEFAULT_TRACKED_FIELDS:
-            new_value = new_vals.get(def_field)
-            if not item._defaults_field_differs(defaults, def_field, new_value):
+        item_model = self.env["l10n_br_dfe_monitor.dfe_nfe_escrit_item"]
+        for _item_field, def_field in item_model._DEFAULT_TRACKED_FIELDS:
+            new_value = tracked.get(def_field)
+            if not item_model._defaults_field_differs(defaults, def_field, new_value):
                 continue
-            label = defaults_model._fields[def_field].string
+            label = defaults._fields[def_field].string
             current_display = self._format_current(defaults, def_field)
             new_display = self._format_new(def_field, new_value)
             rows.append(
@@ -97,10 +99,8 @@ class DfeEscritItemDefaultUpdateWizard(models.TransientModel):
 
     def action_confirm(self):
         self.ensure_one()
-        new_vals = self.item_id._default_values_from_item()
-        tracked = {
-            def_field: new_vals.get(def_field)
-            for _item_field, def_field in self.item_id._DEFAULT_TRACKED_FIELDS
-        }
-        self.defaults_id.write(tracked)
-        return {"type": "ir.actions.act_window_close"}
+        self.defaults_id.write(json.loads(self.new_vals_json or "{}"))
+        # No action returned: the button carries close="1", so the dialog service
+        # closes this wizard dialog only (returning act_window_close here would
+        # instead tear down the underlying escrituração action-dialog).
+        return False
