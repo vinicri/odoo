@@ -11,9 +11,11 @@
                         Já existe um item padrão para este produto/fornecedor com
                         valores diferentes. Deseja atualizá-lo com os novos valores?
                     </div>
+                    <group>
+                        <field name="item_id" readonly="1"/>
+                    </group>
                     <field name="defaults_id" invisible="1"/>
-                    <field name="new_vals_json" invisible="1"/>
-                    <field name="diff_html" nolabel="1"/>
+                    <field name="diff_html" widget="html" nolabel="1"/>
                 </sheet>
                 <footer>
                     <button name="action_confirm" type="object"

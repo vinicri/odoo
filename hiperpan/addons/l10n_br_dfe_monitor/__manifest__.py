@@ -43,6 +43,11 @@
         "views/dfe_menu.xml",
         "views/uom_views.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "l10n_br_dfe_monitor/static/src/js/escrit_default_reconcile.js",
+        ],
+    },
     "external_dependencies": {
         "python": [
             "requests",

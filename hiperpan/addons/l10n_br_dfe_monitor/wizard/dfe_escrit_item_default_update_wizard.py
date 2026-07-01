@@ -1,10 +1,9 @@
 """
-Wizard to confirm updating an existing escrituração-item defaults record when a
-newly entered item differs from the stored default. Shows current vs. new values
-for each tracked field that changed.
+Wizard shown after saving an escrituração when an item differs from its stored
+item-defaults record. It shows the current vs. new values for that single item
+and lets the user confirm updating the default. One wizard is opened per
+conflicting item.
 """
-
-import json
 
 from odoo import fields, models, _
 
@@ -13,32 +12,49 @@ class DfeEscritItemDefaultUpdateWizard(models.TransientModel):
     _name = "l10n_br_dfe_monitor.escrit_item_default_update_wizard"
     _description = "Atualizar Item de Escrituração Padrão"
 
+    item_id = fields.Many2one(
+        "l10n_br_dfe_monitor.dfe_nfe_escrit_item",
+        string="Item",
+        required=True,
+        readonly=True,
+    )
     defaults_id = fields.Many2one(
         "l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults",
         string="Item Padrão",
         required=True,
         readonly=True,
     )
-    # JSON-encoded {field_name: new_value} for the values to apply on confirm.
-    new_vals_json = fields.Char(readonly=True)
-    # Human-readable "current vs new" summary rendered in the wizard.
     diff_html = fields.Html(string="Alterações", readonly=True, sanitize=False)
 
-    def open_for(self, defaults, new_vals, differences):
-        """Build and return the act_window action that opens this wizard.
+    def create_for_item(self, item):
+        """Create and return the wizard record for one conflicting item.
 
-        :param defaults: existing dfe_nfe_escrit_item_defaults record
-        :param new_vals: full values dict that would be written
-        :param differences: list of (item_field, defaults_field) tuples that changed
+        :param item: a single dfe_nfe_escrit_item whose linked default differs
+        :return: the created wizard record
         """
+        item.ensure_one()
+        defaults = item.likely_item_defaults_id
+        new_vals = item._default_values_from_item()
+        return self.create(
+            {
+                "item_id": item.id,
+                "defaults_id": defaults.id,
+                "diff_html": self._build_diff_html(item, defaults, new_vals),
+            }
+        )
+
+    def _build_diff_html(self, item, defaults, new_vals):
         rows = []
-        for _item_field, def_field in differences:
-            field = self.env["l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults"]._fields[
-                def_field
-            ]
-            label = field.string
-            current_display = self._format_value(defaults, def_field)
-            new_display = self._format_value_from_vals(def_field, new_vals.get(def_field))
+        defaults_model = self.env[
+            "l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults"
+        ]
+        for _item_field, def_field in item._DEFAULT_TRACKED_FIELDS:
+            new_value = new_vals.get(def_field)
+            if not item._defaults_field_differs(defaults, def_field, new_value):
+                continue
+            label = defaults_model._fields[def_field].string
+            current_display = self._format_current(defaults, def_field)
+            new_display = self._format_new(def_field, new_value)
             rows.append(
                 "<tr>"
                 "<td style='padding:2px 8px;font-weight:bold'>%s</td>"
@@ -47,7 +63,7 @@ class DfeEscritItemDefaultUpdateWizard(models.TransientModel):
                 "<td style='padding:2px 8px;color:#468847'>%s</td>"
                 "</tr>" % (label, current_display or "—", new_display or "—")
             )
-        diff_html = (
+        return (
             "<table style='border-collapse:collapse'>"
             "<thead><tr>"
             "<th style='padding:2px 8px;text-align:left'>%s</th>"
@@ -58,37 +74,16 @@ class DfeEscritItemDefaultUpdateWizard(models.TransientModel):
             % (_("Campo"), _("Atual"), _("Novo"), "".join(rows))
         )
 
-        # Only persist the changed fields so confirming touches nothing else.
-        changed_vals = {
-            def_field: new_vals.get(def_field) for _i, def_field in differences
-        }
-
-        wizard = self.create(
-            {
-                "defaults_id": defaults.id,
-                "new_vals_json": json.dumps(changed_vals),
-                "diff_html": diff_html,
-            }
-        )
-        return {
-            "type": "ir.actions.act_window",
-            "name": _("Atualizar Item Padrão?"),
-            "res_model": self._name,
-            "res_id": wizard.id,
-            "view_mode": "form",
-            "target": "new",
-        }
-
-    def _format_value(self, record, field_name):
-        field = record._fields[field_name]
-        value = record[field_name]
+    def _format_current(self, defaults, field_name):
+        field = defaults._fields[field_name]
+        value = defaults[field_name]
         if field.type == "many2one":
             return value.display_name if value else ""
         if field.type == "boolean":
             return _("Sim") if value else _("Não")
         return value or ""
 
-    def _format_value_from_vals(self, field_name, raw_value):
+    def _format_new(self, field_name, raw_value):
         field = self.env[
             "l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults"
         ]._fields[field_name]
@@ -102,5 +97,10 @@ class DfeEscritItemDefaultUpdateWizard(models.TransientModel):
 
     def action_confirm(self):
         self.ensure_one()
-        self.defaults_id.write(json.loads(self.new_vals_json or "{}"))
+        new_vals = self.item_id._default_values_from_item()
+        tracked = {
+            def_field: new_vals.get(def_field)
+            for _item_field, def_field in self.item_id._DEFAULT_TRACKED_FIELDS
+        }
+        self.defaults_id.write(tracked)
         return {"type": "ir.actions.act_window_close"}
