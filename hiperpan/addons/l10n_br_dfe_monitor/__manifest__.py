@@ -36,6 +36,7 @@
         "wizard/dfe_xml_viewer_wizard_views.xml",
         "wizard/dfe_manifestacao_nao_realizada_wizard_views.xml",
         "wizard/dfe_create_partner_wizard_views.xml",
+        "wizard/dfe_create_product_wizard_views.xml",
         "views/dfe_nfe_escrit.xml",
         "views/dfe_nfe_escrit_item.xml",
         "views/dfe_nfe_escrit_item_defaults.xml",
@@ -45,6 +46,8 @@
     "assets": {
         "web.assets_backend": [
             "l10n_br_dfe_monitor/static/src/js/escrit_default_reconcile.js",
+            "l10n_br_dfe_monitor/static/src/js/create_product_button.js",
+            "l10n_br_dfe_monitor/static/src/xml/create_product_button.xml",
         ],
     },
     "external_dependencies": {

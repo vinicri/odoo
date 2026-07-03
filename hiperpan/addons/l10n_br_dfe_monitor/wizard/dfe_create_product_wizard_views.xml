@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_dfe_create_product_wizard_form" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.create_product_wizard.form</field>
+    <field name="model">l10n_br_dfe_monitor.create_product_wizard</field>
+    <field name="arch" type="xml">
+      <form string="Criar Produto">
+        <field name="proc_nfe_item_id" invisible="1"/>
+        <group string="Dados do Produto">
+          <field name="name"/>
+          <field name="default_code"/>
+          <field name="barcode"/>
+          <field name="ncm_id"/>
+          <field name="uom_id"/>
+          <field name="icms_origin_id"/>
+          <field name="fiscal_type_id"/>
+        </group>
+        <footer>
+          <button name="action_create_product" string="Criar Produto" type="object" close="1" class="btn-primary"/>
+          <button string="Cancelar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>

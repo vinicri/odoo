@@ -12,7 +12,11 @@
             <field name="proc_nfe_id" invisible="1"/>
             <field name="proc_nfe_item_id"/>
             <field name="item_number"/>
-            <field name="product_id"/>
+            <label for="product_id"/>
+            <div class="o_row">
+              <field name="product_id" nolabel="1"/>
+              <widget name="dfe_create_product_button"/>
+            </div>
             <field name="icms_origin_id"/>
             <field name="icms_origin_code"/>
             <field name="icms_cst_id" readonly="own_use"/>

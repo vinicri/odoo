@@ -27,3 +27,4 @@ access_dfe_uom_name_manager,DFe Uom Name Manager,model_l10n_br_dfe_monitor_dfe_u
 access_dfe_nfe_escrit_item_defaults_user,DFe NFe Escrit Item Defaults User,model_l10n_br_dfe_monitor_dfe_nfe_escrit_item_defaults,base.group_user,1,1,1,0
 access_dfe_nfe_escrit_item_defaults_manager,DFe NFe Escrit Item Defaults Manager,model_l10n_br_dfe_monitor_dfe_nfe_escrit_item_defaults,base.group_system,1,1,1,1
 access_dfe_escrit_item_default_update_wizard_user,DFe Escrit Item Default Update Wizard User,model_l10n_br_dfe_monitor_escrit_item_default_update_wizard,base.group_user,1,1,1,1
+access_dfe_create_product_wizard_user,DFe Create Product Wizard User,model_l10n_br_dfe_monitor_create_product_wizard,base.group_user,1,1,1,1
