@@ -47,7 +47,10 @@ export class CreateProductButton extends Component {
         if (!procItemId) {
             return;
         }
-        // Build the wizard record server-side, pre-filled from the NF-e item.
+        // Pre-create the transient wizard record (INSERT into the *wizard*
+        // table, NOT product.product) so it opens pre-filled and we hold its id
+        // to read the result back on close. No product is created here — only
+        // the wizard's "Criar Produto" button creates the product.
         const defaults = await this.orm.call(WIZARD_MODEL, "default_get_from_item", [
             procItemId,
         ]);
@@ -62,10 +65,8 @@ export class CreateProductButton extends Component {
                 title: "Criar Produto",
             },
             {
-                // The "Criar Produto" button (close="1") stores the new product
-                // on created_product_id and closes the dialog. On close, read it
-                // back and assign it to the (possibly unsaved) item. Cancelling
-                // leaves created_product_id empty, so nothing is assigned.
+                // On close, read the product the wizard created (empty if the
+                // user cancelled) and assign it to the (possibly unsaved) item.
                 onClose: async () => {
                     const [wiz] = await this.orm.read(
                         WIZARD_MODEL,

@@ -6,14 +6,26 @@
     <field name="arch" type="xml">
       <form string="Criar Produto">
         <field name="proc_nfe_item_id" invisible="1"/>
-        <group string="Dados do Produto">
-          <field name="name"/>
-          <field name="default_code"/>
-          <field name="barcode"/>
-          <field name="ncm_id"/>
-          <field name="uom_id"/>
-          <field name="icms_origin_id"/>
-          <field name="fiscal_type_id"/>
+        <group>
+          <group string="Geral">
+            <field name="name"/>
+            <field name="type"/>
+            <field name="is_storable" invisible="type != 'consu'"/>
+            <field name="default_code"/>
+            <field name="barcode" invisible="no_barcode"/>
+            <field name="no_barcode"/>
+            <field name="categ_id"/>
+            <field name="uom_id"/>
+            <field name="list_price"/>
+            <field name="company_id" groups="base.group_multi_company"/>
+          </group>
+          <group string="Informações Fiscais">
+            <field name="fiscal_type_id"/>
+            <field name="icms_origin_id"/>
+            <field name="ncm_id"/>
+            <field name="cest_id"/>
+            <field name="fiscal_additional_information"/>
+          </group>
         </group>
         <footer>
           <button name="action_create_product" string="Criar Produto" type="object" close="1" class="btn-primary"/>
