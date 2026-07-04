@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_dfe_download_xml_wizard_form" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.download_xml_wizard.form</field>
+    <field name="model">l10n_br_dfe_monitor.download_xml_wizard</field>
+    <field name="arch" type="xml">
+      <form string="Baixar XMLs (ZIP)">
+        <field name="proc_nfe_ids" invisible="1"/>
+        <div class="alert alert-info" role="alert">
+          Serão baixadas as NF-e selecionadas. Preencha os filtros abaixo para
+          refinar o resultado (todos opcionais).
+        </div>
+        <group>
+          <group string="Período (Data de Emissão)">
+            <field name="date_from"/>
+            <field name="date_to"/>
+          </group>
+          <group string="Outros Filtros">
+            <field name="emit_cnpj"/>
+            <field name="tp_amb"/>
+          </group>
+        </group>
+        <footer>
+          <button name="action_download_zip" string="Baixar ZIP" type="object" class="btn-primary"/>
+          <button string="Cancelar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- Ação em massa: aparece no menu "Ações" ao selecionar NF-e Processadas -->
+  <record id="action_dfe_download_xml_server" model="ir.actions.server">
+    <field name="name">Baixar XMLs (ZIP)</field>
+    <field name="model_id" ref="model_l10n_br_dfe_monitor_proc_nfe"/>
+    <field name="binding_model_id" ref="model_l10n_br_dfe_monitor_proc_nfe"/>
+    <field name="binding_view_types">list</field>
+    <field name="state">code</field>
+    <field name="code">
+wizard = env["l10n_br_dfe_monitor.download_xml_wizard"].create({
+    "proc_nfe_ids": [(6, 0, records.ids)],
+})
+action = {
+    "type": "ir.actions.act_window",
+    "name": "Baixar XMLs (ZIP)",
+    "res_model": "l10n_br_dfe_monitor.download_xml_wizard",
+    "res_id": wizard.id,
+    "view_mode": "form",
+    "target": "new",
+}
+    </field>
+  </record>
+
+</odoo>

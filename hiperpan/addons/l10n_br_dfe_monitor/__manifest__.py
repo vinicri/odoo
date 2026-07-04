@@ -37,6 +37,7 @@
         "wizard/dfe_manifestacao_nao_realizada_wizard_views.xml",
         "wizard/dfe_create_partner_wizard_views.xml",
         "wizard/dfe_create_product_wizard_views.xml",
+        "wizard/dfe_download_xml_wizard_views.xml",
         "views/dfe_nfe_escrit.xml",
         "views/dfe_nfe_escrit_item.xml",
         "views/dfe_nfe_escrit_item_defaults.xml",
