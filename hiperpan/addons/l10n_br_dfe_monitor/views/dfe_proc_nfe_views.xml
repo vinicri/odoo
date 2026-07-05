@@ -458,11 +458,59 @@
         </field>
     </record>
 
+    <!-- Search View -->
+    <record id="view_dfe_proc_nfe_search" model="ir.ui.view">
+        <field name="name">l10n_br_dfe_monitor.proc_nfe.search</field>
+        <field name="model">l10n_br_dfe_monitor.proc_nfe</field>
+        <field name="arch" type="xml">
+            <search string="NF-e Processadas">
+                <field name="emit_x_nome" string="Emitente"
+                       filter_domain="['|', ('emit_x_nome', 'ilike', self), ('emit_cnpj', 'ilike', self)]"/>
+                <field name="emit_cnpj" string="CNPJ Emitente"/>
+                <field name="n_nf" string="Nº NF"/>
+                <field name="ch_nfe" string="Chave de Acesso"/>
+                <field name="dh_emi" string="Data de Emissão"/>
+
+                <separator/>
+                <filter name="operacao_entrada" string="Entrada"
+                        domain="[('tp_nf', '=', '0')]"/>
+                <filter name="operacao_saida" string="Saída"
+                        domain="[('tp_nf', '=', '1')]"/>
+
+                <separator/>
+                <filter name="fin_normal" string="Finalidade: Normal"
+                        domain="[('fin_nfe', '=', '1')]"/>
+                <filter name="fin_complementar" string="Finalidade: Complementar"
+                        domain="[('fin_nfe', '=', '2')]"/>
+                <filter name="fin_ajuste" string="Finalidade: Ajuste"
+                        domain="[('fin_nfe', '=', '3')]"/>
+                <filter name="fin_devolucao" string="Finalidade: Devolução"
+                        domain="[('fin_nfe', '=', '4')]"/>
+
+                <separator/>
+                <filter name="emitidas_mes" string="Emitidas este mês"
+                        domain="[('dh_emi', '&gt;=', datetime.datetime.combine(context_today() + relativedelta(day=1), datetime.time(0, 0, 0)).to_utc())]"/>
+
+                <group expand="0" string="Agrupar Por">
+                    <filter name="group_emitente" string="Emitente"
+                            context="{'group_by': 'emit_x_nome'}"/>
+                    <filter name="group_tipo_operacao" string="Tipo de Operação"
+                            context="{'group_by': 'tp_nf'}"/>
+                    <filter name="group_finalidade" string="Finalidade"
+                            context="{'group_by': 'fin_nfe'}"/>
+                    <filter name="group_data_emissao" string="Data de Emissão"
+                            context="{'group_by': 'dh_emi:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <!-- Action -->
     <record id="action_dfe_proc_nfe" model="ir.actions.act_window">
         <field name="name">NF-e Processadas</field>
         <field name="res_model">l10n_br_dfe_monitor.proc_nfe</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dfe_proc_nfe_search"/>
     </record>
 
 </odoo>
