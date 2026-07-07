@@ -68,9 +68,13 @@ class DfeCreateProductWizard(models.TransientModel):
     )
 
     list_price = fields.Float(
-        string="Preço de Venda",
-        digits="Product Price",
-        default=1.0,
+        string="Preço de Venda", digits="Product Price", default=""
+    )
+
+    # todo usar unidade de conversao pra achar o valor por unidade do estoque
+    cost_price = fields.Float(
+        related="proc_nfe_item_id.v_un_com",
+        readonly=True,
     )
 
     company_id = fields.Many2one(
@@ -83,10 +87,12 @@ class DfeCreateProductWizard(models.TransientModel):
         "l10n_br_fiscal.product.fiscal.type",
         string="Tipo Fiscal",
     )
+
     icms_origin_id = fields.Many2one(
         "l10n_br_fiscal.icms.origin",
         string="Origem da Mercadoria",
     )
+
     ncm_id = fields.Many2one(
         "l10n_br_fiscal.ncm",
         string="NCM",
@@ -142,11 +148,16 @@ class DfeCreateProductWizard(models.TransientModel):
             [("code", "=", proc_item.icms_orig)], limit=1
         )
 
+        cest = self.env["l10n_br_fiscal.cest"].search(
+            [("code_unmasked", "=", proc_item.cest)], limit=1
+        )
+
         vals = {
             "proc_nfe_item_id": proc_item.id,
             "name": proc_item.x_prod,
             "ncm_id": ncm.id,
             "icms_origin_id": icms_origin.id,
+            "cest_id": cest.id,
         }
 
         if uom:
@@ -178,6 +189,9 @@ class DfeCreateProductWizard(models.TransientModel):
                     "'Não possui código de barras'."
                 )
             )
+
+        if self.list_price <= 0:
+            raise UserError(_("O preço de venda deve ser maior que 0."))
 
         if not self.fiscal_type_id:
             raise UserError(_("Selecione o tipo fiscal do produto."))

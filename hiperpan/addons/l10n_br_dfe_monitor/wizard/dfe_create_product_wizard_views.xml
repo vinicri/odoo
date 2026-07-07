@@ -17,6 +17,7 @@
             <field name="categ_id"/>
             <field name="uom_id"/>
             <field name="list_price"/>
+            <field name="cost_price"/>
             <field name="company_id" groups="base.group_multi_company"/>
           </group>
           <group string="Informações Fiscais">
