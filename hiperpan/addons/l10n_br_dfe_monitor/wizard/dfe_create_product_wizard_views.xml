@@ -28,10 +28,12 @@
             <field name="fiscal_additional_information"/>
           </group>
         </group>
-        <footer>
-          <button name="action_create_product" string="Criar Produto" type="object" close="1" class="btn-primary"/>
-          <button string="Cancelar" class="btn-secondary" special="cancel"/>
-        </footer>
+        <!--
+          No <footer>: the FormViewDialog renders its native "Salvar & Fechar"
+          button, whose save closes only this dialog (avoiding the modal-stack
+          cascade a custom object-button caused). Product creation runs in the
+          widget's onRecordSaved after the wizard record is saved.
+        -->
       </form>
     </field>
   </record>

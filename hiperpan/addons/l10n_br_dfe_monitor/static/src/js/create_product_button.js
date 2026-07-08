@@ -7,10 +7,10 @@ import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
 import { Component } from "@odoo/owl";
 
 /**
- * Button placed next to the escrituração item's `product_id` field. It opens a
- * wizard (pre-populated from the item's processed NF-e line) to create a new
- * product.product, then assigns the created product back to the item — even
- * when the item is still unsaved (a NewId line inside its modal).
+ * Button next to the escrituração item's `product_id` field. It opens a wizard
+ * (pre-populated from the item's processed NF-e line) to create a new product,
+ * then assigns the created product back to the item — even when the item is
+ * still unsaved (a NewId line inside its modal).
  */
 const WIZARD_MODEL = "l10n_br_dfe_monitor.create_product_wizard";
 
@@ -48,46 +48,47 @@ export class CreateProductButton extends Component {
             return;
         }
         // Pre-create the transient wizard record (INSERT into the *wizard*
-        // table, NOT product.product) so it opens pre-filled and we hold its id
-        // to read the result back on close. No product is created here — only
-        // the wizard's "Criar Produto" button creates the product.
+        // table, NOT product) so it opens pre-filled and we hold its id.
         const defaults = await this.orm.call(WIZARD_MODEL, "default_get_from_item", [
             procItemId,
         ]);
         const wizardIds = await this.orm.create(WIZARD_MODEL, [defaults]);
         const wizardId = Array.isArray(wizardIds) ? wizardIds[0] : wizardIds;
 
-        this.dialog.add(
-            FormViewDialog,
-            {
-                resModel: WIZARD_MODEL,
-                resId: wizardId,
-                title: "Criar Produto",
+        // Use the FormViewDialog with its NATIVE "Save & Close" button (no custom
+        // <footer> in the arch). Native save calls saveRecord -> this.props.close(),
+        // which closes only THIS dialog — it does not cascade-close the
+        // escrituração/item modals underneath (a custom footer object-button
+        // routed through the action service is what caused that cascade before).
+        //
+        // The product is created in onRecordSaved: the wizard record (with the
+        // user's edits) is already saved at that point, so we run
+        // action_create_product and read the created product back.
+        this.dialog.add(FormViewDialog, {
+            resModel: WIZARD_MODEL,
+            resId: wizardId,
+            title: "Criar Produto",
+            onRecordSaved: async (wizardRecord) => {
+                await this.orm.call(WIZARD_MODEL, "action_create_product", [
+                    [wizardRecord.resId],
+                ]);
+                const [wiz] = await this.orm.read(
+                    WIZARD_MODEL,
+                    [wizardRecord.resId],
+                    ["created_product_id"]
+                );
+                const created = wiz && wiz.created_product_id;
+                const productId = readId(created);
+                if (productId) {
+                    await record.update({
+                        product_id: {
+                            id: productId,
+                            display_name: Array.isArray(created) ? created[1] : "",
+                        },
+                    });
+                }
             },
-            {
-                // On close, read the product the wizard created (empty if the
-                // user cancelled) and assign it to the (possibly unsaved) item.
-                onClose: async () => {
-                    const [wiz] = await this.orm.read(
-                        WIZARD_MODEL,
-                        [wizardId],
-                        ["created_product_id"]
-                    );
-                    const created = wiz && wiz.created_product_id;
-                    const productId = readId(created);
-                    if (productId) {
-                        await record.update({
-                            product_id: {
-                                id: productId,
-                                display_name: Array.isArray(created)
-                                    ? created[1]
-                                    : "",
-                            },
-                        });
-                    }
-                },
-            }
-        );
+        });
     }
 }
 

@@ -7,7 +7,7 @@ dados fiscais do item da NF-e (proc_nfe_item) para o usuário revisar e criar.
 """
 
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo.exceptions import ValidationError
 
 
 class DfeCreateProductWizard(models.TransientModel):
@@ -123,6 +123,30 @@ class DfeCreateProductWizard(models.TransientModel):
             if record.cest_id and record.ncm_id not in record.cest_id.ncm_ids:
                 record.cest_id = False
 
+    # @api.constrains("no_barcode", "barcode", "list_price", "ncm_id", "type")
+    def _check_before_create(self, record):
+        """Validate on save so errors show before the dialog closes (the product
+        is created in the client's onRecordSaved, after this passes)."""
+        barcode = (record.barcode or "").strip()
+        if record.no_barcode and barcode:
+            raise ValidationError(
+                _(
+                    "Marque 'Não possui código de barras' OU informe o "
+                    "código, não ambos."
+                )
+            )
+        if not record.no_barcode and not barcode:
+            raise ValidationError(
+                _(
+                    "Informe o código de barras ou marque "
+                    "'Não possui código de barras'."
+                )
+            )
+        if record.list_price <= 0:
+            raise ValidationError(_("O preço de venda deve ser maior que 0."))
+        if not record.ncm_id and record.type == "consu":
+            raise ValidationError(_("Selecione o NCM do produto."))
+
     @api.model
     def default_get_from_item(self, proc_nfe_item_id):
         """Build the wizard default values from a processed NF-e item.
@@ -166,43 +190,19 @@ class DfeCreateProductWizard(models.TransientModel):
         return vals
 
     def action_create_product(self):
-        """Create the product.product and store it on the wizard.
+        """Create the product and store it on the wizard.
 
-        The record is saved by the dialog before this runs, so the client reads
+        Runs from the client's onRecordSaved, after the wizard record has been
+        saved (and its constraints validated). The client reads
         ``created_product_id`` back to assign it to the escrituração item.
         """
         self.ensure_one()
 
-        # Respect the product.template barcode constraint: barcode XOR
-        # no_barcode, and one of them is required.
+        self._check_before_create(self)
+
         barcode = (self.barcode or "").strip()
-        if self.no_barcode and barcode:
-            raise UserError(
-                _(
-                    "Marque 'Não possui código de barras' OU informe o código, não ambos."
-                )
-            )
-        if not self.no_barcode and not barcode:
-            raise UserError(
-                _(
-                    "Informe o código de barras ou marque "
-                    "'Não possui código de barras'."
-                )
-            )
 
-        if self.list_price <= 0:
-            raise UserError(_("O preço de venda deve ser maior que 0."))
-
-        if not self.fiscal_type_id:
-            raise UserError(_("Selecione o tipo fiscal do produto."))
-
-        if not self.icms_origin_id:
-            raise UserError(_("Selecione a origem da mercadoria."))
-
-        if not self.ncm_id and self.type == "consu":
-            raise UserError(_("Selecione o NCM do produto."))
-
-        product = self.env["product.product"].create(
+        product = self.env["product.template"].create(
             {
                 "name": self.name,
                 "default_code": self.default_code or False,
@@ -224,5 +224,5 @@ class DfeCreateProductWizard(models.TransientModel):
                 ),
             }
         )
-        self.created_product_id = product.id
+        self.created_product_id = product.product_variant_ids[0].id
         return False
