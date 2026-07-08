@@ -17,6 +17,43 @@ class ProductTemplate(models.Model):
     _name = "product.template"
     _inherit = ["product.template", "l10n_br_fiscal.product.mixin"]
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get("no_barcode") and not (vals.get("barcode") or "").strip():
+                raise ValidationError(
+                    _(
+                        "O Código de Barras é obrigatório na nota fiscal quando o produto tem código de barras. "
+                        "Se o produto não tiver código de barras, marque a opção 'Não possui código de barras'."
+                    )
+                )
+        return super().create(vals_list)
+
+    # we update the product and if the resulting product is not expected state, the raised error will
+    # rollback the whole update transaction
+    def write(self, vals):
+        res = super().write(vals)
+        if "no_barcode" in vals or "barcode" in vals:
+            for record in self:
+                if not record.no_barcode and not (record.barcode or "").strip():
+                    raise ValidationError(
+                        _(
+                            "O Código de Barras é obrigatório na nota fiscal quando o produto tem código de barras. "
+                            "Se o produto não tiver código de barras, marque a opção 'Não possui código de barras'."
+                        )
+                    )
+        return res
+
+    def _get_related_fields_variant_template(self):
+        return super()._get_related_fields_variant_template() + [
+            "no_barcode",
+            "fiscal_type_id",
+            "icms_origin_id",
+            "ncm_id",
+            "cest_id",
+            "fiscal_additional_information",
+        ]
+
     # mudando pra integer porque  a nota fiscal só aceita integer
     default_code = fields.Integer("Internal Reference", index=True)
     # no_barcode = fields.Boolean(
@@ -40,11 +77,21 @@ class ProductTemplate(models.Model):
     def _set_no_barcode(self):
         self._set_product_variant_field("no_barcode")
 
+    # Note about variant creation sequence in Odoo:
+    #
+    # When a product.template is created, Odoo will auto-create the first product.product
+    # variant internally before propagating template values (such as `barcode` and `no_barcode`)
+    # to the variant via the associated inverse methods.
+    #
+    # The execution order is as follows:
+    #   1. product.template.create()        # template record is saved
+    #   2. _create_variant_ids()            # product variant is auto-created with defaults (barcode=False, no_barcode=False), only the template id is set in the product.product record
+    #   3. @api.constrains                  # fires on the new variant—at this point both fields may be empty, which can trigger last-check constraints
+    #   4. Only then does the inverse (_set_no_barcode) propagate template values to the variant's fields
+    # so we cannot check for the condition no_barcode and empty barcode at the same time in the product.product record
     @api.constrains("no_barcode", "barcode")
     def _check_no_barcode(self):
         for record in self:
-            print("barcode", record.no_barcode)
-            print("barcode", record.barcode)
             if record.no_barcode and record.barcode:
                 raise ValidationError(
                     _(
@@ -53,12 +100,13 @@ class ProductTemplate(models.Model):
                     )
                     % record.barcode
                 )
-
-            if not record.no_barcode and not (record.barcode or "").strip():
+            if record.barcode and not record.barcode.isdigit():
                 raise ValidationError(
-                    _(
-                        "O Código de Barras é obrigatório na nota fiscal se o produto tiver código de barras. Não informar o  Marque a opção 'Não possui código de barras' se o produto não tiver código de barras."
-                    )
+                    _("O código de barras deve conter apenas dígitos.")
+                )
+            if record.barcode and len(record.barcode) not in (8, 12, 13, 14):
+                raise ValidationError(
+                    _("O código de barras deve ter 8, 12, 13 ou 14 digitos.")
                 )
 
     ncm_id = fields.Many2one(
@@ -146,7 +194,10 @@ class ProductTemplate(models.Model):
             self._extract_fiscal_genre_id(record)
 
     fiscal_additional_information = fields.Text(
-        string="Informações adicionais de produto para documento fiscal"
+        string="Informações adicionais de produto para documento fiscal",
+        compute="_compute_fiscal_additional_information",
+        inverse="_set_fiscal_additional_information",
+        store=True,
     )
 
     @api.depends("product_variant_ids.fiscal_additional_information")
@@ -155,36 +206,6 @@ class ProductTemplate(models.Model):
 
     def _set_fiscal_additional_information(self):
         self._set_product_variant_field("fiscal_additional_information")
-
-    pis_tax_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.tax",
-        string="PIS",
-        compute="_compute_pis_tax_id",
-        inverse="_set_pis_tax_id",
-        store=True,
-    )
-
-    def _set_pis_tax_id(self):
-        self._set_product_variant_field("pis_tax_id")
-
-    @api.depends("product_variant_ids.pis_tax_id")
-    def _compute_pis_tax_id(self):
-        self._compute_template_field_from_variant_field("pis_tax_id")
-
-    cofins_tax_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.tax",
-        string="COFINS",
-        compute="_compute_cofins_tax_id",
-        inverse="_set_cofins_tax_id",
-        store=True,
-    )
-
-    def _set_cofins_tax_id(self):
-        self._set_product_variant_field("cofins_tax_id")
-
-    @api.depends("product_variant_ids.cofins_tax_id")
-    def _compute_cofins_tax_id(self):
-        self._compute_template_field_from_variant_field("cofins_tax_id")
 
     mrp_bom_id = fields.Many2one(
         comodel_name="mrp.bom",
@@ -219,36 +240,6 @@ class ProductTemplate(models.Model):
                         fiscal_type=product.fiscal_type_id.display_name,
                     )
                 )
-
-    ipi_guideline_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.ipi.guideline",
-        string="Código de Enquadramento",
-        compute="_compute_ipi_guideline_id",
-        inverse="_set_ipi_guideline_id",
-        store=True,
-    )
-
-    def _set_ipi_guideline_id(self):
-        self._set_product_variant_field("ipi_guideline_id")
-
-    @api.depends("product_variant_ids.ipi_guideline_id")
-    def _compute_ipi_guideline_id(self):
-        self._compute_template_field_from_variant_field("ipi_guideline_id")
-
-    ipi_tax_id = fields.Many2one(
-        comodel_name="l10n_br_fiscal.tax",
-        string="IPI",
-        compute="_compute_ipi_tax_id",
-        inverse="_set_ipi_tax_id",
-        store=True,
-    )
-
-    def _set_ipi_tax_id(self):
-        self._set_product_variant_field("ipi_tax_id")
-
-    @api.depends("product_variant_ids.ipi_tax_id")
-    def _compute_ipi_tax_id(self):
-        self._compute_template_field_from_variant_field("ipi_tax_id")
 
     product_taxes_ids = fields.One2many(
         inverse_name="product_tmpl_id",

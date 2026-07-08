@@ -3,6 +3,7 @@
 
 from odoo import api, models, fields, _
 from odoo.exceptions import ValidationError
+import logging
 
 
 class ProductMixin(models.AbstractModel):
@@ -21,47 +22,6 @@ class ProductMixin(models.AbstractModel):
         required=True,
     )
 
-    no_barcode = fields.Boolean(
-        "Não possui código de barras",
-        default=False,
-    )
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        next_number = self._get_next_sequence_code()
-        """Override create to set sequential default_code if not provided"""
-        for vals in vals_list:
-            if not vals.get("default_code"):
-                vals["default_code"] = next_number
-                next_number += 1
-
-        return super().create(vals_list)
-
-    @api.model
-    def _get_next_sequence_code(self):
-        """Get next sequential code for product"""
-
-        # Get the highest existing numeric default_code
-        last_product = self.search(
-            [
-                ("default_code", "!=", False),
-            ],
-            order="default_code desc",
-            limit=1,
-        )
-
-        if last_product and last_product.default_code:
-            try:
-                # Extract number from last code and increment
-                last_number = int(last_product.default_code)
-                next_number = last_number + 1
-            except (ValueError, IndexError):
-                next_number = 1
-        else:
-            next_number = 1
-
-        return next_number  # Simple numeric: 1, 2, 3, etc.
-
     def _extract_fiscal_genre_id(self, record):
         if record.ncm_id:
             record.fiscal_genre_id = self.env["l10n_br_fiscal.ncm.genre"].search(
@@ -73,26 +33,6 @@ class ProductMixin(models.AbstractModel):
     def product_taxes_domain(self):
         return [("company_id", "=", self.env.company.id)]
 
-    @api.constrains("barcode", "no_barcode")
-    def _check_barcode(self):
-        for record in self:
-            if record.no_barcode and record.barcode:
-                raise ValidationError(
-                    _(
-                        "O produto foi marcado como 'Não possui código de barras' "
-                        "mas o código de barras foi informado: %s"
-                    )
-                    % record.barcode
-                )
-            if record.barcode and not record.barcode.isdigit():
-                raise ValidationError(
-                    _("O código de barras deve conter apenas dígitos.")
-                )
-            if record.barcode and len(record.barcode) not in (8, 12, 13, 14):
-                raise ValidationError(
-                    _("O código de barras deve ter 8, 12, 13 ou 14 digitos.")
-                )
-
     product_taxes_ids = fields.One2many(
         comodel_name="l10n_br_fiscal.product.taxes",
         inverse_name="product_tmpl_id",
@@ -101,6 +41,12 @@ class ProductMixin(models.AbstractModel):
         copy=False,
     )
 
+    no_barcode = fields.Boolean(
+        "Não possui código de barras",
+        default=False,
+    )
+
+    # pointer to the product taxes of the current company
     product_tmpl_taxes = fields.Many2one(
         comodel_name="l10n_br_fiscal.product.taxes",
         string="Product Taxes (Company)",

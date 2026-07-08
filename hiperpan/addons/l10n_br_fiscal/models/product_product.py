@@ -1,8 +1,8 @@
 # Copyright (C) 2021  Renato Lima - Akretion <renato.lima@akretion.com.br>
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
 
-import re
-from odoo import models, api, fields
+from odoo import models, api, fields, _
+from odoo.exceptions import ValidationError
 
 
 class ProductProduct(models.Model):
@@ -86,11 +86,38 @@ class ProductProduct(models.Model):
     def action_edit_product_taxes(self):
         return self._action_edit_product_taxes(self.product_tmpl_taxes)
 
-    # @api.depends("product_tmpl_id")
-    # def _compute_product_taxes_ids(self):
-    #     for record in self:
-    #         record.product_taxes_ids = (
-    #             record.product_tmpl_id.product_taxes_ids.filtered(
-    #                 lambda x: x.product_id == record
-    #             )
-    #         )
+    @api.model_create_multi
+    def create(self, vals_list):
+        next_number = self._get_next_sequence_code()
+        """Override create to set sequential default_code if not provided"""
+        for vals in vals_list:
+            if not vals.get("default_code"):
+                vals["default_code"] = next_number
+                next_number += 1
+
+        return super().create(vals_list)
+
+    @api.model
+    def _get_next_sequence_code(self):
+        """Get next sequential code for product"""
+
+        # Get the highest existing numeric default_code
+        last_product = self.search(
+            [
+                ("default_code", "!=", False),
+            ],
+            order="default_code desc",
+            limit=1,
+        )
+
+        if last_product and last_product.default_code:
+            try:
+                # Extract number from last code and increment
+                last_number = int(last_product.default_code)
+                next_number = last_number + 1
+            except (ValueError, IndexError):
+                next_number = 1
+        else:
+            next_number = 1
+
+        return next_number  # Simple numeric: 1, 2, 3, etc.
