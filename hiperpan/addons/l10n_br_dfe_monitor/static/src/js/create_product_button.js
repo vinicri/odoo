@@ -80,12 +80,11 @@ export class CreateProductButton extends Component {
                 const created = wiz && wiz.created_product_id;
                 const productId = readId(created);
                 if (productId) {
-                    await record.update({
-                        product_id: {
-                            id: productId,
-                            display_name: Array.isArray(created) ? created[1] : "",
-                        },
-                    });
+                    // Many2one fields on the relational model are stored/updated
+                    // as an [id, display_name] pair, not an {id, display_name}
+                    // object — passing an object silently resolves to false.
+                    const displayName = Array.isArray(created) ? created[1] : "";
+                    await record.update({ product_id: [productId, displayName] });
                 }
             },
         });
