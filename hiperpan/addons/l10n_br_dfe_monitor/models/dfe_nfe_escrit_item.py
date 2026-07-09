@@ -216,6 +216,13 @@ class DfeNfeEscritItem(models.Model):
             else:
                 record.icms_cst_id = False
 
+    icms_cst_code = fields.Char(
+        string="Código ICMS CST",
+        related="icms_cst_id.code",
+        store=True,
+        readonly=True,
+    )
+
     cfop_id = fields.Many2one(
         "l10n_br_fiscal.cfop",
         string="CFOP",
@@ -319,6 +326,19 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
+    should_include_icms = fields.Boolean(
+        string="Deve incluir ICMS",
+        compute="_compute_should_include_icms",
+    )
+
+    @api.depends("own_use", "icms_cst_code")
+    def _compute_should_include_icms(self):
+        for record in self:
+            if record.own_use or record.icms_cst_code in ["30", "40", "41", "50", "60"]:
+                record.should_include_icms = False
+            else:
+                record.should_include_icms = True
+
     icms_tax_percent = fields.Float(
         string="Aliquota do ICMS",
         digits=(3, 4),
@@ -327,13 +347,13 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
-    @api.depends("own_use", "proc_nfe_item_id.icms_p_icms")
+    @api.depends("should_include_icms", "proc_nfe_item_id.icms_p_icms")
     def _compute_icms_tax_percent(self):
         for record in self:
-            if record.own_use:
-                record.icms_tax_percent = False
-            else:
+            if record.should_include_icms:
                 record.icms_tax_percent = record.proc_nfe_item_id.icms_p_icms
+            else:
+                record.icms_tax_percent = False
 
     icms_base = fields.Float(
         string="Base de Cálculo do ICMS",
@@ -343,13 +363,13 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
-    @api.depends("own_use", "proc_nfe_item_id.icms_v_bc")
+    @api.depends("should_include_icms", "proc_nfe_item_id.icms_v_bc")
     def _compute_icms_base(self):
         for record in self:
-            if record.own_use:
-                record.icms_base = False
-            else:
+            if record.should_include_icms:
                 record.icms_base = record.proc_nfe_item_id.icms_v_bc
+            else:
+                record.icms_base = False
 
     icms_value = fields.Float(
         string="Valor do ICMS",
@@ -359,13 +379,13 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
-    @api.depends("own_use", "proc_nfe_item_id.icms_v_icms")
+    @api.depends("should_include_icms", "proc_nfe_item_id.icms_v_icms")
     def _compute_icms_value(self):
         for record in self:
-            if record.own_use:
-                record.icms_value = False
-            else:
+            if record.should_include_icms:
                 record.icms_value = record.proc_nfe_item_id.icms_v_icms
+            else:
+                record.icms_value = False
 
     icms_st_tax_percent = fields.Float(
         string="Aliquota do ICMS ST",
