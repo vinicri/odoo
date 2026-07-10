@@ -25,7 +25,7 @@
             <field name="own_use"/>
             <field name="quantity"/>
             <field name="unit"/>
-            <field name="uom_id"/>
+            <field name="uom_id" readonly="not product_id"/>
             <field name="product_uom_id"/>
             <field name="stock_quantity"/>
             <field name="total_value"/>

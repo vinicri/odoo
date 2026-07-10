@@ -55,9 +55,15 @@ class DfeNfeEscritItem(models.Model):
                     limit=1,
                 )
                 if dfe_nfe_escrit_item_defaults_id:
+                    product_uom_id = dfe_nfe_escrit_item_defaults_id.product_id.uom_id
+                    default_uom_id = dfe_nfe_escrit_item_defaults_id.uom_id
+                    is_default_uom_id_valid = (
+                        default_uom_id.category_id == product_uom_id.category_id
+                    )
+
                     record.likely_item_defaults_id = dfe_nfe_escrit_item_defaults_id.id
                     record.product_id = dfe_nfe_escrit_item_defaults_id.product_id
-                    record.uom_id = dfe_nfe_escrit_item_defaults_id.uom_id
+                    record.uom_id = default_uom_id if is_default_uom_id_valid else False
                     record.own_use = dfe_nfe_escrit_item_defaults_id.own_use
                     record.cfop_id = dfe_nfe_escrit_item_defaults_id.cfop_id
                     record.icms_cst_id = dfe_nfe_escrit_item_defaults_id.icms_cst_id
@@ -267,29 +273,26 @@ class DfeNfeEscritItem(models.Model):
         "uom.uom",
         string="Unidade de Medida",
         compute="_compute_uom_id",
+        domain="[('category_id', '=', product_uom_category_id)]",
         store=True,
         readonly=False,
     )
 
-    @api.depends("unit")
+    @api.depends("product_id")
     def _compute_uom_id(self):
         for record in self:
-            if record.unit:
-                uom_id = self.env["uom.uom"].search(
-                    [("nfe_name", "=", record.unit)], limit=1
-                )
-                if uom_id:
-                    record.uom_id = uom_id
-                else:
-                    record.uom_id = self.env["uom.uom"].search(
-                        [("dfe_uom_name_ids.name", "=", record.unit)], limit=1
-                    )
+            if not record.product_id:
+                record.uom_id = False
 
     product_uom_id = fields.Many2one(
         "uom.uom",
         string="Unidade de Medida do Produto",
         related="product_id.uom_id",
         store=True,
+    )
+
+    product_uom_category_id = fields.Many2one(
+        related="product_id.uom_id.category_id",
     )
 
     stock_quantity = fields.Float(
