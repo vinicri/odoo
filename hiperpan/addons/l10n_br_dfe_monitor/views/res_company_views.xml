@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_company_form_dfe_receiving_schedule" model="ir.ui.view">
+    <field name="name">res.company.form.dfe.receiving.schedule</field>
+    <field name="model">res.company</field>
+    <field name="inherit_id" ref="base.view_company_form"/>
+    <field name="arch" type="xml">
+      <notebook position="inside">
+        <page string="Recebimento de Mercadorias" name="dfe_receiving_schedule">
+          <p class="text-muted">
+            Dias e horários em que a empresa costuma receber mercadorias de
+            fornecedores. Usado para sugerir a Data de Chegada ao escriturar
+            uma NF-e a partir de NF-e Processadas.
+          </p>
+          <field name="dfe_receiving_schedule_ids">
+            <list editable="bottom">
+              <field name="weekday"/>
+              <field name="hour_from" widget="float_time"/>
+              <field name="hour_to" widget="float_time"/>
+            </list>
+          </field>
+        </page>
+      </notebook>
+    </field>
+  </record>
+
+</odoo>

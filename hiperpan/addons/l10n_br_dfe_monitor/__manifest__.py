@@ -43,6 +43,7 @@
         "views/dfe_nfe_escrit_item_defaults.xml",
         "views/dfe_menu.xml",
         "views/uom_views.xml",
+        "views/res_company_views.xml",
     ],
     "assets": {
         "web.assets_backend": [

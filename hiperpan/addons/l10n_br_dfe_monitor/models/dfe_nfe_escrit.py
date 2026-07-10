@@ -20,6 +20,26 @@ class DfeNfeEscrit(models.Model):
         ondelete="cascade",
     )
 
+    @api.model
+    def default_get(self, fields_list):
+        defaults = super().default_get(fields_list)
+        proc_nfe_id = defaults.get("proc_nfe_id") or self.env.context.get(
+            "default_proc_nfe_id"
+        )
+        if (
+            "arrival_datetime" in fields_list
+            and proc_nfe_id
+            and not defaults.get("arrival_datetime")
+        ):
+            proc_nfe = self.env["l10n_br_dfe_monitor.proc_nfe"].browse(proc_nfe_id)
+            anchor = proc_nfe.dh_sai_ent
+            if anchor:
+                company = proc_nfe.company_id or self.env.company
+                suggested = company._get_next_receiving_datetime(anchor)
+            if suggested:
+                defaults["arrival_datetime"] = suggested
+        return defaults
+
     # save this in case the proc_nfe_id is deleted
     nfe_key = fields.Char(
         string="Chave de Acesso",
