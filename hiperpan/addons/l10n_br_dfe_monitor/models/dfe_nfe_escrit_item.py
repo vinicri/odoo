@@ -1,4 +1,5 @@
-from odoo import fields, models, api
+from odoo import fields, models, api, _
+from odoo.exceptions import ValidationError
 
 
 class DfeNfeEscritItem(models.Model):
@@ -211,7 +212,7 @@ class DfeNfeEscritItem(models.Model):
         compute="_compute_icms_cst_id",
         store=True,
         readonly=False,
-        ondelete="set null",
+        required=True,
     )
 
     @api.depends("own_use")
@@ -232,8 +233,8 @@ class DfeNfeEscritItem(models.Model):
     cfop_id = fields.Many2one(
         "l10n_br_fiscal.cfop",
         string="CFOP",
-        ondelete="set null",
         domain="[('type_in_out', '=', 'in')]",
+        required=True,
     )
 
     stock_move = fields.Boolean(
@@ -310,6 +311,7 @@ class DfeNfeEscritItem(models.Model):
         domain="[('category_id', '=', product_uom_category_id)]",
         store=True,
         readonly=False,
+        required=True,
     )
 
     @api.depends("product_id")
@@ -462,6 +464,27 @@ class DfeNfeEscritItem(models.Model):
         store=True,
         readonly=False,
     )
+
+    @api.constrains("ipi_cst_id")
+    def _check_ipi_cst_id(self):
+        generates_ipi_credit = [
+            self.env.ref("l10n_br_fiscal.product_fiscal_type_01"),
+            self.env.ref("l10n_br_fiscal.product_fiscal_type_06"),
+        ]
+        for record in self:
+            if (
+                not record.ipi_cst_id
+                and record.product_id.fiscal_type_id in generates_ipi_credit
+            ):
+                raise ValidationError(
+                    _(
+                        "O IPI CST é obrigatório para o produto %(product)s, que gera crédito de IPI, como matéria-prima e produto intermediário."
+                    )
+                    % {
+                        "product": record.proc_nfe_item_id.x_prod
+                        or record.product_id.display_name,
+                    }
+                )
 
     @api.depends("own_use", "proc_nfe_item_id.ipi_cst")
     def _compute_ipi_cst_id(self):
