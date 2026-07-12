@@ -14,7 +14,7 @@
             <field name="item_number"/>
             <label for="product_id"/>
             <div class="o_row">
-              <field name="product_id" nolabel="1"/>
+              <field name="product_id" nolabel="1" widget="dfe_product_many2one"/>
               <widget name="dfe_create_product_button"/>
             </div>
             <field name="icms_origin_id"/>
