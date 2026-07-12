@@ -43,15 +43,16 @@ class DfeCreateProductWizard(models.TransientModel):
         store=True,
         compute="compute_is_storable",
         readonly=False,
-        default=False,
         precompute=True,
         help="A storable product is a product for which you manage stock.",
     )
 
-    @api.depends("type")
+    @api.onchange("type")
     def compute_is_storable(self):
-        self.filtered(lambda t: t.type != "consu" and t.is_storable).is_storable = False
-        self.filtered(lambda t: t.type == "consu" and t.is_storable).is_storable = True
+        if self.type == "service":
+            self.is_storable = False
+        else:
+            self.is_storable = True
 
     categ_id = fields.Many2one(
         "product.category",
@@ -142,6 +143,9 @@ class DfeCreateProductWizard(models.TransientModel):
                     "'Não possui código de barras'."
                 )
             )
+        if not record.fiscal_type_id:
+            raise ValidationError(_("Selecione o tipo fiscal do produto."))
+
         if record.list_price <= 0:
             raise ValidationError(_("O preço de venda deve ser maior que 0."))
         if not record.ncm_id and record.type == "consu":
@@ -182,6 +186,8 @@ class DfeCreateProductWizard(models.TransientModel):
             "ncm_id": ncm.id,
             "icms_origin_id": icms_origin.id,
             "cest_id": cest.id,
+            "type": "consu",
+            "is_storable": True,
         }
 
         if uom:

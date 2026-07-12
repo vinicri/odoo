@@ -10,7 +10,7 @@
           <group string="Geral">
             <field name="name"/>
             <field name="type"/>
-            <field name="is_storable" invisible="type != 'consu'"/>
+            <field name="is_storable"/>
             <field name="default_code"/>
             <field name="barcode" invisible="no_barcode"/>
             <field name="no_barcode"/>
