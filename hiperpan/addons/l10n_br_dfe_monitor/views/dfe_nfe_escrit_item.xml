@@ -25,7 +25,10 @@
             <field name="own_use"/>
             <field name="quantity"/>
             <field name="unit"/>
-            <field name="uom_id" readonly="not product_id"/>
+            <field name="product_uom_category_id" invisible="1"/>
+            <field name="likely_uom_multiplier" invisible="1"/>
+            <field name="likely_uom_rounding" invisible="1"/>
+            <field name="uom_id" widget="dfe_uom_many2one" readonly="not product_id"/>
             <field name="product_uom_id"/>
             <field name="stock_quantity"/>
             <field name="total_value"/>

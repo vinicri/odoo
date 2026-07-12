@@ -269,6 +269,40 @@ class DfeNfeEscritItem(models.Model):
         store=True,
     )
 
+    likely_uom_multiplier = fields.Float(
+        string="Fator de Conversão da Unidade de Medida",
+        compute="_compute_likely_uom_multiplier",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("product_uom_category_id")
+    def _compute_likely_uom_multiplier(self):
+        for record in self:
+            record.likely_uom_multiplier = 12.0
+
+    likely_uom_rounding = fields.Float(
+        string="Precisão de Arredondamento da Unidade de Medida",
+        compute="_compute_likely_uom_rounding",
+        readonly=True,
+    )
+
+    @api.depends("product_uom_category_id")
+    def _compute_likely_uom_rounding(self):
+        categ_unit = self.env.ref("uom.product_uom_categ_unit")
+        categ_kgm = self.env.ref("uom.product_uom_categ_kgm")
+        categ_vol = self.env.ref("uom.product_uom_categ_vol")
+        for record in self:
+            category = record.product_uom_category_id
+            if category == categ_unit:
+                record.likely_uom_rounding = 1.0
+            elif category == categ_kgm:
+                record.likely_uom_rounding = 0.001
+            elif category == categ_vol:
+                record.likely_uom_rounding = 0.001
+            else:
+                record.likely_uom_rounding = 1.0
+
     uom_id = fields.Many2one(
         "uom.uom",
         string="Unidade de Medida",

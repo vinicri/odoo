@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_dfe_create_uom_wizard_form" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.create_uom_wizard.form</field>
+    <field name="model">l10n_br_dfe_monitor.create_uom_wizard</field>
+    <field name="arch" type="xml">
+      <form string="Criar Unidade de Medida">
+        <group>
+          <field name="category_id"/>
+          <field name="name"/>
+          <field name="nfe_name" />
+          <field name="multiplier" digits="[42,5]"/>
+          <field name="rounding" digits="[42,5]"/>
+        </group>
+        <!--
+          No <footer>: the FormViewDialog renders its native "Salvar & Fechar"
+          button, whose save closes only this dialog (avoiding the modal-stack
+          cascade a custom object-button caused). UoM creation runs in the
+          widget's onRecordSaved after the wizard record is saved.
+        -->
+      </form>
+    </field>
+  </record>
+</odoo>

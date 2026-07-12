@@ -31,3 +31,4 @@ access_dfe_create_product_wizard_user,DFe Create Product Wizard User,model_l10n_
 access_dfe_download_xml_wizard_user,DFe Download XML Wizard User,model_l10n_br_dfe_monitor_download_xml_wizard,base.group_user,1,1,1,1
 access_dfe_receiving_schedule_user,DFe Receiving Schedule User,model_l10n_br_dfe_monitor_receiving_schedule,base.group_user,1,0,0,0
 access_dfe_receiving_schedule_manager,DFe Receiving Schedule Manager,model_l10n_br_dfe_monitor_receiving_schedule,base.group_system,1,1,1,1
+access_dfe_create_uom_wizard_user,DFe Create Uom Wizard User,model_l10n_br_dfe_monitor_create_uom_wizard,base.group_user,1,1,1,1

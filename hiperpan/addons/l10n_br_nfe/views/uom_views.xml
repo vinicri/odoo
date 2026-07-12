@@ -7,7 +7,7 @@
     <field name="arch" type="xml">
       <list>
         <field name="name" />
-        <field name="factor" />
+        <field name="ratio" />
         <field name="category_id" />
         <field name="nfe_name" />
         <field name="uom_type" />
@@ -26,7 +26,7 @@
             <field name="name" />
             <field name="category_id" />
             <field name="uom_type" />
-            <field name="factor" />
+            <field name="ratio" />
           </group>
           <group>
             <field name="nfe_name" />
