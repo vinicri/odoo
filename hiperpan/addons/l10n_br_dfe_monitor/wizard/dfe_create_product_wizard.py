@@ -64,8 +64,6 @@ class DfeCreateProductWizard(models.TransientModel):
     uom_id = fields.Many2one(
         "uom.uom",
         string="Unidade de Medida",
-        required=True,
-        default=lambda self: self.env.ref("uom.product_uom_unit", False),
     )
 
     list_price = fields.Float(
@@ -148,6 +146,10 @@ class DfeCreateProductWizard(models.TransientModel):
 
         if record.list_price <= 0:
             raise ValidationError(_("O preço de venda deve ser maior que 0."))
+
+        if not record.uom_id:
+            raise ValidationError(_("Selecione a unidade de medida do produto."))
+
         if not record.ncm_id and record.type == "consu":
             raise ValidationError(_("Selecione o NCM do produto."))
 
@@ -167,11 +169,7 @@ class DfeCreateProductWizard(models.TransientModel):
         ncm = self.env["l10n_br_fiscal.ncm"].search(
             [("code_unmasked", "=", proc_item.ncm)], limit=1
         )
-        uom = self.env["uom.uom"].search([("nfe_name", "=", proc_item.u_com)], limit=1)
-        if not uom:
-            uom = self.env["uom.uom"].search(
-                [("dfe_uom_name_ids.name", "=", proc_item.u_com)], limit=1
-            )
+
         icms_origin = self.env["l10n_br_fiscal.icms.origin"].search(
             [("code", "=", proc_item.icms_orig)], limit=1
         )
@@ -189,9 +187,6 @@ class DfeCreateProductWizard(models.TransientModel):
             "type": "consu",
             "is_storable": True,
         }
-
-        if uom:
-            vals["uom_id"] = uom.id
 
         return vals
 
