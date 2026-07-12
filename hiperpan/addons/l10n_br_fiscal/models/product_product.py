@@ -2,17 +2,12 @@
 # License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0.html
 
 from odoo import models, api, fields, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 
 class ProductProduct(models.Model):
     _name = "product.product"
     _inherit = ["product.product", "l10n_br_fiscal.product.mixin"]
-
-    # Char (not Integer) so core's name_search/name_create ilike-based
-    # default_code lookups behave normally; the NF-e only needs the value to
-    # be digits, which _check_default_code_digits enforces.
-    default_code = fields.Char("Internal Reference", index=True)
 
     _sql_constraints = [
         (
@@ -123,6 +118,16 @@ class ProductProduct(models.Model):
         and isn't affected by default_code being a Char field, where
         lexicographic ordering would misorder codes of different lengths.
         """
-        return int(
-            self.env["ir.sequence"].next_by_code("l10n_br_fiscal.product.default_code")
+        code = (
+            self.env["ir.sequence"]
+            .sudo()
+            .next_by_code("l10n_br_fiscal.product.default_code")
         )
+        if not code:
+            raise UserError(
+                _(
+                    "Sequência 'l10n_br_fiscal.product.default_code' não "
+                    "encontrada. Reinstale/atualize o módulo l10n_br_fiscal."
+                )
+            )
+        return int(code)

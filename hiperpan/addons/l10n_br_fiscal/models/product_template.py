@@ -54,7 +54,6 @@ class ProductTemplate(models.Model):
             "fiscal_additional_information",
         ]
 
-    default_code = fields.Char("Internal Reference", index=True)
     # no_barcode = fields.Boolean(
     #     "Não possui código de barras",
     #     compute="_compute_no_barcode",

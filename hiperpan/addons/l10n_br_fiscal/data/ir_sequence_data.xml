@@ -7,5 +7,9 @@
         <field name="padding">0</field>
         <field name="number_next">1</field>
         <field name="number_increment">1</field>
+        <!-- Shared numbering across all companies: next_by_code only matches
+             a sequence whose company_id is either the current company or
+             False, so this must stay company-independent. -->
+        <field name="company_id" eval="False"/>
     </record>
 </odoo>
