@@ -3,6 +3,7 @@
 
 from odoo import models, api, fields, _
 from odoo.exceptions import ValidationError
+from odoo.osv import expression
 
 
 class ProductProduct(models.Model):
@@ -10,6 +11,38 @@ class ProductProduct(models.Model):
     _inherit = ["product.product", "l10n_br_fiscal.product.mixin"]
 
     default_code = fields.Integer("Internal Reference", index=True)
+
+    @api.model
+    def name_search(self, name="", args=None, operator="ilike", limit=100):
+        """product.product.name_search (core) unconditionally tries an exact
+        match on default_code (e.g. `[('default_code', '=', name)]`) for any
+        non-empty search term. Since default_code is overridden to Integer on
+        this model, a non-numeric search term (e.g. typing a product
+        description) makes that comparison raise a ValueError deep inside SQL
+        param binding instead of just finding no match — crashing the whole
+        search instead of falling through to the name/barcode lookup.
+
+        A non-numeric name can never match an Integer default_code anyway, so
+        for that case this searches by name/barcode directly instead of
+        delegating to core (which cannot be asked to skip that domain leg).
+        """
+        if name and not name.lstrip("-").isdigit():
+            is_positive = operator not in expression.NEGATIVE_TERM_OPERATORS
+            if is_positive:
+                # matches either field, mirroring core's ilike-on-name-or-code
+                name_domain = expression.OR(
+                    [[("name", operator, name)], [("barcode", operator, name)]]
+                )
+            else:
+                # "not ilike" must exclude products matching on either field,
+                # so the negated legs are ANDed rather than ORed
+                name_domain = expression.AND(
+                    [[("name", operator, name)], [("barcode", operator, name)]]
+                )
+            domain = expression.AND([args or [], name_domain])
+            products = self.search_fetch(domain, ["display_name"], limit=limit)
+            return [(product.id, product.display_name) for product in products]
+        return super().name_search(name, args, operator, limit)
 
     ncm_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.ncm",
