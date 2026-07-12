@@ -11,6 +11,7 @@
         "security/fiscal_security.xml",
         "security/ir.model.access.csv",
         # data
+        "data/ir_sequence_data.xml",
         "data/l10n_br_fiscal.tax.domain.csv",
         "data/l10n_br_fiscal.tax.group.csv",
         "data/l10n_br_fiscal.cst.csv",

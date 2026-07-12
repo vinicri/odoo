@@ -47,8 +47,7 @@ class DfeCreateProductWizard(models.TransientModel):
 
     # ── General (product.template) ───────────────────────────────────────
     name = fields.Char(string="Nome", required=True)
-    # default_code is an Integer on this product.template (Referência Interna).
-    default_code = fields.Integer(string="Referência Interna")
+    default_code = fields.Char(string="Referência Interna")
     barcode = fields.Char(string="Código de Barras")
     no_barcode = fields.Boolean(string="Não possui código de barras")
 

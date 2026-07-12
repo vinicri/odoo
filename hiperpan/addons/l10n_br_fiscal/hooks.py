@@ -257,3 +257,31 @@ def _post_init_hook(env):
             country.write({"bacen_code": code})
         else:
             _logger.warning("Country %s not found, skipping BACEN code %s", xml_id, code)
+
+    _seed_product_default_code_sequence(env)
+
+
+def _seed_product_default_code_sequence(env):
+    """Advance the product default_code sequence past any existing codes.
+
+    default_code used to be an Integer with the "highest existing code + 1"
+    computed via search/order on each create; it is now a Char generated from
+    an ir.sequence. On a database that already has products with numeric
+    codes, the sequence must start after the current max so it never
+    collides with (or duplicates) an existing default_code.
+    """
+    sequence = env.ref(
+        "l10n_br_fiscal.seq_product_default_code", raise_if_not_found=False
+    )
+    if not sequence:
+        return
+    env.cr.execute(
+        """
+        SELECT MAX(default_code::integer)
+        FROM product_product
+        WHERE default_code ~ '^[0-9]+$'
+        """
+    )
+    max_code = env.cr.fetchone()[0] or 0
+    if sequence.number_next_actual <= max_code:
+        sequence.write({"number_next_actual": max_code + 1})

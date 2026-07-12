@@ -54,8 +54,7 @@ class ProductTemplate(models.Model):
             "fiscal_additional_information",
         ]
 
-    # mudando pra integer porque  a nota fiscal só aceita integer
-    default_code = fields.Integer("Internal Reference", index=True)
+    default_code = fields.Char("Internal Reference", index=True)
     # no_barcode = fields.Boolean(
     #     "Não possui código de barras",
     #     compute="_compute_no_barcode",

@@ -3,46 +3,33 @@
 
 from odoo import models, api, fields, _
 from odoo.exceptions import ValidationError
-from odoo.osv import expression
 
 
 class ProductProduct(models.Model):
     _name = "product.product"
     _inherit = ["product.product", "l10n_br_fiscal.product.mixin"]
 
-    default_code = fields.Integer("Internal Reference", index=True)
+    # Char (not Integer) so core's name_search/name_create ilike-based
+    # default_code lookups behave normally; the NF-e only needs the value to
+    # be digits, which _check_default_code_digits enforces.
+    default_code = fields.Char("Internal Reference", index=True)
 
-    @api.model
-    def name_search(self, name="", args=None, operator="ilike", limit=100):
-        """product.product.name_search (core) unconditionally tries an exact
-        match on default_code (e.g. `[('default_code', '=', name)]`) for any
-        non-empty search term. Since default_code is overridden to Integer on
-        this model, a non-numeric search term (e.g. typing a product
-        description) makes that comparison raise a ValueError deep inside SQL
-        param binding instead of just finding no match — crashing the whole
-        search instead of falling through to the name/barcode lookup.
+    _sql_constraints = [
+        (
+            "default_code_digits",
+            "CHECK(default_code IS NULL OR default_code = '' OR default_code ~ '^[0-9]+$')",
+            "A Referência Interna deve conter apenas dígitos.",
+        ),
+    ]
 
-        A non-numeric name can never match an Integer default_code anyway, so
-        for that case this searches by name/barcode directly instead of
-        delegating to core (which cannot be asked to skip that domain leg).
-        """
-        if name and not name.lstrip("-").isdigit():
-            is_positive = operator not in expression.NEGATIVE_TERM_OPERATORS
-            if is_positive:
-                # matches either field, mirroring core's ilike-on-name-or-code
-                name_domain = expression.OR(
-                    [[("name", operator, name)], [("barcode", operator, name)]]
+    @api.constrains("default_code")
+    def _check_default_code_digits(self):
+        for record in self:
+            code = record.default_code
+            if code and not code.isdigit():
+                raise ValidationError(
+                    _("A Referência Interna deve conter apenas dígitos.")
                 )
-            else:
-                # "not ilike" must exclude products matching on either field,
-                # so the negated legs are ANDed rather than ORed
-                name_domain = expression.AND(
-                    [[("name", operator, name)], [("barcode", operator, name)]]
-                )
-            domain = expression.AND([args or [], name_domain])
-            products = self.search_fetch(domain, ["display_name"], limit=limit)
-            return [(product.id, product.display_name) for product in products]
-        return super().name_search(name, args, operator, limit)
 
     ncm_id = fields.Many2one(
         comodel_name="l10n_br_fiscal.ncm",
@@ -121,36 +108,21 @@ class ProductProduct(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        next_number = self._get_next_sequence_code()
         """Override create to set sequential default_code if not provided"""
         for vals in vals_list:
             if not vals.get("default_code"):
-                vals["default_code"] = next_number
-                next_number += 1
-
+                vals["default_code"] = str(self._get_next_sequence_code())
         return super().create(vals_list)
 
     @api.model
     def _get_next_sequence_code(self):
-        """Get next sequential code for product"""
+        """Get next sequential numeric code for product.
 
-        # Get the highest existing numeric default_code
-        last_product = self.search(
-            [
-                ("default_code", "!=", False),
-            ],
-            order="default_code desc",
-            limit=1,
+        Backed by an ir.sequence (rather than searching for the highest
+        existing default_code) so numbering is safe under concurrent creates
+        and isn't affected by default_code being a Char field, where
+        lexicographic ordering would misorder codes of different lengths.
+        """
+        return int(
+            self.env["ir.sequence"].next_by_code("l10n_br_fiscal.product.default_code")
         )
-
-        if last_product and last_product.default_code:
-            try:
-                # Extract number from last code and increment
-                last_number = int(last_product.default_code)
-                next_number = last_number + 1
-            except (ValueError, IndexError):
-                next_number = 1
-        else:
-            next_number = 1
-
-        return next_number  # Simple numeric: 1, 2, 3, etc.
