@@ -6,8 +6,24 @@ Produto) quando o produto ainda não existe. Os campos vêm pré-populados com o
 dados fiscais do item da NF-e (proc_nfe_item) para o usuário revisar e criar.
 """
 
+import base64
+import json
+import logging
+
+import requests
+
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
+from odoo.tools.image import binary_to_image, image_process
+
+_logger = logging.getLogger(__name__)
+
+# Minimum resolution (in either dimension) accepted for a suggested product
+# image, matching Odoo's own product image guidelines.
+MIN_IMAGE_SIDE = 512
+# Number of image candidates shown to the user.
+MAX_IMAGE_RESULTS = 5
+GOOGLE_CSE_ENDPOINT = "https://www.googleapis.com/customsearch/v1"
 
 
 class DfeCreateProductWizard(models.TransientModel):
@@ -19,6 +35,15 @@ class DfeCreateProductWizard(models.TransientModel):
         string="Item da NF-e Processada",
         readonly=True,
     )
+
+    # ── Image search ────────────────────────────────────────────────────
+    image_1920 = fields.Image(
+        string="Imagem do Produto", max_width=1920, max_height=1920
+    )
+    # JSON list of {"thumbnail": <url>, "image_url": <url>, "width": int,
+    # "height": int} for the candidates shown to the user; not persisted
+    # beyond the wizard's lifetime.
+    image_search_results_json = fields.Text(readonly=True)
 
     # ── General (product.template) ───────────────────────────────────────
     name = fields.Char(string="Nome", required=True)
@@ -190,6 +215,115 @@ class DfeCreateProductWizard(models.TransientModel):
 
         return vals
 
+    def _get_google_credentials(self):
+        company = self.company_id or self.env.company
+        api_key = company.dfe_google_api_key
+        cx = company.dfe_google_search_cx
+        if not api_key or not cx:
+            raise UserError(
+                _(
+                    "Configure a Google API Key e o Search Engine ID (cx) na "
+                    "empresa (aba 'Busca de Imagens (Google)') para buscar "
+                    "imagens de produtos."
+                )
+            )
+        return api_key, cx
+
+    def action_search_product_images(self):
+        """Search Google Images for the current ``name`` and store up to
+        MAX_IMAGE_RESULTS candidates (>= MIN_IMAGE_SIDE on both dimensions) as
+        JSON on ``image_search_results_json`` for the client widget to render.
+
+        Only thumbnail/source URLs are fetched here — the full image is only
+        downloaded once the user picks a candidate (action_select_product_image).
+        """
+        self.ensure_one()
+        query = (self.name or "").strip()
+        if not query:
+            raise UserError(_("Informe o nome do produto antes de buscar imagens."))
+
+        api_key, cx = self._get_google_credentials()
+
+        try:
+            response = requests.get(
+                GOOGLE_CSE_ENDPOINT,
+                params={
+                    "key": api_key,
+                    "cx": cx,
+                    "q": query,
+                    "searchType": "image",
+                    "rights": "cc_publicdomain,cc_attribute,cc_sharealike",
+                    "imgSize": "large",
+                    "imgType": "photo",
+                    "num": 10,
+                    "safe": "active",
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as exc:
+            _logger.warning("Google image search failed for %r: %s", query, exc)
+            raise UserError(_("Não foi possível buscar imagens no momento: %s") % exc)
+
+        candidates = []
+        for item in data.get("items", []):
+            image_info = item.get("image") or {}
+            width = image_info.get("width") or 0
+            height = image_info.get("height") or 0
+            if width < MIN_IMAGE_SIDE or height < MIN_IMAGE_SIDE:
+                continue
+            candidates.append(
+                {
+                    "thumbnail": image_info.get("thumbnailLink") or item.get("link"),
+                    "image_url": item.get("link"),
+                    "width": width,
+                    "height": height,
+                }
+            )
+            if len(candidates) >= MAX_IMAGE_RESULTS:
+                break
+
+        self.image_search_results_json = json.dumps(candidates)
+        return False
+
+    def action_select_product_image(self, image_url):
+        """Download the chosen image, validate its resolution again (the
+        remote source may differ from what Google reported), resize it to
+        Odoo's standard product image size and store it as image_1920.
+        """
+        self.ensure_one()
+        try:
+            response = requests.get(image_url, timeout=15)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            _logger.warning("Failed to download product image %r: %s", image_url, exc)
+            raise UserError(_("Não foi possível baixar a imagem selecionada: %s") % exc)
+
+        raw_bytes = response.content
+        try:
+            image = binary_to_image(raw_bytes)
+            width, height = image.size
+        except UserError as exc:
+            raise UserError(
+                _("A imagem selecionada não é válida ou está corrompida: %s") % exc
+            )
+
+        if width < MIN_IMAGE_SIDE or height < MIN_IMAGE_SIDE:
+            raise UserError(
+                _(
+                    "A imagem selecionada (%(width)sx%(height)s) é menor que "
+                    "a resolução mínima exigida (%(min)spx)."
+                )
+                % {"width": width, "height": height, "min": MIN_IMAGE_SIDE}
+            )
+
+        # image_process expects and returns raw bytes; Odoo Image/Binary
+        # fields are written as base64, so encode only the final result.
+        resized = image_process(raw_bytes, size=(1920, 1920), verify_resolution=True)
+        self.image_1920 = base64.b64encode(resized)
+        return False
+
     def action_create_product(self):
         """Create the product and store it on the wizard.
 
@@ -223,6 +357,7 @@ class DfeCreateProductWizard(models.TransientModel):
                 "fiscal_additional_information": (
                     self.fiscal_additional_information or False
                 ),
+                "image_1920": self.image_1920 or False,
             }
         )
         self.created_product_id = product.product_variant_ids[0].id

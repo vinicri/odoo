@@ -6,8 +6,11 @@
     <field name="arch" type="xml">
       <form string="Criar Produto">
         <field name="proc_nfe_item_id" invisible="1"/>
+        <field name="image_search_results_json" invisible="1"/>
+        <widget name="dfe_product_image_search"/>
         <group>
           <group string="Geral">
+            <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'image_1920', 'size': [128, 128]}"/>
             <field name="name"/>
             <field name="type"/>
             <field name="is_storable"/>

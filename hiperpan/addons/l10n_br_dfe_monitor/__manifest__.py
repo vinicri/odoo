@@ -52,6 +52,8 @@
             "l10n_br_dfe_monitor/static/src/js/create_product_button.js",
             "l10n_br_dfe_monitor/static/src/xml/create_product_button.xml",
             "l10n_br_dfe_monitor/static/src/js/create_uom_widget.js",
+            "l10n_br_dfe_monitor/static/src/js/product_image_search.js",
+            "l10n_br_dfe_monitor/static/src/xml/product_image_search.xml",
         ],
     },
     "external_dependencies": {

@@ -29,6 +29,21 @@ class ResCompany(models.Model):
         ),
     )
 
+    dfe_google_api_key = fields.Char(
+        string="Google API Key",
+        help=(
+            "Chave de API do Google Custom Search, usada para buscar imagens "
+            "sugeridas ao criar um produto a partir de uma NF-e."
+        ),
+    )
+    dfe_google_search_cx = fields.Char(
+        string="Google Search Engine ID (cx)",
+        help=(
+            "ID do mecanismo de busca personalizado (Programmable Search "
+            "Engine) configurado para buscar imagens na Web inteira."
+        ),
+    )
+
     def _get_next_receiving_datetime(self, anchor_datetime, max_days_ahead=60):
         """Pick a random, plausible arrival datetime on the next day the store
         has a configured receiving window, strictly after ``anchor_datetime``'s

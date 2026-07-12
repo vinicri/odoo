@@ -21,6 +21,18 @@
             </list>
           </field>
         </page>
+        <page string="Busca de Imagens (Google)" name="dfe_google_image_search">
+          <p class="text-muted">
+            Credenciais do Google Custom Search, usadas para sugerir imagens
+            ao criar um produto a partir de uma NF-e. Requer um mecanismo de
+            busca (Programmable Search Engine) configurado para pesquisar a
+            Web inteira com busca de imagens habilitada.
+          </p>
+          <group>
+            <field name="dfe_google_api_key" password="True"/>
+            <field name="dfe_google_search_cx"/>
+          </group>
+        </page>
       </notebook>
     </field>
   </record>
