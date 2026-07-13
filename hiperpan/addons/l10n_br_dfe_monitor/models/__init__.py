@@ -19,3 +19,6 @@ from . import uom_uom
 from . import dfe_uom_name
 
 from . import dfe_nfe_escrit_item_defaults
+
+
+from . import cfop_escrit_from_to

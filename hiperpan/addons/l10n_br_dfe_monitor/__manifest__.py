@@ -42,6 +42,7 @@
         "views/dfe_nfe_escrit.xml",
         "views/dfe_nfe_escrit_item.xml",
         "views/dfe_nfe_escrit_item_defaults.xml",
+        "views/cfop_escrit_from_to_views.xml",
         "views/dfe_menu.xml",
         "views/uom_views.xml",
         "views/res_company_views.xml",

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Form View -->
+  <record id="view_cfop_escrit_from_to_form" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.cfop_escrit_from_to.form</field>
+    <field name="model">l10n_br_dfe_monitor.cfop_escrit_from_to</field>
+    <field name="arch" type="xml">
+      <form string="CFOP Escrit From To">
+        <group>
+          <field name="cfop_id_from"/>
+          <field name="cfop_id_to"/>
+          <field name="active"/>
+        </group>
+      </form>
+    </field>
+  </record>
+
+  <!-- List View -->
+  <record id="view_cfop_escrit_from_to_list" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.cfop_escrit_from_to.list</field>
+    <field name="model">l10n_br_dfe_monitor.cfop_escrit_from_to</field>
+    <field name="arch" type="xml">
+      <list string="CFOP Escrit From To">
+        <field name="cfop_id_from"/>
+        <field name="cfop_id_to"/>
+        <field name="active"/>
+      </list>
+    </field>
+  </record>
+
+
+  <!-- Action -->
+  <record id="action_cfop_escrit_from_to" model="ir.actions.act_window">
+    <field name="name">CFOP Escrit From To</field>
+    <field name="res_model">l10n_br_dfe_monitor.cfop_escrit_from_to</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="view_cfop_escrit_from_to_list"/>
+  </record>
+</odoo>
