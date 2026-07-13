@@ -16,6 +16,7 @@ class CfopEscritFromTo(models.Model):
         comodel_name="l10n_br_fiscal.cfop",
         string="CFOP From",
         domain="[('type_in_out', '=', 'out')]",
+        required=True,
     )
 
     cfop_id_from_code = fields.Char(
@@ -31,6 +32,7 @@ class CfopEscritFromTo(models.Model):
         comodel_name="l10n_br_fiscal.cfop",
         string="CFOP To",
         domain="[('code', '=like', cfop_to_code_prefix + '%')]",
+        required=True,
     )
 
     active = fields.Boolean(string="Active", default=True)

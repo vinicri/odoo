@@ -20,4 +20,7 @@
     <menuitem id="menu_dfe_monitor_rules" name="Regras" parent="menu_dfe_monitor_root" sequence="23"/>
 
     <menuitem id="menu_dfe_monitor_cfop_escrit_from_to" name="CFOP Escrit From To" parent="menu_dfe_monitor_rules" action="l10n_br_dfe_monitor.action_cfop_escrit_from_to" sequence="10"/>
+
+    <menuitem id="menu_dfe_monitor_cst_escrit_from_to" name="CST Escrit From To" parent="menu_dfe_monitor_rules" action="l10n_br_dfe_monitor.action_cst_escrit_from_to" sequence="20"/>
 </odoo>
+
