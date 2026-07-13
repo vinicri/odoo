@@ -46,7 +46,17 @@ class DfeNfeEscrit(models.Model):
             item_model = self.env["l10n_br_dfe_monitor.dfe_nfe_escrit_item"]
             commands = []
             for proc_item in proc_nfe.item_ids:
-                vals = {"proc_nfe_item_id": proc_item.id}
+                # dfe_nfe_escrit_id itself can't be set (the parent record is
+                # still unsaved), so proc_nfe_id must be set directly here --
+                # it's needed for proc_nfe_item_id's domain
+                # ([('proc_nfe_id', '=', proc_nfe_id)]) to resolve to this
+                # NF-e's own items instead of matching nothing. See the
+                # comment on dfe_nfe_escrit_item.proc_nfe_id for why it's a
+                # plain field (not related) and must be in the item list view.
+                vals = {
+                    "proc_nfe_item_id": proc_item.id,
+                    "proc_nfe_id": proc_nfe.id,
+                }
                 vals.update(item_model._get_prefill_vals_from_proc_item(proc_item))
                 commands.append((0, 0, vals))
             if commands:

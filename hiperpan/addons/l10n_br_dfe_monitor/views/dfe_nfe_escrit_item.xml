@@ -43,6 +43,7 @@
             <field name="ipi_tax_percent"/>
             <field name="ipi_base"/>
             <field name="ipi_value"/>
+            <field name="allow_pis_cofins" invisible="1"/>
             <field name="pis_cst_id" readonly="allow_pis_cofins"/>
             <field name="pis_tax_percent"/>
             <field name="pis_tax_unit"/>
@@ -55,9 +56,6 @@
             <field name="cofins_bc_value"/>
             <field name="cofins_bc_quantity"/>
             <field name="cofins_value"/>
-            <field name="is_missing_required" invisible="1"/>
-            <field name="confirmed" readonly="is_missing_required"/>
-
           </group>
         </sheet>
       </form>
@@ -68,20 +66,80 @@
     <field name="name">l10n_br_dfe_monitor.dfe_nfe_escrit_item.list</field>
     <field name="model">l10n_br_dfe_monitor.dfe_nfe_escrit_item</field>
     <field name="arch" type="xml">
-      <list decoration-danger="is_missing_required">
-        <field name="likely_item_defaults_id" column_invisible="1"/>
-        <field name="proc_nfe_item_id" optional="hide"/>
-        <field name="uom_id" optional="hide"/>
-        <field name="ipi_cst_id" optional="hide"/>
-        <field name="pis_cst_id" optional="hide"/>
-        <field name="cofins_cst_id" optional="hide"/>
-        <field name="item_number"/>
-        <field name="product_id"/>
-        <field name="icms_cst_id"/>
-        <field name="cfop_id"/>
-        <field name="own_use"/>
-        <field name="is_missing_required" invisible="1"/>
+      <list decoration-danger="is_missing_required" decoration-warning="not confirmed" decoration-success="confirmed">
+        <!--
+          This list view is what actually populates item_ids's row data
+          (e.g. when dfe_nfe_escrit.default_get bulk-creates unsaved rows
+          from a NF-e). Opening a row in its own dialog does NOT re-fetch it
+          from the form view's field set; it merges the list's activeFields
+          with the form's, and only backfills fields missing from the row's
+          existing data. So any field the bulk-create vals set (or that the
+          item form needs) but that isn't declared here is simply never part
+          of the row's data at all, and can't be recovered later by opening
+          the form.
+          -> Every field referenced that way must be declared here too, even
+          if there's nothing to usefully show in the list itself. Use optional="hide" (togglable, keeps display_name for Many2one
+          fields) rather than column_invisible="1" (which suppresses
+          requesting display_name for Many2one fields -> renders "Unnamed"
+          once the id is set but the name never got resolved).
+        -->
+        <field name="likely_item_defaults_id" optional="hide"/>
+        <field name="product_uom_category_id" optional="hide"/>
+        <field name="likely_uom_multiplier" optional="hide"/>
+        <field name="likely_uom_rounding" optional="hide"/>
+        <field name="is_missing_required" optional="hide"/>
+        <field name="allow_pis_cofins" optional="hide"/>
+        <field name="should_include_icms" optional="hide"/>
+        <field name="is_regime_real" optional="hide"/>
+
         <field name="confirmed" widget="boolean_toggle" readonly="is_missing_required"/>
+
+        <field name="item_number"/>
+
+        <field name="proc_nfe_id" optional="hide"/>
+        <field name="proc_nfe_item_id"/>
+
+        <field name="product_id"/>
+        <field name="stock_quantity"/>
+        <field name="product_uom_id"/>
+
+        <field name="quantity"/>
+        <field name="unit" />
+        <field name="uom_id" />
+
+        <field name="own_use"/>
+        <field name="cfop_id"/>
+        <field name="icms_origin_id" optional="hide"/>
+        <field name="icms_origin_code"/>
+        <field name="icms_cst_code"/>
+        <field name="icms_cst_id" readonly="own_use" optional="hide"/>
+        <field name="ipi_cst_id" readonly="own_use"/>
+
+        <field name="stock_move"/>
+        <field name="total_value"/>
+        <field name="total_discount"/>
+
+        <field name="icms_tax_percent"/>
+        <field name="icms_base"/>
+        <field name="icms_value"/>
+        <field name="icms_st_tax_percent"/>
+        <field name="icms_st_base"/>
+        <field name="icms_st_value"/>
+        <field name="ipi_tax_percent"/>
+        <field name="ipi_base"/>
+        <field name="ipi_value"/>
+        <field name="pis_cst_id" readonly="allow_pis_cofins"/>
+        <field name="cofins_cst_id" readonly="allow_pis_cofins"/>
+        <field name="pis_tax_percent"/>
+        <field name="pis_tax_unit"/>
+        <field name="pis_bc_value"/>
+        <field name="pis_bc_quantity"/>
+        <field name="pis_value"/>
+        <field name="cofins_tax_percent"/>
+        <field name="cofins_tax_unit"/>
+        <field name="cofins_bc_value"/>
+        <field name="cofins_bc_quantity"/>
+        <field name="cofins_value"/>
       </list>
     </field>
   </record>

@@ -12,10 +12,16 @@ class DfeNfeEscritItem(models.Model):
         ondelete="cascade",
     )
 
+    # Plain stored field, not related="dfe_nfe_escrit_id.proc_nfe_id": for
+    # unsaved rows (dfe_nfe_escrit_id not set yet, e.g. bulk-created from a
+    # NF-e in dfe_nfe_escrit.default_get), a related field would recompute
+    # to False the moment the client re-derives it, silently overwriting
+    # whatever value was set explicitly. Must also be declared in the item
+    # list view (see views/dfe_nfe_escrit_item.xml) or it never reaches the
+    # row's data at all -- see the comment there for why.
     proc_nfe_id = fields.Many2one(
         "l10n_br_dfe_monitor.proc_nfe",
         string="NF-e Processada",
-        related="dfe_nfe_escrit_id.proc_nfe_id",
         readonly=True,
         store=True,
     )
