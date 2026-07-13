@@ -34,43 +34,59 @@ class DfeNfeEscritItem(models.Model):
         ondelete="set null",
     )
 
+    @api.model
+    def _get_prefill_vals_from_proc_item(self, proc_item):
+        """Build the defaults-derived vals for one proc_nfe_item.
+
+        Shared by the single-item onchange (UI) and the bulk item creation
+        when opening the escrituração from a NF-e (default_get on
+        dfe_nfe_escrit), so both paths apply the exact same lookup/matching
+        logic against dfe_nfe_escrit_item_defaults.
+
+        :return: a vals dict (may be empty if there's no matching default).
+        """
+        gtin = proc_item.c_ean
+        cod_prod = proc_item.c_prod
+        unit_text = proc_item.u_com
+        cnpj = proc_item.proc_nfe_id.emit_cnpj
+
+        defaults = self.env["l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults"].search(
+            [
+                ("gtin", "=", gtin),
+                ("cod_prod", "=", cod_prod),
+                ("unit_text", "=", unit_text),
+                ("cnpj", "=", cnpj),
+            ],
+            limit=1,
+        )
+        if not defaults:
+            return {}
+
+        product_uom_id = defaults.product_id.uom_id
+        default_uom_id = defaults.uom_id
+        is_default_uom_id_valid = (
+            default_uom_id.category_id == product_uom_id.category_id
+        )
+
+        return {
+            "likely_item_defaults_id": defaults.id,
+            "product_id": defaults.product_id.id,
+            "uom_id": default_uom_id.id if is_default_uom_id_valid else False,
+            "own_use": defaults.own_use,
+            "cfop_id": defaults.cfop_id.id,
+            "icms_cst_id": defaults.icms_cst_id.id,
+            "ipi_cst_id": defaults.ipi_cst_id.id,
+            "pis_cst_id": defaults.pis_cst_id.id,
+            "cofins_cst_id": defaults.cofins_cst_id.id,
+        }
+
     @api.onchange("proc_nfe_item_id")
     def _onchange_proc_nfe_item_id(self):
         for record in self:
             if record.proc_nfe_item_id:
-                gtin = record.proc_nfe_item_id.c_ean
-                cod_prod = record.proc_nfe_item_id.c_prod
-                unit_text = record.proc_nfe_item_id.u_com
-                cnpj = record.proc_nfe_id.emit_cnpj
-                # cpf = record.proc_nfe_id.emit_cpf
-
-                dfe_nfe_escrit_item_defaults_id = self.env[
-                    "l10n_br_dfe_monitor.dfe_nfe_escrit_item_defaults"
-                ].search(
-                    [
-                        ("gtin", "=", gtin),
-                        ("cod_prod", "=", cod_prod),
-                        ("unit_text", "=", unit_text),
-                        ("cnpj", "=", cnpj),
-                    ],
-                    limit=1,
-                )
-                if dfe_nfe_escrit_item_defaults_id:
-                    product_uom_id = dfe_nfe_escrit_item_defaults_id.product_id.uom_id
-                    default_uom_id = dfe_nfe_escrit_item_defaults_id.uom_id
-                    is_default_uom_id_valid = (
-                        default_uom_id.category_id == product_uom_id.category_id
-                    )
-
-                    record.likely_item_defaults_id = dfe_nfe_escrit_item_defaults_id.id
-                    record.product_id = dfe_nfe_escrit_item_defaults_id.product_id
-                    record.uom_id = default_uom_id if is_default_uom_id_valid else False
-                    record.own_use = dfe_nfe_escrit_item_defaults_id.own_use
-                    record.cfop_id = dfe_nfe_escrit_item_defaults_id.cfop_id
-                    record.icms_cst_id = dfe_nfe_escrit_item_defaults_id.icms_cst_id
-                    record.ipi_cst_id = dfe_nfe_escrit_item_defaults_id.ipi_cst_id
-                    record.pis_cst_id = dfe_nfe_escrit_item_defaults_id.pis_cst_id
-                    record.cofins_cst_id = dfe_nfe_escrit_item_defaults_id.cofins_cst_id
+                vals = record._get_prefill_vals_from_proc_item(record.proc_nfe_item_id)
+                if vals:
+                    record.update(vals)
 
     # Fields that are mirrored between an escrituração item and its defaults
     # record. Order is shared by create / compare / update so the three stay
@@ -85,6 +101,12 @@ class DfeNfeEscritItem(models.Model):
         ("pis_cst_id", "pis_cst_id"),
         ("cofins_cst_id", "cofins_cst_id"),
     ]
+
+    @api.onchange(*[item_field for item_field, _def_field in _DEFAULT_TRACKED_FIELDS])
+    def _onchange_tracked_fields_reset_confirmed(self):
+        # Any manual edit to prefilled data means it needs re-confirming.
+        for record in self:
+            record.confirmed = False
 
     @api.model
     def reconcile_default_from_values(self, item_values):
@@ -168,6 +190,28 @@ class DfeNfeEscritItem(models.Model):
     item_number = fields.Integer(
         string="Nº Item", related="proc_nfe_item_id.n_item", store=True
     )
+
+    confirmed = fields.Boolean(
+        string="Conferido",
+        help="Marque para confirmar que os dados pré-preenchidos deste item foram conferidos.",
+    )
+
+    is_missing_required = fields.Boolean(
+        string="Faltam Campos Obrigatórios",
+        compute="_compute_is_missing_required",
+        store=True,
+    )
+
+    @api.depends("product_id", "uom_id", "cfop_id", "icms_cst_id", "quantity")
+    def _compute_is_missing_required(self):
+        for record in self:
+            record.is_missing_required = not (
+                record.product_id
+                and record.uom_id
+                and record.cfop_id
+                and record.icms_cst_id
+                and record.quantity
+            )
 
     product_id = fields.Many2one(
         "product.product",

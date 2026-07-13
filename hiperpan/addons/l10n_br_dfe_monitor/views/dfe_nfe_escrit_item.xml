@@ -55,6 +55,8 @@
             <field name="cofins_bc_value"/>
             <field name="cofins_bc_quantity"/>
             <field name="cofins_value"/>
+            <field name="is_missing_required" invisible="1"/>
+            <field name="confirmed" readonly="is_missing_required"/>
 
           </group>
         </sheet>
@@ -66,12 +68,20 @@
     <field name="name">l10n_br_dfe_monitor.dfe_nfe_escrit_item.list</field>
     <field name="model">l10n_br_dfe_monitor.dfe_nfe_escrit_item</field>
     <field name="arch" type="xml">
-      <list>
+      <list decoration-danger="is_missing_required">
+        <field name="likely_item_defaults_id" column_invisible="1"/>
+        <field name="proc_nfe_item_id" optional="hide"/>
+        <field name="uom_id" optional="hide"/>
+        <field name="ipi_cst_id" optional="hide"/>
+        <field name="pis_cst_id" optional="hide"/>
+        <field name="cofins_cst_id" optional="hide"/>
         <field name="item_number"/>
         <field name="product_id"/>
         <field name="icms_cst_id"/>
         <field name="cfop_id"/>
         <field name="own_use"/>
+        <field name="is_missing_required" invisible="1"/>
+        <field name="confirmed" widget="boolean_toggle" readonly="is_missing_required"/>
       </list>
     </field>
   </record>

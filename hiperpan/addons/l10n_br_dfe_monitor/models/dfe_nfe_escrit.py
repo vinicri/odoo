@@ -26,18 +26,31 @@ class DfeNfeEscrit(models.Model):
         proc_nfe_id = defaults.get("proc_nfe_id") or self.env.context.get(
             "default_proc_nfe_id"
         )
+        proc_nfe = (
+            self.env["l10n_br_dfe_monitor.proc_nfe"].browse(proc_nfe_id)
+            if proc_nfe_id
+            else self.env["l10n_br_dfe_monitor.proc_nfe"]
+        )
         if (
             "arrival_datetime" in fields_list
-            and proc_nfe_id
+            and proc_nfe
             and not defaults.get("arrival_datetime")
         ):
-            proc_nfe = self.env["l10n_br_dfe_monitor.proc_nfe"].browse(proc_nfe_id)
             anchor = proc_nfe.dh_sai_ent
             if anchor:
                 company = proc_nfe.company_id or self.env.company
                 suggested = company._get_next_receiving_datetime(anchor)
             if suggested:
                 defaults["arrival_datetime"] = suggested
+        if "item_ids" in fields_list and proc_nfe and not defaults.get("item_ids"):
+            item_model = self.env["l10n_br_dfe_monitor.dfe_nfe_escrit_item"]
+            commands = []
+            for proc_item in proc_nfe.item_ids:
+                vals = {"proc_nfe_item_id": proc_item.id}
+                vals.update(item_model._get_prefill_vals_from_proc_item(proc_item))
+                commands.append((0, 0, vals))
+            if commands:
+                defaults["item_ids"] = commands
         return defaults
 
     # save this in case the proc_nfe_id is deleted
