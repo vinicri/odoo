@@ -45,7 +45,7 @@
         "views/cfop_escrit_from_to_views.xml",
         "views/cst_escrit_from_to_views.xml",
         "views/dfe_menu.xml",
-
+        "data/l10n_br_dfe_monitor.cst_escrit_from_to.csv",
         "views/uom_views.xml",
         "views/res_company_views.xml",
     ],
