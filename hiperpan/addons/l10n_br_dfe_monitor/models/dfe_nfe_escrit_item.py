@@ -92,16 +92,8 @@ class DfeNfeEscritItem(models.Model):
             "product_id": defaults.product_id.id,
             "uom_id": default_uom_id.id if is_default_uom_id_valid else False,
             "own_use": defaults.own_use,
-            "cfop_id": (
-                defaults.cfop_id.id
-                if defaults.cfop_id
-                else cfop_to.id if cfop_to else False
-            ),
-            "icms_cst_id": (
-                defaults.icms_cst_id.id
-                if defaults.icms_cst_id
-                else icms_cst_to.id if icms_cst_to else False
-            ),
+            "cfop_id": defaults.cfop_id.id,
+            "icms_cst_id": defaults.icms_cst_id.id,
             "ipi_cst_id": defaults.ipi_cst_id.id,
             "pis_cst_id": defaults.pis_cst_id.id,
             "cofins_cst_id": defaults.cofins_cst_id.id,
@@ -606,18 +598,51 @@ class DfeNfeEscritItem(models.Model):
     @api.depends("own_use", "product_id.fiscal_type_id")
     def _compute_should_include_ipi(self):
         for record in self:
-            if record.own_use or record.product_id.fiscal_type_id in [
+            if not record.own_use and record.product_id.fiscal_type_id in [
                 self.env.ref("l10n_br_fiscal.product_fiscal_type_01"),
                 self.env.ref("l10n_br_fiscal.product_fiscal_type_06"),
             ]:
-                record.should_include_ipi = False
-            else:
                 record.should_include_ipi = True
+            else:
+                record.should_include_ipi = False
 
     def domain_ipi_cst_in_tax_id(self):
         return [
-            ("tax_domain_id", "=", self.env.ref("l10n_br_fiscal.tax_domain_ipi").id)
+            ("tax_domain_id", "=", self.env.ref("l10n_br_fiscal.tax_domain_ipi").id),
+            ("cst_type", "=", "in"),
         ]
+
+    @api.model
+    def _resolve_ipi_cst_id_to(self, ipi_cst_code_from):
+        if not ipi_cst_code_from:
+            return self.env["l10n_br_fiscal.cst"]
+        cst_from_to = self.env["l10n_br_dfe_monitor.cst_escrit_from_to"].search(
+            [
+                ("cst_id_from.code_unmasked", "=", ipi_cst_code_from),
+                (
+                    "cst_id_from.tax_domain_id",
+                    "=",
+                    self.env.ref("l10n_br_fiscal.tax_domain_ipi").id,
+                ),
+            ],
+            limit=1,
+        )
+        return cst_from_to.cst_id_to if cst_from_to else self.env["l10n_br_fiscal.cst"]
+
+    @api.onchange("should_include_ipi", "ipi_cst_code_from")
+    def _onchange_should_include_ipi(self):
+        for record in self:
+            if record.should_include_ipi:
+                record.ipi_cst_id = self._resolve_ipi_cst_id_to(record.ipi_cst_code_from)
+            else:
+                record.ipi_cst_id = False
+
+    ipi_cst_code_from = fields.Char(
+        string="IPI CST Code From",
+        related="proc_nfe_item_id.ipi_cst",
+        store=True,
+        readonly=True,
+    )
 
     ipi_cst_id = fields.Many2one(
         "l10n_br_fiscal.cst",
