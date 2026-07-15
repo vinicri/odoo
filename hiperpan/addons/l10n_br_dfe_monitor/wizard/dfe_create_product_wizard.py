@@ -47,6 +47,10 @@ class DfeCreateProductWizard(models.TransientModel):
 
     # ── General (product.template) ───────────────────────────────────────
     name = fields.Char(string="Nome", required=True)
+    available_in_pos = fields.Boolean(
+        string="Disponível em Ponto de Venda",
+        default=True,
+    )
     default_code = fields.Char(string="Referência Interna")
     barcode = fields.Char(string="Código de Barras")
     no_barcode = fields.Boolean(string="Não possui código de barras")
@@ -357,6 +361,7 @@ class DfeCreateProductWizard(models.TransientModel):
                     self.fiscal_additional_information or False
                 ),
                 "image_1920": self.image_1920 or False,
+                "available_in_pos": self.available_in_pos,
             }
         )
         self.created_product_id = product.product_variant_ids[0].id

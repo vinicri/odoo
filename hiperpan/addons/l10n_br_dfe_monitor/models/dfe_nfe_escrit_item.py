@@ -633,7 +633,9 @@ class DfeNfeEscritItem(models.Model):
     def _onchange_should_include_ipi(self):
         for record in self:
             if record.should_include_ipi:
-                record.ipi_cst_id = self._resolve_ipi_cst_id_to(record.ipi_cst_code_from)
+                record.ipi_cst_id = self._resolve_ipi_cst_id_to(
+                    record.ipi_cst_code_from
+                )
             else:
                 record.ipi_cst_id = False
 

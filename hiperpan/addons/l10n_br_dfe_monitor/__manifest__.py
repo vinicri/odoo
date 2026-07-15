@@ -23,6 +23,7 @@
         "l10n_br_nfe",
         "stock",
         "uom",
+        "point_of_sale",
     ],
     "license": "LGPL-3",
     "data": [
