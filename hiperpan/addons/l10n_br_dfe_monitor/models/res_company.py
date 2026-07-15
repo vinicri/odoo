@@ -29,6 +29,15 @@ class ResCompany(models.Model):
         ),
     )
 
+    dfe_image_search_provider = fields.Selection(
+        [("google", "Google Custom Search"), ("serpapi", "SerpApi (Google Images)")],
+        string="Provedor de Busca de Imagens",
+        default="google",
+        help=(
+            "Serviço usado para sugerir imagens ao criar um produto a partir "
+            "de uma NF-e."
+        ),
+    )
     dfe_google_api_key = fields.Char(
         string="Google API Key",
         help=(
@@ -41,6 +50,14 @@ class ResCompany(models.Model):
         help=(
             "ID do mecanismo de busca personalizado (Programmable Search "
             "Engine) configurado para buscar imagens na Web inteira."
+        ),
+    )
+    dfe_serpapi_key = fields.Char(
+        string="SerpApi API Key",
+        help=(
+            "Chave de API do SerpApi (serpapi.com), usada como alternativa ao "
+            "Google Custom Search para buscar imagens sugeridas ao criar um "
+            "produto a partir de uma NF-e."
         ),
     )
 

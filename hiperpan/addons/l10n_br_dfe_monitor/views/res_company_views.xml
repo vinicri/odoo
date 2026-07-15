@@ -21,16 +21,25 @@
             </list>
           </field>
         </page>
-        <page string="Busca de Imagens (Google)" name="dfe_google_image_search">
+        <page string="Busca de Imagens" name="dfe_google_image_search">
           <p class="text-muted">
-            Credenciais do Google Custom Search, usadas para sugerir imagens
-            ao criar um produto a partir de uma NF-e. Requer um mecanismo de
-            busca (Programmable Search Engine) configurado para pesquisar a
-            Web inteira com busca de imagens habilitada.
+            Credenciais usadas para sugerir imagens ao criar um produto a
+            partir de uma NF-e.
           </p>
           <group>
+            <field name="dfe_image_search_provider"/>
+          </group>
+          <group string="Google Custom Search" invisible="dfe_image_search_provider != 'google'">
+            <p class="text-muted" colspan="2">
+              Requer um mecanismo de busca (Programmable Search Engine)
+              configurado para pesquisar a Web inteira com busca de imagens
+              habilitada.
+            </p>
             <field name="dfe_google_api_key" password="True"/>
             <field name="dfe_google_search_cx"/>
+          </group>
+          <group string="SerpApi" invisible="dfe_image_search_provider != 'serpapi'">
+            <field name="dfe_serpapi_key" password="True"/>
           </group>
         </page>
       </notebook>

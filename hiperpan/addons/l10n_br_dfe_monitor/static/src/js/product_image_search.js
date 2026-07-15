@@ -26,22 +26,36 @@ export class ProductImageSearch extends Component {
             selectedUrl: null,
         });
 
-        onWillStart(async () => {
+        onWillStart(() => {
             const existing = this.props.record.data.image_search_results_json;
             if (existing) {
                 this._setCandidatesFromJson(existing);
             } else if ((this.props.record.data.name || "").trim()) {
                 // Auto-search once when the wizard opens with a name already
-                // filled in (from the NF-e item). Failures here (e.g. Google
-                // credentials not configured) are shown inline, not as a
-                // blocking error dialog, since image search is optional.
-                await this.search();
+                // filled in (from the NF-e item). Not awaited: onWillStart
+                // blocks the whole modal's first render, so the dialog must
+                // open immediately and ready to edit while the search (a
+                // network call to Google/SerpApi) runs in the background,
+                // showing its own spinner in the image area. Failures are
+                // shown inline, not as a blocking error dialog, since image
+                // search is optional.
+                this.search();
             }
         });
     }
 
     get recordId() {
         return this.props.record.resId;
+    }
+
+    get barcode() {
+        return (this.props.record.data.barcode || "").trim();
+    }
+
+    get showBarcodeSearch() {
+        // Offer the more precise barcode-based search once a barcode is
+        // set and the user hasn't picked an image yet.
+        return !!this.barcode && !this.state.selectedUrl;
     }
 
     _setCandidatesFromJson(jsonStr) {
@@ -53,12 +67,20 @@ export class ProductImageSearch extends Component {
     }
 
     async search() {
+        await this._runSearch("action_search_product_images");
+    }
+
+    async searchByBarcode() {
+        await this._runSearch("action_search_product_images_by_barcode");
+    }
+
+    async _runSearch(methodName) {
         this.state.loading = true;
         this.state.error = null;
         try {
             await this.props.record.model.orm.call(
                 WIZARD_MODEL,
-                "action_search_product_images",
+                methodName,
                 [[this.recordId]]
             );
             const [wiz] = await this.props.record.model.orm.read(

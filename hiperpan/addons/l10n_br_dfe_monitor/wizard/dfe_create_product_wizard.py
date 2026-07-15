@@ -22,8 +22,9 @@ _logger = logging.getLogger(__name__)
 # image, matching Odoo's own product image guidelines.
 MIN_IMAGE_SIDE = 512
 # Number of image candidates shown to the user.
-MAX_IMAGE_RESULTS = 5
+MAX_IMAGE_RESULTS = 16
 GOOGLE_CSE_ENDPOINT = "https://www.googleapis.com/customsearch/v1"
+SERPAPI_ENDPOINT = "https://serpapi.com/search"
 
 
 class DfeCreateProductWizard(models.TransientModel):
@@ -226,27 +227,26 @@ class DfeCreateProductWizard(models.TransientModel):
             raise UserError(
                 _(
                     "Configure a Google API Key e o Search Engine ID (cx) na "
-                    "empresa (aba 'Busca de Imagens (Google)') para buscar "
-                    "imagens de produtos."
+                    "empresa (aba 'Busca de Imagens') para buscar imagens de "
+                    "produtos."
                 )
             )
         return api_key, cx
 
-    def action_search_product_images(self):
-        """Search Google Images for the current ``name`` and store up to
-        MAX_IMAGE_RESULTS candidates (>= MIN_IMAGE_SIDE on both dimensions) as
-        JSON on ``image_search_results_json`` for the client widget to render.
+    def _get_serpapi_key(self):
+        company = self.company_id or self.env.company
+        api_key = company.dfe_serpapi_key
+        if not api_key:
+            raise UserError(
+                _(
+                    "Configure a SerpApi API Key na empresa (aba 'Busca de "
+                    "Imagens') para buscar imagens de produtos."
+                )
+            )
+        return api_key
 
-        Only thumbnail/source URLs are fetched here — the full image is only
-        downloaded once the user picks a candidate (action_select_product_image).
-        """
-        self.ensure_one()
-        query = (self.name or "").strip()
-        if not query:
-            raise UserError(_("Informe o nome do produto antes de buscar imagens."))
-
+    def _search_images_google(self, query):
         api_key, cx = self._get_google_credentials()
-
         try:
             response = requests.get(
                 GOOGLE_CSE_ENDPOINT,
@@ -286,7 +286,150 @@ class DfeCreateProductWizard(models.TransientModel):
             )
             if len(candidates) >= MAX_IMAGE_RESULTS:
                 break
+        return candidates
 
+    def _get_serpapi_location_params(self):
+        """Build SerpApi's location/country/language params from the company
+        address, so results are geo-targeted towards where the company
+        actually is (better/more locally relevant image matches for
+        Brazilian products).
+
+        "location" is free-text but matched against SerpApi's own Locations
+        database, so a value that doesn't match closely enough (e.g. if the
+        company's city/state address fields don't actually agree with each
+        other) causes a 400 -- _search_images_serpapi retries once without it
+        if that happens, so a bad address doesn't fully break image search.
+        """
+        company = self.company_id or self.env.company
+        params = {}
+        location_parts = [
+            part
+            for part in (company.city, company.state_id.name, company.country_id.name)
+            if part
+        ]
+        if location_parts:
+            params["location"] = ", ".join(location_parts)
+        if company.country_code:
+            params["gl"] = company.country_code.lower()
+            if company.country_code.lower() == "br":
+                params["hl"] = "pt"
+        return params
+
+    def _call_serpapi(self, params):
+        """GET SERPAPI_ENDPOINT with ``params`` and return the parsed JSON,
+        raising requests.HTTPError/RequestException on transport failures
+        (left to the caller to handle/retry)."""
+        response = requests.get(SERPAPI_ENDPOINT, params=params, timeout=10)
+        response.raise_for_status()
+        return response.json()
+
+    def _search_images_serpapi(self, query):
+        api_key = self._get_serpapi_key()
+        base_params = {
+            "engine": "google_images",
+            "api_key": api_key,
+            "q": query,
+            # "image_type": "photo",
+            # "imgsz": "l",
+            # "safe": "active",
+        }
+        location_params = self._get_serpapi_location_params()
+
+        try:
+            data = self._call_serpapi({**base_params, **location_params})
+        except requests.HTTPError as exc:
+            if (
+                location_params
+                and exc.response is not None
+                and exc.response.status_code == 400
+            ):
+                # The free-text "location" didn't match anything in SerpApi's
+                # Locations database (e.g. inconsistent company address) --
+                # retry once without it rather than failing the whole search.
+                _logger.info(
+                    "SerpApi rejected location %r for %r, retrying without it",
+                    location_params.get("location"),
+                    query,
+                )
+                try:
+                    data = self._call_serpapi(base_params)
+                except requests.RequestException as retry_exc:
+                    _logger.warning(
+                        "SerpApi image search failed for %r: %s", query, retry_exc
+                    )
+                    raise UserError(
+                        _("Não foi possível buscar imagens no momento: %s") % retry_exc
+                    )
+            else:
+                _logger.warning("SerpApi image search failed for %r: %s", query, exc)
+                raise UserError(
+                    _("Não foi possível buscar imagens no momento: %s") % exc
+                )
+        except requests.RequestException as exc:
+            _logger.warning("SerpApi image search failed for %r: %s", query, exc)
+            raise UserError(_("Não foi possível buscar imagens no momento: %s") % exc)
+
+        error = data.get("error")
+        if error:
+            _logger.warning(
+                "SerpApi image search returned an error for %r: %s", query, error
+            )
+            raise UserError(_("Não foi possível buscar imagens no momento: %s") % error)
+
+        candidates = []
+        for item in data.get("images_results", []):
+            width = item.get("original_width") or 0
+            height = item.get("original_height") or 0
+            if width < MIN_IMAGE_SIDE or height < MIN_IMAGE_SIDE:
+                continue
+            candidates.append(
+                {
+                    "thumbnail": item.get("thumbnail") or item.get("original"),
+                    "image_url": item.get("original"),
+                    "width": width,
+                    "height": height,
+                }
+            )
+            if len(candidates) >= MAX_IMAGE_RESULTS:
+                break
+        return candidates
+
+    def _search_images(self, query):
+        company = self.company_id or self.env.company
+        provider = company.dfe_image_search_provider or "google"
+        if provider == "serpapi":
+            return self._search_images_serpapi(query)
+        return self._search_images_google(query)
+
+    def action_search_product_images(self):
+        """Search for the current ``name`` and store up to MAX_IMAGE_RESULTS
+        candidates (>= MIN_IMAGE_SIDE on both dimensions) as JSON on
+        ``image_search_results_json`` for the client widget to render.
+
+        Only thumbnail/source URLs are fetched here — the full image is only
+        downloaded once the user picks a candidate (action_select_product_image).
+        """
+        self.ensure_one()
+        query = (self.name or "").strip()
+        if not query:
+            raise UserError(_("Informe o nome do produto antes de buscar imagens."))
+
+        candidates = self._search_images(query)
+        self.image_search_results_json = json.dumps(candidates)
+        return False
+
+    def action_search_product_images_by_barcode(self):
+        """Re-run the image search using the barcode as the query.
+
+        Offered to the user as a more precise fallback when none of the
+        name-based suggestions match the actual product.
+        """
+        self.ensure_one()
+        barcode = (self.barcode or "").strip()
+        if not barcode:
+            raise UserError(_("Informe o código de barras antes de buscar por ele."))
+
+        candidates = self._search_images(barcode)
         self.image_search_results_json = json.dumps(candidates)
         return False
 

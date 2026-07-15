@@ -5,11 +5,13 @@
         <div class="o_dfe_product_image_search mb-3">
             <div class="d-flex align-items-center gap-2 mb-2">
                 <strong>Sugestões de Imagem</strong>
-                <button type="button"
-                        class="btn btn-sm btn-secondary"
-                        t-att-disabled="state.loading"
-                        t-on-click="search">
-                    <i class="fa fa-refresh me-1"/>Buscar Imagens
+                <button type="button" class="btn btn-sm btn-secondary" t-att-disabled="state.loading" t-on-click="search">
+                    <i class="fa fa-refresh me-1"/>
+Buscar Imagens
+                </button>
+                <button t-if="showBarcodeSearch" type="button" class="btn btn-sm btn-outline-secondary" t-att-disabled="state.loading" t-on-click="searchByBarcode">
+                    <i class="fa fa-barcode me-1"/>
+Buscar pelo Código de Barras
                 </button>
                 <span t-if="state.loading" class="fa fa-spinner fa-spin"/>
             </div>
@@ -21,12 +23,13 @@
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <t t-foreach="state.candidates" t-as="candidate" t-key="candidate.image_url">
-                    <div t-attf-class="o_dfe_image_candidate border rounded p-1 {{ state.selectedUrl === candidate.image_url ? 'border-primary border-3' : '' }}"
-                         style="cursor:pointer;"
-                         t-on-click="() => this.selectImage(candidate)">
+                    <div t-attf-class="o_dfe_image_candidate border rounded p-1 {{ state.selectedUrl === candidate.image_url ? 'border-primary border-3' : '' }}" style="cursor:pointer;" t-on-click="() => this.selectImage(candidate)">
                         <img t-att-src="candidate.thumbnail" style="max-width:100px;max-height:100px;display:block;"/>
                     </div>
                 </t>
+            </div>
+            <div class="text-muted mt-2">
+                Se nenhuma das imagens corresponde ao produto, digite o código de barras pra uma busca mais precisa.
             </div>
         </div>
     </t>
