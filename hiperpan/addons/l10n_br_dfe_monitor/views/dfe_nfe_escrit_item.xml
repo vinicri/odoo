@@ -19,7 +19,9 @@
             </div>
             <field name="icms_origin_id"/>
             <field name="icms_origin_code"/>
+            <field name="icms_cst_code_from"/>
             <field name="icms_cst_id" readonly="own_use"/>
+            <field name="cfop_code_from"/>
             <field name="cfop_id"/>
             <field name="stock_move"/>
             <field name="own_use"/>
@@ -108,8 +110,10 @@
         <field name="uom_id" />
 
         <field name="own_use"/>
+        <field name="cfop_code_from"/>
         <field name="cfop_id"/>
         <field name="icms_origin_id" optional="hide"/>
+        <field name="icms_cst_code_from"/>
         <field name="icms_origin_code"/>
         <field name="icms_cst_code"/>
         <field name="icms_cst_id" readonly="own_use" optional="hide"/>

@@ -65,8 +65,21 @@ class DfeNfeEscritItem(models.Model):
             ],
             limit=1,
         )
+
+        cfop_to = self._resolve_cfop_id_to(
+            proc_item.cfop,
+            defaults.product_id.fiscal_type_id.id if defaults.product_id else False,
+        )
+
+        icms_cst_to = self._resolve_icms_cst_id_to(proc_item.icms_cst_csosn)
+
         if not defaults:
-            return {}
+            # No saved defaults: still suggest CFOP via from-to (no fiscal
+            # type yet; remapped again when product_id is set in the UI).
+            return {
+                **({"cfop_id": cfop_to.id} if cfop_to else {}),
+                **({"icms_cst_id": icms_cst_to.id} if icms_cst_to else {}),
+            }
 
         product_uom_id = defaults.product_id.uom_id
         default_uom_id = defaults.uom_id
@@ -79,8 +92,16 @@ class DfeNfeEscritItem(models.Model):
             "product_id": defaults.product_id.id,
             "uom_id": default_uom_id.id if is_default_uom_id_valid else False,
             "own_use": defaults.own_use,
-            "cfop_id": defaults.cfop_id.id,
-            "icms_cst_id": defaults.icms_cst_id.id,
+            "cfop_id": (
+                defaults.cfop_id.id
+                if defaults.cfop_id
+                else cfop_to.id if cfop_to else False
+            ),
+            "icms_cst_id": (
+                defaults.icms_cst_id.id
+                if defaults.icms_cst_id
+                else icms_cst_to.id if icms_cst_to else False
+            ),
             "ipi_cst_id": defaults.ipi_cst_id.id,
             "pis_cst_id": defaults.pis_cst_id.id,
             "cofins_cst_id": defaults.cofins_cst_id.id,
@@ -255,6 +276,13 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
+    icms_cst_code_from = fields.Char(
+        string="Código ICMS CST From",
+        related="proc_nfe_item_id.icms_cst_csosn",
+        store=True,
+        readonly=True,
+    )
+
     icms_cst_id = fields.Many2one(
         "l10n_br_fiscal.cst",
         string="ICMS CST",
@@ -265,11 +293,32 @@ class DfeNfeEscritItem(models.Model):
         required=True,
     )
 
-    @api.depends("own_use")
+    @api.model
+    def _resolve_icms_cst_id_to(self, icms_cst_code_from):
+        if not icms_cst_code_from:
+            return self.env["l10n_br_fiscal.cst"]
+        tax_domain_ids = [
+            self.env.ref("l10n_br_fiscal.tax_domain_icms").id,
+            self.env.ref("l10n_br_fiscal.tax_domain_icmssn").id,
+        ]
+        cst_from_to = self.env["l10n_br_dfe_monitor.cst_escrit_from_to"].search(
+            [
+                ("cst_id_from.code_unmasked", "=", icms_cst_code_from),
+                ("cst_id_from.tax_domain_id", "in", tax_domain_ids),
+            ],
+            limit=1,
+        )
+        return cst_from_to.cst_id_to if cst_from_to else self.env["l10n_br_fiscal.cst"]
+
+    @api.depends("own_use", "icms_cst_code_from")
     def _compute_icms_cst_id(self):
         for record in self:
             if record.own_use:
                 record.icms_cst_id = self.env.ref("l10n_br_fiscal.cst_icms_90")
+            elif record.icms_cst_code_from:
+                record.icms_cst_id = self._resolve_icms_cst_id_to(
+                    record.icms_cst_code_from
+                )
             else:
                 record.icms_cst_id = False
 
@@ -280,12 +329,61 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
+    cfop_code_from = fields.Char(
+        string="CFOP From",
+        related="proc_nfe_item_id.cfop",
+        store=True,
+        readonly=True,
+    )
+
     cfop_id = fields.Many2one(
         "l10n_br_fiscal.cfop",
         string="CFOP",
         domain="[('type_in_out', '=', 'in')]",
         required=True,
     )
+
+    @api.model
+    def _resolve_cfop_id_to(self, cfop_code_from, fiscal_type_id=False):
+        """Map an incoming CFOP code (+ optional fiscal type) to a CFOP to use.
+
+        Prefers an exact fiscal-type rule, then falls back to rules with no
+        fiscal type (match any product). Returns an empty recordset if none.
+        """
+        if not cfop_code_from:
+            return self.env["l10n_br_fiscal.cfop"]
+        CfopFromTo = self.env["l10n_br_dfe_monitor.cfop_escrit_from_to"]
+        domain_cfop = [("cfop_id_from.code", "=", cfop_code_from)]
+        cfop_from_to = CfopFromTo.search(
+            domain_cfop + [("fiscal_type_id", "=", fiscal_type_id or False)],
+            limit=1,
+        )
+        if not cfop_from_to and fiscal_type_id:
+            cfop_from_to = CfopFromTo.search(
+                domain_cfop + [("fiscal_type_id", "=", False)],
+                limit=1,
+            )
+        return (
+            cfop_from_to.cfop_id_to if cfop_from_to else self.env["l10n_br_fiscal.cfop"]
+        )
+
+    @api.onchange("product_id", "cfop_code_from", "own_use")
+    def _onchange_product_id_cfop_from_to(self):
+        # Trigger on product_id (not fiscal_type_id / cfop_code_from): onchange
+        # only accepts direct field names the UI edits. Related fields never
+        # appear as "changed" themselves, and dotted paths are ignored.
+        for record in self:
+            if not record.cfop_code_from:
+                continue
+            fiscal_type_id = (
+                self.env.ref("l10n_br_fiscal.product_fiscal_type_07").id
+                if record.own_use
+                else record.product_id.fiscal_type_id.id if record.product_id else False
+            )
+
+            record.cfop_id = record._resolve_cfop_id_to(
+                record.cfop_code_from, fiscal_type_id
+            )
 
     stock_move = fields.Boolean(
         string="Movimentação de Estoque",
