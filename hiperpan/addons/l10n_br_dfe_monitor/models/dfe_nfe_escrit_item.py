@@ -598,6 +598,22 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
+    should_include_ipi = fields.Boolean(
+        string="Deve incluir IPI",
+        compute="_compute_should_include_ipi",
+    )
+
+    @api.depends("own_use", "product_id.fiscal_type_id")
+    def _compute_should_include_ipi(self):
+        for record in self:
+            if record.own_use or record.product_id.fiscal_type_id in [
+                self.env.ref("l10n_br_fiscal.product_fiscal_type_01"),
+                self.env.ref("l10n_br_fiscal.product_fiscal_type_06"),
+            ]:
+                record.should_include_ipi = False
+            else:
+                record.should_include_ipi = True
+
     def domain_ipi_cst_in_tax_id(self):
         return [
             ("tax_domain_id", "=", self.env.ref("l10n_br_fiscal.tax_domain_ipi").id)
@@ -615,15 +631,8 @@ class DfeNfeEscritItem(models.Model):
 
     @api.constrains("ipi_cst_id")
     def _check_ipi_cst_id(self):
-        generates_ipi_credit = [
-            self.env.ref("l10n_br_fiscal.product_fiscal_type_01"),
-            self.env.ref("l10n_br_fiscal.product_fiscal_type_06"),
-        ]
         for record in self:
-            if (
-                not record.ipi_cst_id
-                and record.product_id.fiscal_type_id in generates_ipi_credit
-            ):
+            if record.should_include_ipi and not record.ipi_cst_id:
                 raise ValidationError(
                     _(
                         "O IPI CST é obrigatório para o produto %(product)s, que gera crédito de IPI, como matéria-prima e produto intermediário."
@@ -634,10 +643,10 @@ class DfeNfeEscritItem(models.Model):
                     }
                 )
 
-    @api.depends("own_use", "proc_nfe_item_id.ipi_cst")
+    @api.depends("should_include_ipi")
     def _compute_ipi_cst_id(self):
         for record in self:
-            if record.own_use:
+            if not record.should_include_ipi:
                 record.ipi_cst_id = False
 
     ipi_tax_percent = fields.Float(
@@ -648,13 +657,13 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
-    @api.depends("own_use", "proc_nfe_item_id.ipi_p_ipi")
+    @api.depends("should_include_ipi")
     def _compute_ipi_tax_percent(self):
         for record in self:
-            if record.own_use:
-                record.ipi_tax_percent = False
-            else:
+            if record.should_include_ipi:
                 record.ipi_tax_percent = record.proc_nfe_item_id.ipi_p_ipi
+            else:
+                record.ipi_tax_percent = False
 
     ipi_base = fields.Float(
         string="Base de Cálculo do IPI",
@@ -664,13 +673,13 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
-    @api.depends("own_use", "proc_nfe_item_id.ipi_v_bc")
+    @api.depends("should_include_ipi")
     def _compute_ipi_base(self):
         for record in self:
-            if record.own_use:
-                record.ipi_base = False
-            else:
+            if record.should_include_ipi:
                 record.ipi_base = record.proc_nfe_item_id.ipi_v_bc
+            else:
+                record.ipi_base = False
 
     ipi_value = fields.Float(
         string="Valor do IPI",
@@ -680,13 +689,13 @@ class DfeNfeEscritItem(models.Model):
         readonly=True,
     )
 
-    @api.depends("own_use", "proc_nfe_item_id.ipi_v_ipi")
+    @api.depends("should_include_ipi")
     def _compute_ipi_value(self):
         for record in self:
-            if record.own_use:
-                record.ipi_value = False
-            else:
+            if record.should_include_ipi:
                 record.ipi_value = record.proc_nfe_item_id.ipi_v_ipi
+            else:
+                record.ipi_value = False
 
     is_regime_real = fields.Boolean(
         string="É Regime Real",
