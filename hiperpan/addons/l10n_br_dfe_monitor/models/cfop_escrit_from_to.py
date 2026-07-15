@@ -24,6 +24,11 @@ class CfopEscritFromTo(models.Model):
         related="cfop_id_from.code",
     )
 
+    fiscal_type_id = fields.Many2one(
+        comodel_name="l10n_br_fiscal.product.fiscal.type",
+        string="Fiscal Type",
+    )
+
     cfop_to_code_prefix = fields.Char(
         compute="_compute_cfop_to_code_prefix",
     )

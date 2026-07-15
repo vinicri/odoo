@@ -8,8 +8,9 @@
     <field name="arch" type="xml">
       <form string="CFOP Escrit From To">
         <group>
-          <field name="cfop_id_from"/>
-          <field name="cfop_id_to"/>
+          <field name="cfop_id_from" options="{'no_create': True, 'no_create_edit': True}"/>
+          <field name="fiscal_type_id" widget="selection"/>
+          <field name="cfop_id_to" options="{'no_create': True, 'no_create_edit': True}"/>
           <field name="active"/>
         </group>
       </form>
@@ -23,6 +24,7 @@
     <field name="arch" type="xml">
       <list string="CFOP Escrit From To">
         <field name="cfop_id_from"/>
+        <field name="fiscal_type_id"/>
         <field name="cfop_id_to"/>
         <field name="active"/>
       </list>
