@@ -13,3 +13,8 @@
 "cst_escrit_from_to_icms_50_50","l10n_br_fiscal.cst_icms_50","l10n_br_fiscal.cst_icms_50","True"
 "cst_escrit_from_to_icms_60_60","l10n_br_fiscal.cst_icms_60","l10n_br_fiscal.cst_icms_60","True"
 "cst_escrit_from_to_icms_70_60","l10n_br_fiscal.cst_icms_70","l10n_br_fiscal.cst_icms_60","True"
+"cst_escrit_from_to_icmssn_201_60","l10n_br_fiscal.cst_icmssn_201","l10n_br_fiscal.cst_icms_60","True"
+"cst_escrit_from_to_icmssn_202_60","l10n_br_fiscal.cst_icmssn_202","l10n_br_fiscal.cst_icms_60","True"
+"cst_escrit_from_to_icmssn_203_60","l10n_br_fiscal.cst_icmssn_203","l10n_br_fiscal.cst_icms_60","True"
+"cst_escrit_from_to_icmssn_500_60","l10n_br_fiscal.cst_icmssn_500","l10n_br_fiscal.cst_icms_60","True"
+"cst_escrit_from_to_icmssn_300_41","l10n_br_fiscal.cst_icmssn_300","l10n_br_fiscal.cst_icms_41","True"

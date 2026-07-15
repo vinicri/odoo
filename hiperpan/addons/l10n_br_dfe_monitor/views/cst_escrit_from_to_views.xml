@@ -9,6 +9,7 @@
       <form string="CST Escrit From To">
         <group>
           <field name="cst_id_from"/>
+          <field name="cst_id_from_tax_domain_id"/>
           <field name="cst_id_to"/>
           <field name="active"/>
         </group>
@@ -22,6 +23,7 @@
     <field name="model">l10n_br_dfe_monitor.cst_escrit_from_to</field>
     <field name="arch" type="xml">
       <list string="CST Escrit From To">
+        <field name="cst_id_from_tax_domain_id"/>
         <field name="cst_id_from"/>
         <field name="cst_id_to"/>
         <field name="active"/>
