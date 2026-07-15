@@ -23,8 +23,14 @@ Buscar pelo Código de Barras
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <t t-foreach="state.candidates" t-as="candidate" t-key="candidate.image_url">
-                    <div t-attf-class="o_dfe_image_candidate border rounded p-1 {{ state.selectedUrl === candidate.image_url ? 'border-primary border-3' : '' }}" style="cursor:pointer;" t-on-click="() => this.selectImage(candidate)">
+                    <div t-attf-class="o_dfe_image_candidate border rounded p-1 {{ state.selectedUrl === candidate.image_url ? 'border-primary border-3' : '' }}" style="cursor:pointer;position:relative;" t-on-click="() => this.selectImage(candidate)">
                         <img t-att-src="candidate.thumbnail" style="max-width:100px;max-height:100px;display:block;"/>
+                        <span class="o_dfe_image_candidate_zoom position-absolute bottom-0 end-0 m-1 d-flex align-items-center justify-content-center bg-dark bg-opacity-75 rounded-circle text-white"
+                              style="width:22px;height:22px;cursor:zoom-in;"
+                              title="Ver em tamanho real"
+                              t-on-click="(ev) => this.previewImage(candidate, ev)">
+                            <i class="fa fa-search-plus" style="font-size:11px;"/>
+                        </span>
                     </div>
                 </t>
             </div>
@@ -32,6 +38,14 @@ Buscar pelo Código de Barras
                 Se nenhuma das imagens corresponde ao produto, digite o código de barras pra uma busca mais precisa.
             </div>
         </div>
+    </t>
+
+    <t t-name="l10n_br_dfe_monitor.ImagePreviewDialog">
+        <Dialog title="'Imagem em Tamanho Real'" size="'lg'">
+            <div class="text-center">
+                <img t-att-src="props.imageUrl" style="max-width:100%;max-height:75vh;"/>
+            </div>
+        </Dialog>
     </t>
 
 </templates>

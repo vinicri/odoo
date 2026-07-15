@@ -2,6 +2,8 @@
 
 import { registry } from "@web/core/registry";
 import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
+import { Dialog } from "@web/core/dialog/dialog";
+import { useService } from "@web/core/utils/hooks";
 import { Component, onWillStart, useState } from "@odoo/owl";
 
 /**
@@ -14,11 +16,24 @@ import { Component, onWillStart, useState } from "@odoo/owl";
  */
 const WIZARD_MODEL = "l10n_br_dfe_monitor.create_product_wizard";
 
+/** Simple full-resolution preview, opened via the magnifier icon on a
+ * thumbnail. Its own Dialog instance, so closing it never affects the
+ * wizard's modal stack. */
+export class ImagePreviewDialog extends Component {
+    static components = { Dialog };
+    static props = {
+        close: Function,
+        imageUrl: String,
+    };
+    static template = "l10n_br_dfe_monitor.ImagePreviewDialog";
+}
+
 export class ProductImageSearch extends Component {
     static template = "l10n_br_dfe_monitor.ProductImageSearch";
     static props = { ...standardWidgetProps };
 
     setup() {
+        this.dialog = useService("dialog");
         this.state = useState({
             loading: false,
             error: null,
@@ -115,6 +130,14 @@ export class ProductImageSearch extends Component {
         } finally {
             this.state.loading = false;
         }
+    }
+
+    previewImage(candidate, ev) {
+        // Stop the click from bubbling to the thumbnail's own selectImage.
+        ev.stopPropagation();
+        this.dialog.add(ImagePreviewDialog, {
+            imageUrl: candidate.image_url,
+        });
     }
 }
 
