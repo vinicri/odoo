@@ -6,6 +6,9 @@
     <field name="inherit_id" ref="l10n_br_nfe.nfe_uom_view_form"/>
     <field name="model">uom.uom</field>
     <field name="arch" type="xml">
+      <xpath expr="//field[@name='available_for_nfe']" position="after">
+        <field name="available_for_dfe_in"/>
+      </xpath>
       <xpath expr="//sheet" position="inside">
         <field name="dfe_uom_name_ids">
           <list editable="bottom">

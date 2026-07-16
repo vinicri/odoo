@@ -31,6 +31,17 @@ class DfeCreateUomWizard(models.TransientModel):
         string="Nome na NFE/NFCE", size=6, help="Nome para documentos fiscais"
     )
 
+    available_for_nfe = fields.Boolean(
+        string="Permitir uso na emissão de documentos fiscais",
+        default=False,
+    )
+
+    available_for_dfe_in = fields.Boolean(
+        string="Permitir uso na entrada de documentos fiscais",
+        default=True,
+        readonly=True,
+    )
+
     multiplier = fields.Float(
         string="Multiplicador",
         digits=0,
@@ -91,6 +102,8 @@ class DfeCreateUomWizard(models.TransientModel):
                 "uom_type": uom_type,
                 "factor_inv": self.multiplier,
                 "rounding": self.rounding,
+                "available_for_dfe_in": self.available_for_dfe_in,
+                "available_for_nfe": self.available_for_nfe,
             }
         )
         self.created_uom_id = uom.id

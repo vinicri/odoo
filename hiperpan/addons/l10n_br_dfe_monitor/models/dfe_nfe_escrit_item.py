@@ -448,7 +448,7 @@ class DfeNfeEscritItem(models.Model):
         "uom.uom",
         string="Unidade de Medida",
         compute="_compute_uom_id",
-        domain="[('category_id', '=', product_uom_category_id)]",
+        domain="[('category_id', '=', product_uom_category_id),('available_for_dfe_in', '=', True)]",
         store=True,
         readonly=False,
         required=True,

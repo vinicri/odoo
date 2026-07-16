@@ -93,6 +93,7 @@ class DfeCreateProductWizard(models.TransientModel):
     uom_id = fields.Many2one(
         "uom.uom",
         string="Unidade de Medida",
+        domain="[('available_for_nfe', '=', True)]",
     )
 
     list_price = fields.Float(

@@ -9,6 +9,10 @@ class UoM(models.Model):
         string="Nome na NFE/NFCE Emitida", size=6, help="Name of the UOM for NFE"
     )
 
+    available_for_nfe = fields.Boolean(
+        string="Permitir uso na emissão de documentos fiscais", default=False
+    )
+
     _sql_constraints = [
         (
             "nfe_name_uniq",

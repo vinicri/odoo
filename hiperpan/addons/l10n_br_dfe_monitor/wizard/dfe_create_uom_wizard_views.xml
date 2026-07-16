@@ -8,6 +8,8 @@
         <group>
           <field name="category_id"/>
           <field name="name"/>
+          <field name="available_for_dfe_in"/>
+          <field name="available_for_nfe"/>
           <field name="nfe_name" />
           <field name="multiplier" digits="[42,5]"/>
           <field name="rounding" digits="[42,5]"/>
