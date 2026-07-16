@@ -48,9 +48,19 @@ export class PriceCalculatorButton extends Component {
             return;
         }
 
-        const wizardIds = await this.orm.create(WIZARD_MODEL, [
-            { proc_nfe_item_id: procItemId },
-        ]);
+        // Reopen with whatever was last confirmed in this same Criar Produto
+        // dialog, instead of resetting to the calculator's own defaults.
+        const vals = { proc_nfe_item_id: procItemId };
+        const rememberedQuantity = record.data.price_calc_quantity_per_line_unit;
+        const rememberedMargin = record.data.price_calc_margin;
+        if (rememberedQuantity) {
+            vals.quantity_per_line_unit = rememberedQuantity;
+        }
+        if (rememberedMargin) {
+            vals.margin = rememberedMargin;
+        }
+
+        const wizardIds = await this.orm.create(WIZARD_MODEL, [vals]);
         const wizardId = Array.isArray(wizardIds) ? wizardIds[0] : wizardIds;
 
         // FormViewDialog + its NATIVE save button (no custom <footer> in the
@@ -65,11 +75,18 @@ export class PriceCalculatorButton extends Component {
                 const [wiz] = await this.orm.read(
                     WIZARD_MODEL,
                     [wizardRecord.resId],
-                    ["unit_price"]
+                    ["unit_price", "quantity_per_line_unit", "margin"]
                 );
-                if (wiz && wiz.unit_price) {
+                if (!wiz) {
+                    return;
+                }
+                if (wiz.unit_price) {
                     await record.update({ list_price: wiz.unit_price });
                 }
+                await record.update({
+                    price_calc_quantity_per_line_unit: wiz.quantity_per_line_unit,
+                    price_calc_margin: wiz.margin,
+                });
             },
         });
     }

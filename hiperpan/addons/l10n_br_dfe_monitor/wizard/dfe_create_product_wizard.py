@@ -106,6 +106,18 @@ class DfeCreateProductWizard(models.TransientModel):
         string="Preço de Venda", digits="Product Price", default=""
     )
 
+    # Remembered from the price calculator so reopening it (within the same
+    # Criar Produto dialog) shows the values last entered, instead of
+    # resetting to the defaults every time.
+    price_calc_quantity_per_line_unit = fields.Float(
+        string="Quantidade de Vendas por Unidade da NF-e (Calculadora)",
+        digits=(11, 4),
+    )
+    price_calc_margin = fields.Float(
+        string="Margem (%) (Calculadora)",
+        digits=(6, 2),
+    )
+
     # company_id = fields.Many2one(
     #     "res.company",
     #     string="Empresa",
