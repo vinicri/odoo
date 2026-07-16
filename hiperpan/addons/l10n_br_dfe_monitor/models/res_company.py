@@ -1,6 +1,7 @@
 """
 Extensão de res.company para DFe Monitor
 """
+
 import random
 from datetime import datetime, time, timedelta
 
@@ -26,6 +27,16 @@ class ResCompany(models.Model):
         help=(
             "Dias e horários em que a empresa costuma receber mercadorias. "
             "Usado para sugerir a Data de Chegada ao escriturar uma NF-e."
+        ),
+    )
+
+    dfe_default_product_margin = fields.Float(
+        string="Margem Padrão de Produto (%)",
+        default=70.0,
+        help=(
+            "Margem de lucro padrão (markup sobre o custo) usada para "
+            "sugerir o preço de venda ao criar um produto a partir de uma "
+            "NF-e: preço = custo * (1 + margem / 100)."
         ),
     )
 

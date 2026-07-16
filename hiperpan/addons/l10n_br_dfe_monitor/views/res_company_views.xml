@@ -21,6 +21,15 @@
             </list>
           </field>
         </page>
+        <page string="Precificação de Produtos" name="dfe_product_pricing">
+          <p class="text-muted">
+            Margem padrão sugerida ao calcular o preço de venda de um produto
+            criado a partir de uma NF-e.
+          </p>
+          <group>
+            <field name="dfe_default_product_margin"/>
+          </group>
+        </page>
         <page string="Busca de Imagens" name="dfe_google_image_search">
           <p class="text-muted">
             Credenciais usadas para sugerir imagens ao criar um produto a

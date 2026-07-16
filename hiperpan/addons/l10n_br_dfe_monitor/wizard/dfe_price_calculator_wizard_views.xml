@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_dfe_price_calculator_wizard_form" model="ir.ui.view">
+    <field name="name">l10n_br_dfe_monitor.price_calculator_wizard.form</field>
+    <field name="model">l10n_br_dfe_monitor.price_calculator_wizard</field>
+    <field name="arch" type="xml">
+      <form string="Calculadora de Preço de Venda">
+        <field name="proc_nfe_item_id" invisible="1"/>
+        <group string="Item da NF-e Processada">
+          <field name="proc_nfe_item_name"/>
+          <field name="proc_nfe_item_unit"/>
+          <field name="proc_nfe_item_quantity"/>
+          <field name="line_unit_cost"/>
+        </group>
+        <group string="Cálculo">
+          <field name="quantity_per_line_unit"/>
+          <field name="cost_per_unit"/>
+          <field name="margin"/>
+          <field name="unit_price"/>
+        </group>
+        <!--
+          No <footer>: the FormViewDialog renders its native "Salvar & Fechar"
+          button, whose save closes only this dialog (avoiding the modal-stack
+          cascade a custom object-button caused). The client reads unit_price
+          back in onRecordSaved and assigns it to list_price.
+        -->
+      </form>
+    </field>
+  </record>
+</odoo>

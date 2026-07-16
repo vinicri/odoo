@@ -106,12 +106,6 @@ class DfeCreateProductWizard(models.TransientModel):
         string="Preço de Venda", digits="Product Price", default=""
     )
 
-    # todo usar unidade de conversao pra achar o valor por unidade do estoque
-    cost_price = fields.Float(
-        related="proc_nfe_item_id.v_un_com",
-        readonly=True,
-    )
-
     # company_id = fields.Many2one(
     #     "res.company",
     #     string="Empresa",

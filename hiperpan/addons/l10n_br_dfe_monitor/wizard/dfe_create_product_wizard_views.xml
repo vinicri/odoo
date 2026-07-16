@@ -11,6 +11,7 @@
         <group>
           <group string="Geral">
             <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'image_1920', 'size': [128, 128]}"/>
+            <field name="categ_id"/>
             <field name="name"/>
             <field name="type"/>
             <field name="is_storable"/>
@@ -18,10 +19,12 @@
             <field name="default_code" readonly="1"/>
             <field name="barcode" invisible="no_barcode"/>
             <field name="no_barcode"/>
-            <field name="categ_id"/>
             <field name="uom_id"/>
-            <field name="list_price"/>
-            <field name="cost_price"/>
+            <label for="list_price"/>
+            <div class="o_row">
+              <field name="list_price" nolabel="1"/>
+              <widget name="dfe_price_calculator_button"/>
+            </div>
             <!-- <field name="company_id" groups="base.group_multi_company"/> -->
           </group>
           <group string="Informações Fiscais">

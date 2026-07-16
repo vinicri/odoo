@@ -40,6 +40,7 @@
         "wizard/dfe_create_product_wizard_views.xml",
         "wizard/dfe_download_xml_wizard_views.xml",
         "wizard/dfe_create_uom_wizard_views.xml",
+        "wizard/dfe_price_calculator_wizard_views.xml",
         "views/dfe_nfe_escrit.xml",
         "views/dfe_nfe_escrit_item.xml",
         "views/dfe_nfe_escrit_item_defaults.xml",
@@ -60,6 +61,8 @@
             "l10n_br_dfe_monitor/static/src/js/product_image_search.js",
             "l10n_br_dfe_monitor/static/src/xml/product_image_search.xml",
             "l10n_br_dfe_monitor/static/src/js/product_name_search_widget.js",
+            "l10n_br_dfe_monitor/static/src/js/price_calculator_button.js",
+            "l10n_br_dfe_monitor/static/src/xml/price_calculator_button.xml",
         ],
     },
     "external_dependencies": {

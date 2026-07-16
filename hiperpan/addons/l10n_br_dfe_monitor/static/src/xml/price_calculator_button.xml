@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="l10n_br_dfe_monitor.PriceCalculatorButton">
+        <button type="button"
+                class="btn btn-secondary btn-sm o_dfe_price_calculator_btn"
+                title="Calcular preço de venda a partir do custo e da margem"
+                t-att-disabled="disabled"
+                t-on-click="onClick">
+            <i class="fa fa-calculator me-1"/>Calcular
+        </button>
+    </t>
+
+</templates>

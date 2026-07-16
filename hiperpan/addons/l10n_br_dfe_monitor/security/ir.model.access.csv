@@ -36,3 +36,4 @@ access_cfop_escrit_from_to_user,CFOP Escrit From To User,model_l10n_br_dfe_monit
 access_cfop_escrit_from_to_manager,CFOP Escrit From To Manager,model_l10n_br_dfe_monitor_cfop_escrit_from_to,base.group_system,1,1,1,1
 access_cst_escrit_from_to_user,CST Escrit From To User,model_l10n_br_dfe_monitor_cst_escrit_from_to,base.group_user,1,1,1,0
 access_cst_escrit_from_to_manager,CST Escrit From To Manager,model_l10n_br_dfe_monitor_cst_escrit_from_to,base.group_system,1,1,1,1
+access_dfe_price_calculator_wizard_user,DFe Price Calculator Wizard User,model_l10n_br_dfe_monitor_price_calculator_wizard,base.group_user,1,1,1,1

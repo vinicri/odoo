@@ -7,3 +7,4 @@ from . import dfe_escrit_item_default_update_wizard
 from . import dfe_create_product_wizard
 from . import dfe_download_xml_wizard
 from . import dfe_create_uom_wizard
+from . import dfe_price_calculator_wizard
