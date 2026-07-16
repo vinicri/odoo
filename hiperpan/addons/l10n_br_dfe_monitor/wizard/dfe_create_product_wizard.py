@@ -52,7 +52,13 @@ class DfeCreateProductWizard(models.TransientModel):
         string="Disponível em Ponto de Venda",
         default=True,
     )
-    default_code = fields.Char(string="Referência Interna")
+    default_code = fields.Char(
+        string="Referência Interna",
+        readonly=True,
+        default=lambda self: self._get_next_default_code_preview(),
+        help="Próxima referência interna da sequência; atribuída automaticamente "
+        "ao criar o produto.",
+    )
     barcode = fields.Char(string="Código de Barras")
     no_barcode = fields.Boolean(string="Não possui código de barras")
 
@@ -106,10 +112,10 @@ class DfeCreateProductWizard(models.TransientModel):
         readonly=True,
     )
 
-    company_id = fields.Many2one(
-        "res.company",
-        string="Empresa",
-    )
+    # company_id = fields.Many2one(
+    #     "res.company",
+    #     string="Empresa",
+    # )
 
     # ── Fiscal Information (l10n_br_fiscal.product.mixin) ─────────────────
     fiscal_type_id = fields.Many2one(
@@ -151,6 +157,26 @@ class DfeCreateProductWizard(models.TransientModel):
         for record in self:
             if record.cest_id and record.ncm_id not in record.cest_id.ncm_ids:
                 record.cest_id = False
+
+    @api.model
+    def _get_next_default_code_preview(self):
+        """Peek at the next product default_code without consuming the sequence.
+
+        The real value is assigned on product create via
+        ``product.product._get_next_sequence_code``; this is only a preview
+        for the wizard form.
+        """
+        sequence = (
+            self.env["ir.sequence"]
+            .sudo()
+            .search(
+                [("code", "=", "l10n_br_fiscal.product.default_code")],
+                limit=1,
+            )
+        )
+        if not sequence:
+            return False
+        return sequence.get_next_char(sequence.number_next_actual)
 
     # @api.constrains("no_barcode", "barcode", "list_price", "ncm_id", "type")
     def _check_before_create(self, record):
@@ -216,12 +242,13 @@ class DfeCreateProductWizard(models.TransientModel):
             "cest_id": cest.id,
             "type": "consu",
             "is_storable": True,
+            "default_code": self._get_next_default_code_preview(),
         }
 
         return vals
 
     def _get_google_credentials(self):
-        company = self.company_id or self.env.company
+        company = self.env.company
         api_key = company.dfe_google_api_key
         cx = company.dfe_google_search_cx
         if not api_key or not cx:
@@ -235,7 +262,7 @@ class DfeCreateProductWizard(models.TransientModel):
         return api_key, cx
 
     def _get_serpapi_key(self):
-        company = self.company_id or self.env.company
+        company = self.env.company
         api_key = company.dfe_serpapi_key
         if not api_key:
             raise UserError(
@@ -301,7 +328,7 @@ class DfeCreateProductWizard(models.TransientModel):
         other) causes a 400 -- _search_images_serpapi retries once without it
         if that happens, so a bad address doesn't fully break image search.
         """
-        company = self.company_id or self.env.company
+        company = self.env.company
         params = {}
         location_parts = [
             part
@@ -396,7 +423,7 @@ class DfeCreateProductWizard(models.TransientModel):
         return candidates
 
     def _search_images(self, query):
-        company = self.company_id or self.env.company
+        company = self.env.company
         provider = company.dfe_image_search_provider or "google"
         if provider == "serpapi":
             return self._search_images_serpapi(query)
@@ -487,7 +514,9 @@ class DfeCreateProductWizard(models.TransientModel):
         product = self.env["product.template"].create(
             {
                 "name": self.name,
-                "default_code": self.default_code or False,
+                # Leave empty so product.product.create assigns via
+                # l10n_br_fiscal.product.default_code (wizard value is preview only).
+                "default_code": False,
                 "barcode": barcode or False,
                 "no_barcode": self.no_barcode,
                 "type": self.type,
@@ -496,7 +525,7 @@ class DfeCreateProductWizard(models.TransientModel):
                 "uom_id": self.uom_id.id,
                 "uom_po_id": self.uom_id.id,
                 "list_price": self.list_price,
-                "company_id": self.company_id.id or False,
+                # "company_id": self.company_id.id or False,
                 "fiscal_type_id": self.fiscal_type_id.id,
                 "icms_origin_id": self.icms_origin_id.id,
                 "ncm_id": self.ncm_id.id,

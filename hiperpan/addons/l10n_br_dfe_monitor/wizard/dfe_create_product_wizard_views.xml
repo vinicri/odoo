@@ -15,14 +15,14 @@
             <field name="type"/>
             <field name="is_storable"/>
             <field name="available_in_pos"/>
-            <field name="default_code"/>
+            <field name="default_code" readonly="1"/>
             <field name="barcode" invisible="no_barcode"/>
             <field name="no_barcode"/>
             <field name="categ_id"/>
             <field name="uom_id"/>
             <field name="list_price"/>
             <field name="cost_price"/>
-            <field name="company_id" groups="base.group_multi_company"/>
+            <!-- <field name="company_id" groups="base.group_multi_company"/> -->
           </group>
           <group string="Informações Fiscais">
             <field name="fiscal_type_id"/>
