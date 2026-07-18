@@ -32,6 +32,10 @@ const TRACKED_FIELDS = [
     "cofins_cst_id",
 ];
 
+// Fields checked to decide whether an item is fully filled in. Must match
+// DfeNfeEscritItem._compute_is_missing_required on the Python side.
+const REQUIRED_FIELDS = ["product_id", "uom_id", "cfop_id", "icms_cst_id", "quantity"];
+
 function readId(value) {
     // Relational fields surface as [id, display_name] (or {id, ...}); scalars
     // (booleans) pass through.
@@ -116,6 +120,8 @@ patch(X2ManyFieldDialog.prototype, {
             return super.save(saveOptions);
         }
 
+        await this._escritAutoConfirmIfComplete();
+
         const conflict = await this._escritReconcileConflict();
         if (!conflict) {
             // No conflict (created silently or already up to date): commit now.
@@ -140,6 +146,25 @@ patch(X2ManyFieldDialog.prototype, {
             }
         );
         return false;
+    },
+
+    /**
+     * Mark the item confirmed as soon as all required fields are filled in,
+     * right when its modal is saved/closed. Only turns confirmed on, never
+     * off (mirrors DfeNfeEscritItem._auto_confirm_if_complete server-side —
+     * that one runs on create/write of the parent escrituração, this one
+     * covers the item still being an unsaved line at the point its own
+     * modal closes, before the parent has been saved at all).
+     */
+    async _escritAutoConfirmIfComplete() {
+        const data = this.record.data;
+        if (data.confirmed) {
+            return;
+        }
+        const isComplete = REQUIRED_FIELDS.every((fieldName) => !!readId(data[fieldName]));
+        if (isComplete) {
+            await this.record.update({ confirmed: true });
+        }
     },
 
     /**

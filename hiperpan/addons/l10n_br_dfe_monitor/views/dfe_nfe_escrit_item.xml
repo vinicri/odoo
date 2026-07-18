@@ -9,6 +9,8 @@
           <field name="likely_item_defaults_id" invisible="1"/>
           <field name="dfe_nfe_escrit_id" invisible="1"/>
           <field name="proc_nfe_id" invisible="1"/>
+          <field name="is_missing_required" invisible="1"/>
+          <field name="confirmed" invisible="1"/>
           <group string="NF-e">
             <field name="proc_nfe_item_id"/>
             <field name="item_number"/>
