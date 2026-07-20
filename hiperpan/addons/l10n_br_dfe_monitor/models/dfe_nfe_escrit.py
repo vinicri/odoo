@@ -1,6 +1,7 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 from odoo.tools.float_utils import float_compare
+from odoo.tools.misc import formatLang
 
 
 class DfeNfeEscrit(models.Model):
@@ -73,14 +74,15 @@ class DfeNfeEscrit(models.Model):
                     % {
                         "details": "\n".join(
                             _(
-                                "- Item %(n_item)s (%(name)s): escriturado "
-                                "%(total)s, NF-e %(expected)s"
+                                "- Item %(n_item)s (%(name)s): total escriturado %(total)s | total NF-e %(expected)s"
                             )
                             % {
                                 "n_item": proc_item.n_item,
                                 "name": proc_item.x_prod,
-                                "total": total,
-                                "expected": proc_item.q_com,
+                                "total": formatLang(self.env, total, digits=4),
+                                "expected": formatLang(
+                                    self.env, proc_item.q_com, digits=4
+                                ),
                             }
                             for proc_item, total in mismatches
                         )
