@@ -23,16 +23,34 @@ class DfeNfeEscrit(models.Model):
         ondelete="cascade",
     )
 
-    picking_id = fields.Many2one(
+    picking_ids = fields.One2many(
         "stock.picking",
-        string="Recebimento de Estoque",
+        "dfe_nfe_escrit_id",
+        string="Transferências de Estoque",
         readonly=True,
-        copy=False,
         help=(
-            "Transferência de recebimento criada a partir dos itens desta "
-            "escrituração marcados como 'Movimentação de Estoque'."
+            "Transferências de estoque (recebimentos e devoluções) geradas "
+            "a partir dos itens desta escrituração marcados como "
+            "'Movimentação de Estoque'."
         ),
     )
+
+    current_picking_id = fields.Many2one(
+        "stock.picking",
+        string="Recebimento Atual",
+        compute="_compute_current_picking_id",
+        help="Recebimento em vigor -- o último ainda não devolvido/substituído.",
+    )
+
+    @api.depends("picking_ids", "picking_ids.state")
+    def _compute_current_picking_id(self):
+        for record in self:
+            # The current receipt is the most recent incoming picking that
+            # hasn't itself been reversed by a later return.
+            incoming = record.picking_ids.filtered(
+                lambda p: p.picking_type_id.code == "incoming"
+            )
+            record.current_picking_id = incoming[-1:] if incoming else False
 
     @api.constrains("item_ids")
     def _check_items_confirmed(self):
@@ -379,7 +397,9 @@ class DfeNfeEscrit(models.Model):
 
     def unlink(self):
         proc_nfe = self.proc_nfe_id
-        pickings_to_return = self.picking_id.filtered(lambda p: p.state == "done")
+        pickings_to_return = self.current_picking_id.filtered(
+            lambda p: p.state == "done"
+        )
         res = super().unlink()
         proc_nfe.write({"estado_escrituracao": "pendente"})
         for picking in pickings_to_return:
@@ -443,6 +463,7 @@ class DfeNfeEscrit(models.Model):
                 "origin": self.nfe_key or self.proc_nfe_id.display_name,
                 "company_id": company.id,
                 "scheduled_date": self.arrival_datetime or fields.Datetime.now(),
+                "dfe_nfe_escrit_id": self.id,
             }
         )
         move_vals_list = self._get_stock_move_vals_list(picking)
@@ -474,6 +495,7 @@ class DfeNfeEscrit(models.Model):
                 "origin": _("Devolução de %s", picking.name),
                 "location_id": picking.location_dest_id.id,
                 "location_dest_id": picking.location_id.id,
+                "dfe_nfe_escrit_id": picking.dfe_nfe_escrit_id.id,
             }
         )
         for move in picking.move_ids.filtered(lambda m: m.state == "done"):
@@ -499,22 +521,21 @@ class DfeNfeEscrit(models.Model):
         """Keep each escrituração's stock receipt in sync with its current
         item lines.
 
-        - No picking yet: create and validate one from the current items.
-        - Picking still not done (shouldn't normally happen, since it's
-          validated immediately): just recreate it from scratch.
-        - Picking already done: it can't be edited/cancelled directly (Odoo
-          only allows reversing a done move via a return), so return it in
-          full and create a fresh, corrected one.
+        - No current receipt yet: create and validate one from the items.
+        - Current receipt still not done (shouldn't normally happen, since
+          it's validated immediately): just cancel/delete and recreate it.
+        - Current receipt already done: it can't be edited/cancelled
+          directly (Odoo only allows reversing a done move via a return), so
+          return it in full (kept in picking_ids for history) and create a
+          fresh, corrected receipt.
         """
         for record in self:
-            old_picking = record.picking_id
+            old_picking = record.current_picking_id
             if old_picking:
                 if old_picking.state == "done":
                     record._return_picking(old_picking)
                 else:
                     old_picking.action_cancel()
                     old_picking.unlink()
-                record.picking_id = False
 
-            new_picking = record._create_and_validate_picking()
-            record.picking_id = new_picking.id if new_picking else False
+            record._create_and_validate_picking()

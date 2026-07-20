@@ -17,6 +17,18 @@
             <page string="Itens">
               <field name="item_ids" context="{'default_dfe_nfe_escrit_id': id, 'default_proc_nfe_id': proc_nfe_id}"/>
             </page>
+            <page string="Transferências de Estoque" name="dfe_picking_ids">
+              <field name="picking_ids" readonly="1">
+                <list>
+                  <field name="name"/>
+                  <field name="picking_type_id"/>
+                  <field name="state" widget="badge"/>
+                  <field name="scheduled_date"/>
+                  <field name="date_done"/>
+                  <field name="origin"/>
+                </list>
+              </field>
+            </page>
           </notebook>
           <group>
             <group string="Identificação">
@@ -24,7 +36,7 @@
               <field name="nfe_key"/>
               <field name="nfe_series"/>
               <field name="nfe_number"/>
-              <field name="picking_id"/>
+              <field name="current_picking_id"/>
             </group>
             <group string="Totais">
               <field name="payment_type"/>
