@@ -1,4 +1,6 @@
-from odoo import api, fields, models
+from odoo import api, fields, models, _
+from odoo.exceptions import ValidationError
+from odoo.tools.float_utils import float_compare
 
 
 class DfeNfeEscrit(models.Model):
@@ -19,6 +21,71 @@ class DfeNfeEscrit(models.Model):
         string="Itens",
         ondelete="cascade",
     )
+
+    @api.constrains("item_ids")
+    def _check_items_confirmed(self):
+        for record in self:
+            unconfirmed = record.item_ids.filtered(lambda item: not item.confirmed)
+            if unconfirmed:
+                raise ValidationError(
+                    _(
+                        "Todos os itens da escrituração devem estar marcados "
+                        "como conferidos antes de salvar. Itens não "
+                        "conferidos: %(items)s."
+                    )
+                    % {
+                        "items": ", ".join(
+                            str(item.item_number) for item in unconfirmed
+                        )
+                    }
+                )
+
+    @api.constrains("item_ids")
+    def _check_items_quantity_matches_nfe(self):
+        """The sum of item_ids.quantity for a given proc_nfe_item_id must
+        match that line's own quantity (proc_nfe_item.q_com) -- an item can
+        be split across several escrituração lines (e.g. different CFOP/CST
+        for part of the received quantity), but the totals must reconcile.
+        """
+        for record in self:
+            totals_by_proc_item = {}
+            for item in record.item_ids:
+                proc_item = item.proc_nfe_item_id
+                if not proc_item:
+                    continue
+                totals_by_proc_item[proc_item] = (
+                    totals_by_proc_item.get(proc_item, 0.0) + item.quantity
+                )
+
+            mismatches = [
+                (proc_item, total)
+                for proc_item, total in totals_by_proc_item.items()
+                # precision_digits=4 because the q_com field has 4 decimal places
+                if float_compare(total, proc_item.q_com, precision_digits=4) != 0
+            ]
+            if mismatches:
+                raise ValidationError(
+                    _(
+                        "A soma das quantidades dos itens da escrituração não "
+                        "confere com a quantidade da NF-e para os seguintes "
+                        "itens:\n%(details)s"
+                    )
+                    % {
+                        "details": "\n".join(
+                            _(
+                                "- Item %(n_item)s (%(name)s): escriturado "
+                                "%(total)s, NF-e %(expected)s"
+                            )
+                            % {
+                                "n_item": proc_item.n_item,
+                                "name": proc_item.x_prod,
+                                "total": total,
+                                "expected": proc_item.q_com,
+                            }
+                            for proc_item, total in mismatches
+                        )
+                    }
+                )
 
     @api.model
     def default_get(self, fields_list):
