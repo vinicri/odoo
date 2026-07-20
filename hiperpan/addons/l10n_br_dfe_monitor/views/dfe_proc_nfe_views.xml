@@ -27,7 +27,9 @@
         <field name="arch" type="xml">
             <form string="NF-e Processada">
                 <header>
-                    <button name="action_nfe_escrit" string="Escrituração de NF-e" type="object" class="btn-primary"/>
+                    <button name="action_nfe_escrit" string="Escrituração de NF-e" type="object" class="btn-primary" invisible="estado_escrituracao == 'escriturado'"/>
+                    <button name="action_nfe_escrit" string="Editar Escrituração de NF-e" type="object" class="btn-primary" invisible="estado_escrituracao != 'escriturado'"/>
+                    <field name="estado_escrituracao" widget="badge" readonly="1" decoration-success="estado_escrituracao == 'escriturado'" decoration-warning="estado_escrituracao == 'pendente'"/>
                 </header>
                 <sheet>
                     <group string="Empresa">

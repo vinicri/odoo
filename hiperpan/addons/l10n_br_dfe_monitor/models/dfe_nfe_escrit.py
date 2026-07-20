@@ -324,3 +324,15 @@ class DfeNfeEscrit(models.Model):
             "Cada NF-e processada só pode ter uma escrituração.",
         )
     ]
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records.proc_nfe_id.write({"estado_escrituracao": "escriturado"})
+        return records
+
+    def unlink(self):
+        proc_nfe = self.proc_nfe_id
+        res = super().unlink()
+        proc_nfe.write({"estado_escrituracao": "pendente"})
+        return res

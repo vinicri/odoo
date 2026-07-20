@@ -504,7 +504,22 @@ class DfeProcNfe(models.Model):
     )
 
     def action_nfe_escrit(self):
+        """Open this NF-e's escrituração: edit the existing one if it
+        already has one (estado_escrituracao == 'escriturado'), otherwise
+        create a new one -- proc_nfe can only ever have a single
+        dfe_nfe_escrit (enforced by dfe_nfe_escrit's own unique constraint).
+        """
         self.ensure_one()
+        if self.dfe_nfe_escrit_id:
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Escrituração de NF-e"),
+                "res_model": "l10n_br_dfe_monitor.dfe_nfe_escrit",
+                "res_id": self.dfe_nfe_escrit_id.id,
+                "view_mode": "form",
+                "target": "new",
+            }
+
         vat = self.emit_cnpj or self.emit_cpf
         partner = (
             self.env["res.partner"].search([("vat", "=", vat)], limit=1)
