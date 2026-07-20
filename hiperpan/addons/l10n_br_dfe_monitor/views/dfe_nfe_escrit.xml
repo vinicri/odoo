@@ -24,6 +24,7 @@
               <field name="nfe_key"/>
               <field name="nfe_series"/>
               <field name="nfe_number"/>
+              <field name="picking_id"/>
             </group>
             <group string="Totais">
               <field name="payment_type"/>
